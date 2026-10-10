@@ -37,15 +37,20 @@ The `ui.pick` declarations in `src/pick.rs` adapt the two picker controls in
 the `gjermundgaraba/herdr` fork of Herdr, same license. Message kinds, JSON
 field names, optional fields, and the outcome tag are unchanged; the
 `schemars` derives and the server-side `ui.pick` and `ui.pick.close`
-parameters are not retained. That fork has no fixture for these shapes, so
-`tests/fixtures/endpoint-pick-{open,close,resolve}-v1.json` were written here
-to match its serialisation.
+parameters are not retained.
+`tests/fixtures/endpoint-pick-{open,close,resolve}-v1.json` are byte-identical
+to the files of the same names in that fork's `tests/fixtures/`, which its
+branch `custom-v3` has carried since the commit "feat: adopt the client
+contract in the tui and drop plugin menu entries". That branch is rebased, so
+its commits are named here by subject and not by hash.
 
-The client contract declarations adapt the same fork at commit `9eb37f42`,
-same license: `pinned_sections`, `ClientShellPinnedSection`, and the agent's
+The client contract declarations adapt the same fork, branch `custom-v3`, at
+the commit "feat: add the client contract for reports, jumps, shared order,
+and an unread hold", same license: `pinned_sections`,
+`ClientShellPinnedSection`, and the agent's
 `priority_key` and `priority_mark` in `src/wire.rs` from its
 `src/protocol/wire.rs`, and `src/clients.rs` from its
-`src/api/schema/clients.rs` (the client report, the client record, the jump
+`src/api/schema/clients.rs` (the client report and the jump answer's
 parameters and outcome) and `src/protocol/endpoint.rs` (the
 `endpoint.client-jump.v1` control). JSON field names and order, optional
 fields, serde defaults, the outcome tag, and the report limits are unchanged,
@@ -54,9 +59,9 @@ client holds its report to the limits before sending; the `schemars` derives
 are not retained. `MAX_ENDPOINT_COMMAND_BYTES` is the limit of the same name
 in its `src/server/client_commands.rs`.
 `tests/fixtures/endpoint-{snapshot-shared,client-report,client-jump,client-jump-resolve,agent-mark-unread}-v1.json`
-and `tests/fixtures/api-client-{list,changed,jump}-v1.json` are verbatim copies
-of that fork's `tests/fixtures/` files. The snapshot fixture is the one from
-its commit `86d9716b`, which no longer carries `plugin_entries`.
+are verbatim copies of that fork's `tests/fixtures/` files. The snapshot
+fixture is the one from the commit "feat: adopt the client contract in the tui
+and drop plugin menu entries", which no longer carries `plugin_entries`.
 
 The client discovery rules also adapt `src/server/socket_paths.rs`,
 `src/session.rs`, and `src/config/io.rs` from the same source/license.

@@ -150,6 +150,10 @@ pub struct Config {
     /// The `[pane_keys]` table `keybindings` was built from, for the same
     /// reason.
     pub(crate) pane_keys: PaneKeys,
+    /// The local daemon's `[keys]` table `keybindings` was built from. A
+    /// device's server keys still take this machine's bindings for the
+    /// actions the client performs itself.
+    pub(crate) daemon_keys: DaemonKeys,
     /// Per saved device, by catalog profile ID.
     pub(crate) devices: BTreeMap<String, DeviceSettings>,
     pub palette: crate::palette::PaletteConfig,
@@ -468,6 +472,7 @@ impl Default for Config {
             keybindings: Keymap::default(),
             keybinding_overrides: BTreeMap::new(),
             pane_keys: PaneKeys::new(),
+            daemon_keys: DaemonKeys::default(),
             devices: BTreeMap::new(),
             unknown_keys: Vec::new(),
             icon_font_missing: false,
@@ -852,6 +857,7 @@ impl Config {
             Keymap::with_overrides(&settings.keybindings, &settings.pane_keys, &base.keys)?;
         config.keybinding_overrides = settings.keybindings;
         config.pane_keys = settings.pane_keys;
+        config.daemon_keys = base.keys.clone();
         if settings.devices.len() > MAX_DEVICES {
             return Err(Error::TooManyDevices(MAX_DEVICES));
         }

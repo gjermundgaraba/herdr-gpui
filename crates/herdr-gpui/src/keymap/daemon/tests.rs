@@ -1,5 +1,6 @@
 use super::*;
 
+mod client_actions;
 mod detach;
 mod history;
 mod literal_plus;

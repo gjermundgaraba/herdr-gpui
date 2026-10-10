@@ -3,7 +3,8 @@
 //!
 //! The Herdr fork's daemon computes what its clients must agree on, and each
 //! client tells its local daemon what its Agents list shows so tools can read
-//! it (`docs/next/website/src/content/docs/client-contract.md` in that fork).
+//! it (`docs/next/website/src/content/docs/client-contract.md` in that fork):
+//! every enabled host's agents, whatever the sidebar's device filter shows.
 //! [`report`] decides what to say, [`jump`] where a jump leads and how it
 //! ended, and [`Inbox`] holds what a connection sent and answered; this
 //! module only says it, at most once per window tick and never from a render.
@@ -38,13 +39,13 @@ pub(crate) mod report;
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests;
 
-pub(crate) use follow::Purpose;
+pub(crate) use follow::{PendingNavigation, Purpose};
 pub(crate) use inbox::{Answer, Inbox, Refusal};
 
 use crate::{HerdrWindow, connection::ConnectionBridge};
-use herdr_client::{
-    Method,
-    protocol::clients::{ClientReport, ClientReportError},
+use herdr_client::protocol::{
+    ClientShellSnapshot,
+    clients::{ClientReport, ClientReportError},
 };
 use std::{
     hash::{Hash, Hasher},
@@ -58,8 +59,36 @@ struct SentReport {
     /// mailbox when it reconnects, so this names one connection for its life.
     connection: Weak<Mutex<Inbox>>,
     boot: String,
-    fingerprint: u64,
+    fingerprint: Fingerprint,
     report: ClientReport,
+}
+
+/// What a report is built from, cheap to take on every tick: the window's
+/// scalars hashed, and each host's snapshot by identity.
+#[derive(Debug)]
+pub(crate) struct Fingerprint {
+    scalars: u64,
+    /// Every accepted snapshot is a new allocation, and a held `Weak` keeps
+    /// its allocation, so a newer snapshot never reuses the address of one
+    /// held here.
+    snapshots: Vec<Option<Weak<ClientShellSnapshot>>>,
+}
+
+/// Equal when nothing a report is built from changed: the same scalars and
+/// the very same snapshots.
+impl PartialEq for Fingerprint {
+    fn eq(&self, other: &Self) -> bool {
+        self.scalars == other.scalars
+            && self.snapshots.len() == other.snapshots.len()
+            && self
+                .snapshots
+                .iter()
+                .zip(&other.snapshots)
+                .all(|pair| match pair {
+                    (Some(left), Some(right)) => left.ptr_eq(right),
+                    (left, right) => left.is_none() && right.is_none(),
+                })
+    }
 }
 
 /// A window's side of the client contract.
@@ -83,11 +112,19 @@ impl HerdrWindow {
                 // An accepted focus request proves nothing yet: the jump is
                 // answered by the snapshot that shows its pane focused.
                 (Purpose::Jump(_), Ok(())) => {}
-                (Purpose::History(visit), Err(refusal)) => {
-                    self.history_step_failed(&visit, refusal == Refusal::PaneNotFound);
+                (Purpose::History(step), Err(refusal)) => {
+                    self.history_step_failed(&step, refusal == Refusal::PaneNotFound);
                 }
-                // The step is confirmed by the snapshot too.
-                (Purpose::History(_), Ok(())) => {}
+                // The step is confirmed by the snapshot too. Should that
+                // snapshot never be observed, the pane still had the focus.
+                (Purpose::History(step), Ok(())) => self.history_step_accepted(&step),
+                // Nothing on screen changes until the user leaves the pane,
+                // so the daemon's acceptance is said. A refusal is the
+                // status bar's, like any other.
+                (Purpose::MarkUnread, Ok(())) => {
+                    self.show_flash(crate::window::Flash::success("Marked unread"), cx);
+                }
+                (Purpose::MarkUnread, Err(_)) => {}
             }
         }
         self.settle_client_jumps(now, cx);
@@ -114,40 +151,51 @@ impl HerdrWindow {
         report::build(
             &self.contract_hosts(),
             self.selected_endpoint,
-            Some(self.active),
-            self.panel_agents(),
+            self.active,
+            self.reported_agents(),
         )
     }
 
     /// Changes whenever [`Self::client_report`] may return something else.
-    /// Scalars only: no row is built and nothing is sorted, so the window can
-    /// afford it on every tick.
-    pub(crate) fn client_report_fingerprint(&self) -> u64 {
+    /// No row is built and nothing is sorted, so the window can afford it on
+    /// every tick.
+    pub(crate) fn client_report_fingerprint(&self) -> Fingerprint {
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         self.active.hash(&mut hash);
         self.selected_endpoint.hash(&mut hash);
-        std::mem::discriminant(&self.agent_sort).hash(&mut hash);
-        self.device_filter.hash(&mut hash);
+        self.agent_sort.hash(&mut hash);
+        let mut snapshots = Vec::with_capacity(self.endpoints.len());
         for (index, endpoint) in self.endpoints.iter().enumerate() {
             endpoint.id.hash(&mut hash);
             endpoint.label.hash(&mut hash);
-            std::mem::discriminant(&endpoint.availability()).hash(&mut hash);
-            let live = self.host_live(index);
-            live.status.is_connected().hash(&mut hash);
-            // Every accepted snapshot is a new allocation; the boot and
-            // revision keep a reused address from reading as no change.
-            live.snapshot
-                .as_ref()
-                .map(|snapshot| {
-                    (
-                        Arc::as_ptr(snapshot) as usize,
-                        &snapshot.boot_id,
-                        snapshot.revision,
-                    )
-                })
-                .hash(&mut hash);
+            endpoint.availability().hash(&mut hash);
+            let snapshot = self.host_live(index).snapshot.as_ref();
+            snapshots.push(snapshot.map(Arc::downgrade));
         }
-        hash.finish()
+        Fingerprint {
+            scalars: hash.finish(),
+            snapshots,
+        }
+    }
+
+    /// Every connection this window holds: each endpoint's own, each editor
+    /// group's parked one, and those it let go of that still owe a jump its
+    /// answer.
+    pub(crate) fn connections(&self) -> impl Iterator<Item = &ConnectionBridge> {
+        self.endpoints
+            .iter()
+            .map(|endpoint| &endpoint.connection)
+            .chain(self.parked_connections())
+            .chain(self.client_contract.jumps.retiring())
+    }
+
+    /// The connection one of whose mailboxes is `mailbox`, while the window
+    /// holds it. A bridge replaces its mailboxes when it reconnects, so a
+    /// mailbox names one connection for its whole life, wherever the window
+    /// keeps it meanwhile.
+    pub(crate) fn connection_of<T>(&self, mailbox: &Weak<Mutex<T>>) -> Option<&ConnectionBridge> {
+        self.connections()
+            .find(|connection| connection.owns(mailbox))
     }
 
     /// The connection that carries this window's report: the one that already
@@ -163,11 +211,7 @@ impl HerdrWindow {
         self.client_contract
             .sent
             .as_ref()
-            .and_then(|sent| {
-                self.connections().find(|connection| {
-                    std::ptr::eq(Arc::as_ptr(&connection.clients), sent.connection.as_ptr())
-                })
-            })
+            .and_then(|sent| self.connection_of(&sent.connection))
             .filter(alive)
             .unwrap_or(&self.endpoints[0].connection)
     }
@@ -190,9 +234,11 @@ impl HerdrWindow {
             return;
         };
         let fingerprint = self.client_report_fingerprint();
-        let held = self.client_contract.sent.as_ref().filter(|sent| {
-            std::ptr::eq(sent.connection.as_ptr(), Arc::as_ptr(&clients)) && sent.boot == boot
-        });
+        let held = self
+            .client_contract
+            .sent
+            .as_ref()
+            .filter(|sent| connection.owns(&sent.connection) && sent.boot == boot);
         if held.is_some_and(|sent| sent.fingerprint == fingerprint) {
             return;
         }
@@ -209,14 +255,12 @@ impl HerdrWindow {
             }
         };
         if held.is_none_or(|sent| sent.report != report) {
-            let queued = report::fit(report.clone())
-                .ok_or(crate::Error::ClientReportTooLarge)
-                .and_then(|report| Ok(serde_json::to_value(report)?))
-                .and_then(|params| Ok(handle.request(&boot, Method::ClientReport, params)?));
-            match queued {
+            // The connection measures the request it writes, and trims a
+            // report too long for one daemon command.
+            match handle.report(&boot, report.clone()) {
                 Ok(request) => mailbox.report_sent(request),
                 // A full queue drains; the report is still owed.
-                Err(crate::Error::Client(herdr_client::Error::Full)) => return,
+                Err(herdr_client::Error::Full) => return,
                 // Anything else is not retried: a failed connection is
                 // replaced by a new one, which is reported to afresh.
                 Err(error) => {

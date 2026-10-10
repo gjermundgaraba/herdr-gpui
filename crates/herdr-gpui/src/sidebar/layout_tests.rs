@@ -67,6 +67,8 @@ mod split_pane;
 #[cfg(test)]
 mod status_bar;
 #[cfg(test)]
+mod stepped_agents;
+#[cfg(test)]
 mod sticky_hosts;
 #[cfg(test)]
 mod superset_badges;

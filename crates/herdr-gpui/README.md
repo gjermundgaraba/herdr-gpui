@@ -159,7 +159,8 @@ disable remain available through `herdr machine`.
 The fixed bottom-left device picker offers **All Devices**, **Local**, saved SSH
 devices, and **Add Device…**. All Devices shows Spaces and Agents across hosts
 without changing the active terminal. Choosing a device filters both lists and
-switches the terminal through the existing surface handoff. While filtered,
+switches the terminal through the existing surface handoff; what the window
+reports to its daemon for tools (`client.report`) is not filtered. While filtered,
 navigation to another device follows that device; removal or disable falls back
 to Local. The filter is window-local and starts at All Devices. The adjacent gear
 opens the existing Settings page (also available with `Cmd-,`). Beside it, the
@@ -2666,9 +2667,10 @@ Ctrl+Shift+U is left unbound for
   together, are sorted by that key compared as plain bytes, so the GUI and the
   terminal client list the same agent first, priority-token lifts included.
   Agents with equal keys keep the sidebar's host order, then their daemon's
-  listing order, and a disconnected host's last-known agents follow the
-  connected ones. The key is never read, and no status or recency is ranked
-  here; a daemon that sends no key leaves its agents in listing order. The
+  listing order, and the last-known agents of a host that is not online
+  follow the online ones. The key is never read, and no status or recency is
+  ranked here; a daemon that sends no key lists its agents after every keyed
+  one, in listing order. The
   indexed, next, and previous agent shortcuts step through the same rows.
   While any host shows an agent view, each host keeps its own order.
 - Each window tells its local Herdr daemon what its Agents list shows, with the
@@ -2679,7 +2681,9 @@ Ctrl+Shift+U is left unbound for
   update or a sign-in, `disabled` for one switched off or detached) and boot,
   and the panel's rows in the order it shows them under its current sort, each
   with the snapshot's agent record unchanged, its space's label and number, and
-  the pane's directories. At most one row is focused: the focused pane of the
+  the pane's directories. The device picker's filter does not narrow the
+  report: it always lists every enabled host's agents, in the order the panel
+  has at All Devices. At most one row is focused: the focused pane of the
   presented host. An agent whose space the snapshot no longer lists has no row.
   The report goes to the local daemon only, never to another host, and only
   when its content changed: again after a new local connection, which is also
@@ -2692,23 +2696,45 @@ Ctrl+Shift+U is left unbound for
   window holds one connection per editor group that shows another Herdr tab,
   each a client of its own to the daemon; it reports on its own connection and
   stays with that one while it holds it, even when a group swap parks it, so
-  the daemon keeps one report per window.
+  the daemon keeps one report per window. A connection the window lets go of
+  while a jump it carried is still unanswered, whether a parked one or the
+  window's own when the group that held it is closed and another group's
+  takes its place, is kept, no longer shown in any group, until that answer
+  is sent and acknowledged or the daemon's 20 seconds are up.
 - A tool can ask a window to show a pane: the Herdr fork's `client.jump`,
   which a daemon forwards to the client it names. The window navigates the way
   a click on the agent's row does, switching host when the pane is on another
   one, and answers `client.jump.resolve` on the connection the jump arrived
-  on, whichever host or editor group that is. Before navigating it answers
+  on, whichever editor group holds it meanwhile. Before navigating it answers
   `not_found` for a host it does not list, `unavailable` for one without a
   snapshot, `stale_boot` when the host now runs another boot than the jump
   names, `unavailable` for one that is not online, and `not_found` for a pane
   the snapshot does not list. `focused` is sent only once the window presents
-  that host with the pane focused, not when the request was accepted; a jump
+  that host with the pane focused: its surface active and drawn from the
+  snapshot that shows the pane focused, not when the request was accepted or
+  the host merely selected with the snapshot it last sent; a jump
   that has not got there after 12 seconds is answered `timeout`, before the
   daemon's own 20. A host that refuses the focus request ends the jump at
-  once (`not_found`, `stale_boot`, `timeout`, or `failed` with its message);
+  once (`not_found`, `stale_boot`, or `failed` with its message);
   that refusal belongs to the tool, so the status bar does not show it and
-  input is not left waiting for the focus. A jump never closes a menu or
-  dialog: it waits for the window, and times out if the menu stays open. An
+  input is not left waiting for the focus. A focus request that never
+  reached the host, because the connection could not take it or the host's
+  daemon does not offer the method, ends the jump `unavailable`, as does a
+  host that goes away while the request is on its way. The window does not
+  take a request back: if you select another host before the pane shows,
+  the jump stays open until the pane shows after all or the 12 seconds are
+  up, where the terminal client answers `unavailable`. A jump never closes a menu or
+  dialog: it waits for the window, and times out if the menu stays open. The
+  newest jump wins: one that arrives while another is still open replaces it,
+  and the replaced jump is never answered: the daemon told its caller
+  `jump_superseded` when it forwarded the newer one. A jump to the pane the
+  window already presents is answered `focused` without navigating, unless it
+  replaced another: what the replaced jump asked for may still be on its way,
+  so the newer one always navigates, which makes its navigation the last one
+  sent, and is answered once its pane shows like any other. Jumps reach a
+  window on one connection only, the one that carries its report. A
+  daemon's `jump_not_found` for an answer that came too late is ignored and
+  never reaches the status bar. An
   answer whose connection has since been replaced is dropped, and a jump this
   client cannot read is ignored.
 - Resizable sidebar with width persisted per local daemon socket, shared across
@@ -3162,7 +3188,9 @@ Ctrl+Shift+U is left unbound for
   `previous_workspace`/`next_workspace` and `previous_agent`/`next_agent` step
   through the sidebar's rows on every listed host and wrap around,
   `switch_workspace` counts the selected host's rows, `focus_agent` counts the
-  agent panel's, `last_pane` returns to the pane focused before this one,
+  agent panel's, and the three agent keys pass over the agents of a host that
+  is not online, which the panel keeps showing as that host last sent them
+  while it reconnects. `last_pane` returns to the pane focused before this one,
   `move_tab_previous`/`_next` wrap a tab at either end to the other, and
   `[keys.indexed]` combos bind the digits 1-9. On macOS, the prefix, its
   chords, and custom command shortcuts recognize a shifted key such as
@@ -3185,8 +3213,12 @@ Ctrl+Shift+U is left unbound for
   and arriving at it again clears it. Only an acknowledged completion, shown
   as idle, can be held; the daemon refuses a working, blocked, or still-badged
   agent and a pane without one, and its reason appears in the status bar like
-  any other daemon error. This client keeps no unread record of its own and
-  shows no confirmation: the badge comes only from the snapshot. The command
+  any other daemon error. A press that cannot be sent, because the host is
+  disconnected or has not sent its panes yet, says so there too; a press that
+  is sent leaves whatever the status bar showed. Once the daemon accepts, `Marked unread` shows
+  briefly over the terminal, since nothing else changes until you leave the
+  pane. This client keeps no unread record of its own: the badge comes only
+  from the snapshot. The command
   is also in the palette as **Mark Agent Unread** and can be bound under
   `[keybindings]` as `mark_unread`. `agent_picker` and `workspace_list`, also
   the fork's and unset by default (`agent_picker = "prefix+a"`,
@@ -3195,7 +3227,10 @@ Ctrl+Shift+U is left unbound for
   picker is a flat list of every agent on every enabled host, in the Agents
   panel's `priority` order whatever the panel's own sort or the device filter
   shows, with the top row selected, the agent's status, and the daemon's
-  `priority_mark` before the label; another host's agents carry its name. The
+  `priority_mark` before the label; another host's agents carry its name.
+  While any host shows a plugin's agent view, the picker lists what the panel
+  does then: host after host, the view's host with only the agents its view
+  orders, in that order, and every other host's agents by their keys. The
   keyboard starts on the rows: `j`/`k` or Up/Down move, Ctrl-D/Ctrl-U move
   eight rows, Home and End or `G` go to either end, `/` moves to the search,
   and Enter opens the row with the same cross-host navigation as a click on
@@ -3210,7 +3245,9 @@ Ctrl+Shift+U is left unbound for
   and Down or Ctrl-N and Ctrl-P move and every other key is text; Escape
   leaves the search for the rows, where Left and Right step between the
   workspaces that list panes, and a second Escape closes. Rows follow the
-  hosts while a navigator is open. A host that is not online keeps its
+  hosts while a navigator is open; when the selected row goes away nothing is
+  selected and Enter opens nothing, as in the terminal client, until a move
+  selects the first row or the row comes back. A host that is not online keeps its
   last-known rows, dimmed; Enter on one of another host's says
   `<host> is not ready` and leaves the navigator open. Both are in the palette
   as **Agent Picker** and **Workspace List** and can be bound under
@@ -3230,11 +3267,25 @@ Ctrl+Shift+U is left unbound for
   host no longer lists, and steps over a host that is not online. A step
   focuses the pane with the same cross-host navigation as a click, and the
   snapshot that shows it focused confirms the step without becoming a new
-  visit; a new visit from the middle drops what lay ahead. A step past either
+  visit; a new visit from the middle drops what lay ahead. Until that
+  snapshot, nothing else the host shows is a visit, so the pane another host
+  last had focused, which a step there shows first, does not drop what lay
+  ahead. Nor does a pane confirm a step before the step's own focus request
+  is out: a history can hold the same pane twice, and until then the pane on
+  screen is the one the step leaves, so a second step made before the first
+  one shows is not taken for arrived. If you go somewhere else before the
+  pane shows, or the step's navigation ends without it, the step is taken
+  back, as in the terminal client, and what the window shows is a visit from
+  where the step began; only when the host had already accepted the focus
+  request does the step stay made, and what shows is a visit after its pane.
+  A step
+  past either
   end says `No earlier pane in history` or `No later pane in history` over
   the terminal. When the host refuses the focus request the step is taken
   back, a pane that no longer exists is forgotten, and the refusal is shown
-  in the status bar like any other. Both are in the palette as **Back** and
+  in the status bar like any other. A step is also taken back when its
+  request could not be sent, or when the host it leads to never shows its
+  terminal and the window gives up on it. Both are in the palette as **Back** and
   **Forward** and can be bound under `[keybindings]`. The daemon's
   `[[keys.command]]` shortcuts, prefix chords or direct keys, run their
   command through `command.invoke` on the focused pane, and the palette lists
@@ -3252,7 +3303,18 @@ Ctrl+Shift+U is left unbound for
   `herdr --remote-keybindings server`: its prefix, actions, and indexed keys
   replace the local daemon `[keys]` while that device is selected, and moving
   to another host switches back. The GUI's own `[keybindings]` still apply on
-  top. The choice is saved per device in `config-gpui.local.toml` as
+  top. Five actions are the exception, as in the Herdr fork: `agent_picker`,
+  `workspace_list`, `history_back`, `history_forward`, and `mark_unread` are
+  performed by this client, so they always take the local daemon `[keys]`
+  bindings and whatever the server's profile says of them is not read. They
+  keep their keystrokes over the commands the profile binds to the same
+  ones, but not over its prefix: a direct key of theirs that is the server's
+  prefix key starts a chord and does not run the action, where the terminal
+  client runs it. A
+  `prefix+` chord of theirs is typed after the server's prefix while its
+  profile applies. A local `config.toml` that does not parse gives the five
+  no `[keys]` binding until it does, where the terminal client keeps the
+  ones it last read. The choice is saved per device in `config-gpui.local.toml` as
   `[devices.<id>] keybindings = "server"`. A server that publishes no profile,
   or one that cannot be read, leaves the device on local keys, and the menu
   says why. Only keybindings follow the server; themes, sidebar, and toasts
