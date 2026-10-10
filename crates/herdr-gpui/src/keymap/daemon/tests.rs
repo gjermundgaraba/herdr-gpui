@@ -1,6 +1,7 @@
 use super::*;
 
 mod detach;
+mod history;
 mod literal_plus;
 mod mark_unread;
 mod navigators;

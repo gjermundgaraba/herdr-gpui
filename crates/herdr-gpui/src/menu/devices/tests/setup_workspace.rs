@@ -90,7 +90,7 @@ fn created_space_runs_setup_in_its_root_pane(cx: &mut gpui::TestAppContext) {
             assert!(view.menu.page.is_none());
             assert_eq!(
                 view.pending_navigation,
-                Some(NavigationTarget::Workspace("w9".into()))
+                Some(NavigationTarget::Workspace("w9".into()).into())
             );
         });
     });

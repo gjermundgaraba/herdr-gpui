@@ -105,7 +105,7 @@ fn workspace_popover_header_and_right_click_retargeting(cx: &mut gpui::TestAppCo
             assert_eq!(target_id(view.read(cx)), Some(id));
             assert_eq!(
                 view.read(cx).pending_navigation,
-                Some(crate::NavigationTarget::Workspace(id.to_owned()))
+                Some(crate::NavigationTarget::Workspace(id.to_owned()).into())
             );
             assert!(view.read(cx).menu.focus.is_focused(window));
         });
@@ -132,7 +132,7 @@ fn workspace_popover_header_and_right_click_retargeting(cx: &mut gpui::TestAppCo
         assert!(view.read(cx).menu.page.is_none());
         assert_eq!(
             view.read(cx).pending_navigation,
-            Some(crate::NavigationTarget::Workspace("w4".into()))
+            Some(crate::NavigationTarget::Workspace("w4".into()).into())
         );
     });
     // Long labels and branch names stay inside a narrow popup.
