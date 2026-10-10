@@ -1,6 +1,7 @@
-//! Daemon `[ui.sidebar]` layouts and token rules.
+//! Daemon `[ui.sidebar]` layouts and token rules. A token's
+//! `separator_before` is the Herdr fork's, from its `src/config/sidebar.rs`.
 use serde::Deserialize;
-use std::{collections::BTreeMap, str::FromStr};
+use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
 pub(crate) const MAX_ROWS: usize = 16;
 const MAX_TOKENS_PER_ROW: usize = 16;
@@ -201,6 +202,10 @@ pub struct ConfiguredToken<T> {
     pub token: T,
     pub style: TokenStyle,
     pub rules: Vec<TokenRule>,
+    /// Replaces the separator drawn before this token when an earlier token
+    /// of its row is visible. `Some("")` joins the two directly; `None` keeps
+    /// the default separator. Control characters are dropped on load.
+    pub separator_before: Option<Arc<str>>,
 }
 
 impl<T> ConfiguredToken<T> {
@@ -209,6 +214,7 @@ impl<T> ConfiguredToken<T> {
             token,
             style: TokenStyle::default(),
             rules: Vec::new(),
+            separator_before: None,
         }
     }
 
@@ -245,6 +251,7 @@ where
             Name(String),
             Styled {
                 token: String,
+                separator_before: Option<String>,
                 fg: Option<TokenColor>,
                 bold: Option<bool>,
                 dim: Option<bool>,
@@ -252,10 +259,11 @@ where
                 rules: Vec<TokenRule>,
             },
         }
-        let (name, style, rules) = match Raw::deserialize(deserializer)? {
-            Raw::Name(name) => (name, TokenStyle::default(), Vec::new()),
+        let (name, style, rules, separator_before) = match Raw::deserialize(deserializer)? {
+            Raw::Name(name) => (name, TokenStyle::default(), Vec::new(), None),
             Raw::Styled {
                 token,
+                separator_before,
                 fg,
                 bold,
                 dim,
@@ -268,6 +276,15 @@ where
                     dim,
                 },
                 rules,
+                // Display text from a config file: as Herdr does, keep what
+                // was written except the characters a line cannot show.
+                separator_before.map(|separator| {
+                    separator
+                        .chars()
+                        .filter(|ch| !ch.is_control())
+                        .collect::<String>()
+                        .into()
+                }),
             ),
         };
         if rules.len() > MAX_RULES {
@@ -283,6 +300,7 @@ where
             token,
             style,
             rules,
+            separator_before,
         })
     }
 }
@@ -382,7 +400,8 @@ impl<'de> Deserialize<'de> for TokenColor {
     }
 }
 
-fn parse_color(value: &str) -> Option<u32> {
+/// A `#rgb` or `#rrggbb` color, as a token or a pinned section names one.
+pub(crate) fn parse_color(value: &str) -> Option<u32> {
     let hex = value.strip_prefix('#')?;
     if !matches!(hex.len(), 3 | 6) || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return None;
