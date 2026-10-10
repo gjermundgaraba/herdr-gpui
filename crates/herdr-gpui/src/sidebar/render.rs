@@ -12,9 +12,11 @@ use super::{
     line_height,
     reorder::{self, Plan},
     row::{RowIcon, RowLift, RowTree},
-    sidebar_width, sticky,
+    sidebar_width,
+    space_groups::{SidebarRow, sidebar_rows},
+    sticky,
     tokens::{self, SpaceContext},
-    visible_workspace_entries, wash,
+    wash,
     workspaces::{displayed_workspace_status, workspace_badge, workspace_label, workspace_note},
 };
 use crate::{
@@ -182,7 +184,7 @@ impl HerdrWindow {
             } else {
                 &endpoint.collapsed_repos
             };
-            let entries = visible_workspace_entries(&snapshot.workspaces, collapsed_repos);
+            let entries = sidebar_rows(&snapshot.workspaces, collapsed_repos);
             let drag = self
                 .workspace_drag
                 .as_ref()
@@ -197,37 +199,42 @@ impl HerdrWindow {
                     .map(|slot| plan.request(&snapshot.workspaces, slot))
                     .collect();
                 drop_dragged = plan.dragged();
-                let mut heights = vec![0.; plan.len()];
-                for (position, entry) in entries.iter().enumerate() {
-                    if let (Some(unit), Some(bounds)) = (
-                        plan.unit_of(entry.0),
-                        self.sidebar_scroll[0].bounds_for_item(base + position),
-                    ) {
-                        heights[unit] += f32::from(bounds.size.height);
-                        if spaces_custom && !entry.1 {
-                            heights[unit] += f32::from(self.config.sidebar_layout.spaces.row_gap)
-                                * line_height(font);
-                        }
-                    }
-                }
                 let slot = drag
                     .and_then(|drag| drag.target.as_ref())
                     .map_or(plan.dragged(), |target| target.slot);
-                crate::reorder::preview(&heights, plan.dragged(), slot)
+                self.preview_shifts(&entries, plan, base, slot, spaces_custom)
             });
             // A child closes the group when no child follows it.
             let closes: Vec<bool> = (0..entries.len())
                 .map(|position| {
-                    entries[position].1 && !entries.get(position + 1).is_some_and(|next| next.1)
+                    entries[position].indented()
+                        && !entries.get(position + 1).is_some_and(SidebarRow::indented)
                 })
                 .collect();
             // Gap separates one repository from the next, not a parent from
             // the linked worktrees under it. Reset per host.
             let mut previous_indented = None;
-            for (position, (index, indented, group)) in entries.into_iter().enumerate() {
+            for (position, row) in entries.into_iter().enumerate() {
                 if multi && endpoint.collapsed {
                     break;
                 }
+                let (index, indented, group) = match row {
+                    SidebarRow::Workspace(entry) => (entry.index, entry.indented, entry.fold),
+                    SidebarRow::Marker(marker) => {
+                        let slide = drag.zip(shifts.get(position).copied());
+                        let gapped = previous_indented.take().is_some();
+                        let (row, moving) = self.marker_row(
+                            &marker,
+                            (snapshot, &endpoint_id, &row_cx),
+                            (position, gapped, slide, now),
+                            cx,
+                        );
+                        sliding |= moving;
+                        spaces = spaces.child(row);
+                        space_rows += 1;
+                        continue;
+                    }
+                };
                 let workspace = &snapshot.workspaces[index];
                 if selected && workspace.focused {
                     highlighted[0] = Some(space_rows);
@@ -241,8 +248,9 @@ impl HerdrWindow {
                         drag.pin(&workspace.workspace_id, f32::from(drag.offset()), now);
                         drag.offset()
                     }
-                    (Some(drag), Some(unit)) => {
-                        let (at, moving) = drag.slide(&workspace.workspace_id, shifts[unit], now);
+                    (Some(drag), Some(_)) => {
+                        let (at, moving) =
+                            drag.slide(&workspace.workspace_id, shifts[position], now);
                         sliding |= moving;
                         px(at)
                     }

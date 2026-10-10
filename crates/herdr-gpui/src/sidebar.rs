@@ -7,6 +7,8 @@ mod agents;
 mod animated;
 mod cell;
 mod device_drag;
+mod drop_preview;
+mod group_row;
 mod host_row;
 mod hover;
 mod layout;
@@ -19,6 +21,7 @@ mod render;
 mod reorder;
 mod row;
 mod search;
+mod space_groups;
 mod sticky;
 mod tokens;
 mod view;
@@ -60,7 +63,6 @@ pub(crate) use view::cached as cached_view;
 use agents::agents_sort;
 use metrics::*;
 use row::{RowBadge, first_text};
-use workspaces::visible_workspace_entries;
 
 pub(crate) const DEVICE_FOOTER_HEIGHT: f32 = 40.;
 
