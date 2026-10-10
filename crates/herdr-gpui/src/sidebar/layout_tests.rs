@@ -678,6 +678,7 @@ pub(crate) fn fixture_window(window: &mut Window, cx: &mut Context<HerdrWindow>)
         hover_menu: None,
         local_error: None,
         menu: crate::menu::MenuState::new(cx),
+        picker: None,
         settings: Default::default(),
         integrations: Default::default(),
         install_warning_shown: false,

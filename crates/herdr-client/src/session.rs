@@ -697,6 +697,22 @@ impl Session {
                 let next = reuse.reconstruct(base)?;
                 accept_surface(next, snapshot.as_deref(), surface, images, &mut emit)?;
             }
+            // A picker is optional UI the hello never negotiated. A payload
+            // this client cannot read is dropped like an unknown control, as
+            // Herdr's own client drops it, instead of ending the connection.
+            // The serde error may quote the payload, so it is not logged.
+            ServerMessage::EndpointControl { kind, data } if kind == pick::PICK_OPEN_KIND => {
+                match pick::decode_open(&data) {
+                    Ok(open) => emit(ClientEvent::PickOpen(open))?,
+                    Err(_) => tracing::warn!(category = "pick_open", "malformed control ignored"),
+                }
+            }
+            ServerMessage::EndpointControl { kind, data } if kind == pick::PICK_CLOSE_KIND => {
+                match pick::decode_close(&data) {
+                    Ok(close) => emit(ClientEvent::PickClose(close))?,
+                    Err(_) => tracing::warn!(category = "pick_close", "malformed control ignored"),
+                }
+            }
             ServerMessage::EndpointControl { .. } => {} // Unknown optional named controls are ignored.
             ServerMessage::PaneSurface(next) => {
                 accept_surface(next, snapshot.as_deref(), surface, images, &mut emit)?;

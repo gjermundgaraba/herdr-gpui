@@ -527,6 +527,9 @@ impl LiveState {
             ClientEvent::Snapshot(snapshot) => self.receive_snapshot(snapshot),
             ClientEvent::Surface(surface) => self.receive_surface(surface),
             ClientEvent::SurfaceImages(images) => self.receive_surface_images(images),
+            // Kept by the connection's picker mailbox before reaching this
+            // state; a picker changes nothing the window draws from here.
+            ClientEvent::PickOpen(_) | ClientEvent::PickClose(_) => return,
             // The `Disconnected` that follows carries the reason text.
             ClientEvent::VersionMismatch(mismatch) => {
                 if let Some(version) = mismatch.server_version() {

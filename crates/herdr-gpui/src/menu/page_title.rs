@@ -67,6 +67,7 @@ impl Page {
             Self::Palette => "Command palette",
             Self::Pane => "Pane",
             Self::PaneProcesses => "Processes",
+            Self::Picker => "Picker",
             Self::PrComment => "Comment on pull request",
             Self::PrMerge => "Merge pull request",
             Self::PrReview => "Pull request",

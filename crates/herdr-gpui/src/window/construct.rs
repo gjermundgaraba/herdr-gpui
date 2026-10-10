@@ -230,6 +230,7 @@ impl HerdrWindow {
             pending_releases: Vec::new(),
             pending_resize: None,
             pending_toast: None,
+            picker: None,
             port_forwards: Default::default(),
             pr_actions: Default::default(),
             prefix_armed: false,

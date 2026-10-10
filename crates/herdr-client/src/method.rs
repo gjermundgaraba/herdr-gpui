@@ -63,6 +63,7 @@ methods! {
     TabFocus => "tab.focus",
     TabMove => "tab.move",
     TabRename => "tab.rename",
+    UiPickResolve => "ui.pick.resolve",
     WorkspaceClose => "workspace.close",
     WorkspaceCreate => "workspace.create",
     WorkspaceFocus => "workspace.focus",
