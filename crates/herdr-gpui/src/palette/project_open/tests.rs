@@ -117,7 +117,7 @@ fn creating_a_project_while_viewing_ssh_targets_local_and_waits_for_its_response
         view.update_palette_project(window, cx);
         assert!(view.menu.palette.is_none());
         assert_eq!(view.selected_endpoint, 0);
-        assert_eq!(view.pending_navigation, Some(NavigationTarget::Workspace("w2".into())));
+        assert_eq!(view.pending_navigation, Some(NavigationTarget::Workspace("w2".into()).into()));
     }));
 }
 
@@ -150,7 +150,7 @@ fn an_existing_local_project_is_focused_instead_of_created(cx: &mut TestAppConte
         assert_eq!(view.selected_endpoint, 0);
         assert_eq!(
             view.pending_navigation,
-            Some(NavigationTarget::Workspace("w1".into()))
+            Some(NavigationTarget::Workspace("w1".into()).into())
         );
     });
 }

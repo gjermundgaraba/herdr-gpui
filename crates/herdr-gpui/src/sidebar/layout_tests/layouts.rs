@@ -382,7 +382,7 @@ fn rounded_rows_drop_tree_lines_and_title_headers(cx: &mut gpui::TestAppContext)
         view.read_with(cx, |view, _| {
             assert_eq!(
                 view.pending_navigation,
-                Some(crate::NavigationTarget::Workspace("w3".into()))
+                Some(crate::NavigationTarget::Workspace("w3".into()).into())
             );
         });
     }

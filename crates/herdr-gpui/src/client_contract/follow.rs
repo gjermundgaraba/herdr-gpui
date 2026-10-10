@@ -2,9 +2,11 @@
 //!
 //! Most requests are sent and forgotten: a refusal reaches the status bar
 //! through the live state and nothing else depends on it. A jump has to tell
-//! its tool how the focus request ended, so that request is followed: its id
-//! is registered in the connection's contract mailbox under the lock it was
-//! queued under, and the window collects the answer on a later tick.
+//! its tool how the focus request ended, and a Back or Forward step has to
+//! take its cursor back when the pane would not take focus, so those
+//! requests are followed: the id is registered in the connection's contract
+//! mailbox under the lock it was queued under, and the window collects the
+//! answer on a later tick.
 //!
 //! A navigation may be dispatched long after it was asked for, once the host
 //! it leads to is presented. Its purpose therefore waits beside the pending
@@ -17,18 +19,22 @@ use herdr_client::{ClientHandle, SendError};
 use std::sync::{Arc, Mutex, Weak};
 
 /// Why the window follows a request.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Purpose {
     /// The navigation of the jump with this key.
     Jump(u64),
+    /// A Back or Forward step to this visit.
+    History(crate::history::Visit),
 }
 
 impl Purpose {
     /// Whether the answer is kept from the live state. A tool asked for a
-    /// jump, not the user, so its refusal is the tool's to hear.
-    fn quiet(self) -> bool {
+    /// jump, not the user, so its refusal is the tool's to hear; the user's
+    /// own step reports its failure like any navigation.
+    fn quiet(&self) -> bool {
         match self {
             Self::Jump(_) => true,
+            Self::History(_) => false,
         }
     }
 }
@@ -102,11 +108,12 @@ impl HerdrWindow {
             self.client_contract.follows.unsent(purpose);
             return false;
         };
+        let quiet = purpose.quiet();
         let mut request = None;
         let queued =
             self.request_focus_change("Navigate", Some((&target).into()), |handle, boot| {
                 let id = enqueue(handle, boot)?;
-                mailbox.follow(id.clone(), purpose.quiet());
+                mailbox.follow(id.clone(), quiet);
                 request = Some(id.clone());
                 Ok(id)
             });

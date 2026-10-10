@@ -73,7 +73,7 @@ fn system_notification_click_opens_its_origin_and_rejects_a_reconnect(
         assert_eq!(view.selected_endpoint, 1);
         assert_eq!(
             view.pending_navigation,
-            Some(NavigationTarget::Pane("w1:p1".into()))
+            Some(NavigationTarget::Pane("w1:p1".into()).into())
         );
         // A reconnect replaces the generation the click was posted for.
         view.selected_endpoint = 0;

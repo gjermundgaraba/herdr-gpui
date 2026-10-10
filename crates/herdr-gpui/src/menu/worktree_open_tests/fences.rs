@@ -60,7 +60,7 @@ fn open_worktree_replies_cannot_revive_dismissed_or_stale_pickers(cx: &mut TestA
             view.update_workspace_dialog(window, cx);
             assert!(view.menu.page.is_none());
             assert!(view.collapsed_repos.is_empty());
-            assert_eq!(view.pending_navigation, Some(crate::NavigationTarget::Workspace("w6".into())));
+            assert_eq!(view.pending_navigation, Some(crate::NavigationTarget::Workspace("w6".into()).into()));
         });
     });
 }
@@ -146,7 +146,7 @@ fn open_worktree_parent_establishment_requires_pending_source_identity_and_fence
                     view.update_workspace_dialog(window, cx);
                     assert_eq!(
                         view.pending_navigation,
-                        Some(crate::NavigationTarget::Workspace("w6".into()))
+                        Some(crate::NavigationTarget::Workspace("w6".into()).into())
                     );
                 }
                 assert!(view.menu.page.is_none(), "{change}");
@@ -321,9 +321,9 @@ fn open_worktree_branch_only_parent_membership_preserves_correlated_navigation(
                     assert!(!view.collapsed_repos.contains("/remote/repo/.git"));
                     assert_eq!(
                         view.pending_navigation,
-                        Some(crate::NavigationTarget::Workspace(
-                            "returned-workspace".into()
-                        ))
+                        Some(
+                            crate::NavigationTarget::Workspace("returned-workspace".into()).into()
+                        )
                     );
                 }
             });

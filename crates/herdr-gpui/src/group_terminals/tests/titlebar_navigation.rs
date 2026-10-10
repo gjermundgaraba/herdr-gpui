@@ -46,14 +46,14 @@ fn split_history<'a>(
                     pane
                 })
                 .collect();
-            let endpoint = &mut view.endpoints[0];
-            for pane in ["a", "b", "c"] {
-                shown.focused_pane_id = Some(pane.into());
-                endpoint.history.observe(Some(&shown), false);
-            }
-            endpoint.history.begin(1);
             shown.focused_pane_id = Some("b".into());
-            endpoint.history.observe(Some(&shown), false);
+            view.history = crate::history::Tracker::visited(
+                &view.endpoints[0].id,
+                &shown.boot_id,
+                &["a", "b", "c"],
+                1,
+            );
+            let endpoint = &mut view.endpoints[0];
             view.live.surface = Some(surface(&shown, "b"));
             view.live.snapshot = Some(Arc::new(shown.clone()));
             let mut connection = ConnectionBridge::new(endpoint.connection.target.clone());
@@ -112,24 +112,15 @@ fn navigation_click(cx: &mut TestAppContext, step: Step) {
         assert_eq!(request["method"], "pane.focus");
         assert_eq!(request["params"]["pane_id"], destination);
 
-        // Land the requested step, then return to B. Both sides of the
-        // original trail must still be available, including C after Back.
-        view.update(cx, |view, _| {
-            let mut shown = (**view.live.snapshot.as_ref().unwrap()).clone();
-            let history = &mut view.endpoints[0].history;
-            shown.focused_pane_id = Some(destination.into());
-            history.observe(Some(&shown), false);
+        // The step moved along the history and erased nothing: the way
+        // back to B is still there, and nowhere lies beyond the end reached.
+        view.read_with(cx, |view, _| {
             let opposite = match step {
                 Step::Back => Step::Forward,
                 Step::Forward => Step::Back,
             };
-            let (index, pane) = history.peek(opposite, &shown).unwrap();
-            assert_eq!(pane, "b");
-            history.begin(index);
-            shown.focused_pane_id = Some("b".into());
-            history.observe(Some(&shown), false);
-            assert_eq!(history.peek(Step::Back, &shown), Some((0, "a")));
-            assert_eq!(history.peek(Step::Forward, &shown), Some((2, "c")));
+            assert!(view.can_travel(opposite), "{step:?}, {collapsed:?}");
+            assert!(!view.can_travel(step), "{step:?}, {collapsed:?}");
         });
     }
 }
@@ -148,9 +139,8 @@ fn titlebar_forward_keeps_the_active_group_and_destination(cx: &mut TestAppConte
 fn disabled_navigation_does_not_activate_a_group_but_its_terminal_does(cx: &mut TestAppContext) {
     let (view, cx, _peer, _parked_peer) = split_history(cx, None);
     view.update(cx, |view, cx| {
-        let endpoint = &mut view.endpoints[0];
-        endpoint.history = Default::default();
-        endpoint.sync_live();
+        view.history = Default::default();
+        view.sync_history();
         assert!(!view.can_travel(Step::Back));
         assert!(!view.can_travel(Step::Forward));
         cx.notify();

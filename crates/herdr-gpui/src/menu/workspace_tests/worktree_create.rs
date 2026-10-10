@@ -113,7 +113,7 @@ fn worktree_creation_reports_failures_and_follows_the_created_checkout(
             assert!(view.menu.creation.is_none());
             assert_eq!(
                 view.pending_navigation,
-                Some(crate::NavigationTarget::Workspace("w6".into()))
+                Some(crate::NavigationTarget::Workspace("w6".into()).into())
             );
             // A folded group cannot hide the checkout that was just created.
             assert!(view.collapsed_repos.is_empty());

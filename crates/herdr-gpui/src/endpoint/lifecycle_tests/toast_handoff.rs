@@ -28,7 +28,7 @@ fn newer_same_endpoint_navigation_cannot_replay_a_pending_toast(cx: &mut gpui::T
         assert_eq!(view.pending_toast, Some(0));
         assert_eq!(
             view.pending_navigation,
-            Some(NavigationTarget::Pane("w1:p1".into()))
+            Some(NavigationTarget::Pane("w1:p1".into()).into())
         );
         drop(held);
         assert!(view.navigation_ready());
@@ -176,7 +176,7 @@ fn toast_handoff_retains_busy_validation_and_revalidates_before_queueing(
                     assert_eq!(view.pending_toast, Some(0));
                     assert_eq!(
                         view.pending_navigation,
-                        Some(NavigationTarget::Workspace("w1".into()))
+                        Some(NavigationTarget::Workspace("w1".into()).into())
                     );
                     assert_eq!(view.endpoints[1].toasts.entries.len(), 1);
                     view.send(

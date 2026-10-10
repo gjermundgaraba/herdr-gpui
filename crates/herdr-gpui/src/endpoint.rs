@@ -147,8 +147,6 @@ pub(super) struct Endpoint {
     pub collapsed: bool,
     pub collapsed_repos: HashSet<String>,
     pub live: LiveState,
-    /// Back and Forward through the panes `live` has focused.
-    pub(crate) history: history::History,
     pub generation: u64,
     pub(crate) toasts: crate::notifications::Toasts,
     /// Derived from `live.snapshot`; refreshed by `sync_live` whenever `live` changes.
@@ -200,12 +198,6 @@ impl Endpoint {
         if let Some(warning) = self.live.local_peer_warning.take() {
             self.toasts.receive([warning.notice(Instant::now())]);
         }
-        // Without surface support there is no navigation fence to watch, so
-        // a travel waits for the next focus change instead.
-        let navigating = self.live.snapshot.is_some()
-            && (self.live.activation_pending() || !self.live.supports_surface);
-        self.history
-            .observe(self.live.snapshot.as_deref(), navigating);
         self.config_diagnostic.sync(
             self.live
                 .snapshot
@@ -223,7 +215,6 @@ impl Endpoint {
             collapsed: false,
             collapsed_repos: HashSet::new(),
             live: LiveState::default(),
-            history: Default::default(),
             generation: 0,
             toasts: Default::default(),
             config_diagnostic: Default::default(),

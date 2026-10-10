@@ -86,8 +86,15 @@ Describe each local change here, with pointers to its code, when it is added.
   enabled host, built on the picker's list
   (`crates/herdr-gpui/src/picker/navigator.rs`,
   `crates/herdr-gpui/src/picker/navigator/rows.rs`)
-- Back/Forward: `history_back` and `history_forward` step through a
-  per-window, in-memory history of visited panes across hosts
+- Back/Forward: one per-window, in-memory history of visited panes across
+  hosts, in place of upstream's trail per endpoint. Upstream's title bar
+  buttons, its `back` and `forward` commands, and the daemon's `history_back`
+  and `history_forward` keys all step through it: `travel` and `can_travel`
+  live in `history/sync.rs`, and `endpoint/history.rs` keeps only the
+  direction. Upstream's trail tests are gone and its title bar tests seed
+  this history instead, so when upstream changes `endpoint/history.rs`, the
+  `travel` it has in `window/commands.rs`, `titlebar/navigation/tests.rs`, or
+  `group_terminals/tests/titlebar_navigation.rs`, keep this side
   (`crates/herdr-gpui/src/history.rs`, `crates/herdr-gpui/src/history/sync.rs`)
 - Client-side keys stay local: `agent_picker`, `workspace_list`,
   `history_back`, `history_forward`, and `mark_unread` are read from the local
