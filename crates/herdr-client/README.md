@@ -298,6 +298,12 @@ The daemon holds the plugin's request open until the connection that received
 connection ends. A picker payload this client cannot decode is ignored like an
 unknown control, not treated as a protocol failure.
 
+`Method` also names the three client-lane methods of that fork's client
+contract: `ClientReport` (`protocol::clients::ClientReport`),
+`ClientJumpResolve` (`protocol::clients::ClientJumpResolveParams`), and
+`AgentMarkUnread` (`{"pane_id"}`). A daemon that does not advertise one
+rejects it before it is sent, like any other unadvertised method.
+
 The receiver is `crossbeam_channel::Receiver`, re-exported as `Receiver`.
 Responses preserve either the endpoint's `{id,result}` or `{id,error}` object;
 an API error is not a transport error. Optional unknown named controls are

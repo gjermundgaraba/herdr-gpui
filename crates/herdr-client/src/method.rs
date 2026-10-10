@@ -10,6 +10,9 @@
 /// method name is written out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Method {
+    AgentMarkUnread,
+    ClientJumpResolve,
+    ClientReport,
     ClientShellSurfaceSet,
     CommandInvoke,
     IntegrationList,
@@ -56,6 +59,9 @@ pub enum Method {
 impl Method {
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::AgentMarkUnread => "agent.mark_unread",
+            Self::ClientJumpResolve => "client.jump.resolve",
+            Self::ClientReport => "client.report",
             Self::ClientShellSurfaceSet => "client_shell.surface.set",
             Self::CommandInvoke => "command.invoke",
             Self::IntegrationList => "integration.list",

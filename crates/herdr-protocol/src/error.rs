@@ -62,6 +62,8 @@ pub enum Error {
     DeltaPopup,
     #[error("invalid picker payload: {0}")]
     PickPayload(#[source] serde_json::Error),
+    #[error("invalid client jump payload: {0}")]
+    ClientJumpPayload(#[source] serde_json::Error),
 }
 
 impl Error {

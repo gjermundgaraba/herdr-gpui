@@ -333,6 +333,21 @@ pub struct ClientShellSnapshot {
     pub panes: Vec<ClientShellPane>,
     pub agents: Vec<ClientShellAgent>,
     pub commands: Vec<ClientShellCommand>,
+    /// From the `gjermundgaraba/herdr` fork: the endpoint's
+    /// `[[ui.sidebar.spaces.pinned]]` sections with their member spaces
+    /// already resolved, in config order. A section no space matches is left
+    /// out.
+    #[serde(default)]
+    pub pinned_sections: Vec<ClientShellPinnedSection>,
+}
+/// From the `gjermundgaraba/herdr` fork's `src/protocol/wire.rs`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClientShellPinnedSection {
+    pub title: String,
+    /// Title color as `#rrggbb`; `null` for the client's default.
+    pub fg: Option<String>,
+    /// Member spaces in the endpoint's space order; never empty.
+    pub workspace_ids: Vec<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientShellProductAnnouncement {
@@ -432,6 +447,18 @@ pub struct ClientShellAgent {
     pub state_labels: Vec<(String, String)>,
     pub tokens: Vec<(String, String)>,
     pub focused: bool,
+    /// From the `gjermundgaraba/herdr` fork: the agent's place in the
+    /// `priority` order, with the priority-token lift applied. Opaque: order
+    /// agents by comparing these strings byte by byte, smallest first. Keys
+    /// from different endpoints compare the same way. An empty key, which a
+    /// daemon that computes none sends, sorts after every non-empty one.
+    #[serde(default)]
+    pub priority_key: String,
+    /// From the `gjermundgaraba/herdr` fork: the mark of the agent's space,
+    /// the value of the first `ui.agent_priority_tokens` entry the space
+    /// carries with a non-empty value, if any.
+    #[serde(default)]
+    pub priority_mark: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PaneSurfacePane {
