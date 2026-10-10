@@ -25,6 +25,7 @@ mod preferences;
 mod repository_icons;
 mod sidebar_scope;
 mod sidebar_search;
+mod sidebar_separators;
 mod sidebar_settings;
 mod sidebar_style;
 mod status_bar;
