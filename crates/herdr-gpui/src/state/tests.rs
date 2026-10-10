@@ -1,7 +1,6 @@
 use super::*;
 use herdr_client::protocol::FrameData;
 
-mod agent_recency;
 mod agent_status;
 mod announcements;
 mod atomic_projection;
