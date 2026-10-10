@@ -380,7 +380,9 @@ impl HerdrWindow {
                 | Command::MovePane
                 | Command::RenameWorkspace
                 | Command::CloseWorkspace
-                | Command::MarkUnread => 0,
+                | Command::MarkUnread
+                | Command::AgentPicker
+                | Command::WorkspaceList => 0,
                 Command::NextTab
                 | Command::PreviousTab
                 | Command::FocusLeft

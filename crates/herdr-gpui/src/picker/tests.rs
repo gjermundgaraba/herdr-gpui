@@ -20,11 +20,19 @@ use herdr_client::{
 use serde_json::{Value, json};
 use std::sync::Arc;
 
+mod backpressure;
+mod crossed;
 mod dismissal;
 mod inbox;
 mod keys;
 mod list;
+mod navigator_agents;
+mod navigator_fixture;
+mod navigator_scroll;
+mod navigator_selection;
+mod navigator_workspaces;
 mod outcomes;
+mod presented;
 
 fn snapshot(boot: &str) -> ClientEvent {
     let mut snapshot: ClientShellSnapshot = serde_json::from_str(include_str!(
@@ -262,5 +270,6 @@ fn shown(view: &HerdrWindow) -> Option<&Picker> {
 fn pick_id(picker: &Picker) -> &str {
     match &picker.source {
         Source::Plugin(pick) => pick.pick_id(),
+        Source::Navigator(_) => panic!("a navigator answers no plugin"),
     }
 }

@@ -467,6 +467,15 @@ impl HerdrWindow {
                 cx.notify();
                 return;
             }
+            Command::AgentPicker | Command::WorkspaceList => {
+                let layout = if command == Command::AgentPicker {
+                    crate::picker::navigator::Layout::Agents
+                } else {
+                    crate::picker::navigator::Layout::Workspaces
+                };
+                self.open_navigator(layout, window, cx);
+                return;
+            }
             // As Herdr's binding does: the daemon rereads its file, and this
             // client its own, which holds the daemon's `[keys]` too.
             Command::ReloadConfig => {

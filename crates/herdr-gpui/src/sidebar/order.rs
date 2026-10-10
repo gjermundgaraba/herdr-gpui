@@ -70,6 +70,20 @@ impl HerdrWindow {
         panel_agents(self.listed_lives(), self.agent_sort)
     }
 
+    /// Every enabled host's agents in the panel's priority order, whatever
+    /// the panel's own sort and the device filter show. The agent picker
+    /// lists these.
+    pub(crate) fn fleet_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
+        panel_agents(
+            self.endpoints
+                .iter()
+                .enumerate()
+                .filter(|(_, endpoint)| endpoint.enabled)
+                .map(|(index, _)| (index, self.host_live(index))),
+            crate::preferences::AgentSort::Priority,
+        )
+    }
+
     /// The agent panel's rows, whether or not the panel is shown, as Herdr
     /// steps through its agents either way.
     pub(crate) fn sidebar_agents(&self) -> Vec<Row<'_>> {
