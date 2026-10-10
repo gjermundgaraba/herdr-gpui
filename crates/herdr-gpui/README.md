@@ -2944,11 +2944,17 @@ Ctrl+Shift+U is left unbound for
 - Agents panel header ends with its sort, `grouped` or `priority`, which a
   click flips; an active agent view names itself there instead. Client-local
   and persisted beside the sidebar width, as in the terminal client. With
-  several hosts listed, `grouped` lists each host's agents in turn, while
-  `priority` orders them all together as the terminal client does: a
-  disconnected host's after connected ones, then attention, then the most
-  recent change on any host. While any host shows an agent view, each host
-  keeps its own order.
+  several hosts listed, `grouped` lists each host's agents in turn, as its
+  daemon lists them. `priority` is the daemon's order, which the Herdr fork
+  sends as each agent's `priority_key`: one host's agents, or every host's
+  together, are sorted by that key compared as plain bytes, so the GUI and the
+  terminal client list the same agent first, priority-token lifts included.
+  Agents with equal keys keep the sidebar's host order, then their daemon's
+  listing order, and a disconnected host's last-known agents follow the
+  connected ones. The key is never read, and no status or recency is ranked
+  here; a daemon that sends no key leaves its agents in listing order. The
+  indexed, next, and previous agent shortcuts step through the same rows.
+  While any host shows an agent view, each host keeps its own order.
 - Resizable sidebar with width persisted per local daemon socket, shared across
   host groups. Drag the divider between Spaces and Agents up or down to resize
   their sections; double-click it to restore an even split. The split is saved

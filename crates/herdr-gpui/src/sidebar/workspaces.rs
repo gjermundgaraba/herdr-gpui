@@ -10,7 +10,6 @@
 
 use super::{
     RowBadge,
-    agents::status_priority,
     row::{PrBadge, first_text},
 };
 use crate::config::Theme;
@@ -141,6 +140,19 @@ pub(crate) fn workspace_label(workspace: &ClientShellWorkspace, indented: bool) 
         .flatten()
         .map(|branch| branch.strip_prefix("worktree/").unwrap_or(branch));
     first_text([branch, Some(&workspace.label)], "workspace")
+}
+
+/// How urgently a status wants attention, for the one status a folded group
+/// of workspaces shows. Agents are not ordered by it: their order is the
+/// daemon's (`agents::panel_agents`).
+pub(super) fn status_priority(status: AgentStatus) -> u8 {
+    match status {
+        AgentStatus::Blocked => 4,
+        AgentStatus::Done => 3,
+        AgentStatus::Working => 2,
+        AgentStatus::Idle => 1,
+        AgentStatus::Unknown => 0,
+    }
 }
 
 /// Collapsed groups show their most urgent member's status.
