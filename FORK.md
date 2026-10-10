@@ -94,7 +94,8 @@ Describe each local change here, with pointers to its code, when it is added.
   Herdr config even under a host's key profile
   (`crates/herdr-gpui/src/keymap/daemon.rs`)
 - Agent order: the agents panel sorts by the daemon's `priority_key`,
-  connected hosts first, with no client-side recency
+  connected hosts first, with no client-side recency, and upstream's Devices
+  layout lists each host's agents by the same key
   (`crates/herdr-gpui/src/sidebar/agents.rs`)
 - Space groups and pinned sections: the spaces sidebar starts a collapsible
   header where the `space_group` token changes and draws the snapshot's

@@ -1,6 +1,7 @@
 //! The agents list: how it is sorted, and how each agent's place and status
 //! are labelled. Status comes from the daemon's snapshot, never from guessing
-//! at terminal output.
+//! at terminal output. The Priority order mirrors the Herdr fork's
+//! `src/client/shell/aggregate_navigation.rs`.
 
 use super::{STATUS_DOT_UNKNOWN, STATUS_WIDTH, first_text, label_text, line_height};
 use crate::{
@@ -42,88 +43,100 @@ pub(super) fn agents_sort(window: &HerdrWindow, cx: &mut Context<HerdrWindow>) -
         .child(label_text(&label))
 }
 
-/// Attention first, then the most recent change, as upstream orders it.
-pub(super) fn status_priority(status: AgentStatus) -> u8 {
-    match status {
-        AgentStatus::Blocked => 4,
-        AgentStatus::Done => 3,
-        AgentStatus::Working => 2,
-        AgentStatus::Idle => 1,
-        AgentStatus::Unknown => 0,
+/// One host's agents before any sort: the daemon's own listing, or under a
+/// plugin's agent view (`agent.view.set`) exactly the panes in `agent_order`,
+/// in that order.
+///
+/// A view is authoritative while the daemon names it, so agents its filter
+/// excluded stay hidden and an empty order means none match. Upstream's client
+/// keys this on the label, not on the order being non-empty, and drops ids
+/// the snapshot has no agent for.
+fn host_agents(snapshot: &ClientShellSnapshot) -> Vec<&ClientShellAgent> {
+    if snapshot.agent_view_label.is_none() {
+        return snapshot.agents.iter().collect();
     }
+    snapshot
+        .agent_order
+        .iter()
+        .filter_map(|pane_id| {
+            snapshot
+                .agents
+                .iter()
+                .find(|agent| agent.pane_id == *pane_id)
+        })
+        .collect()
 }
 
-/// The agents of one endpoint in the order the panel paints them.
-///
-/// A plugin's agent view (`agent.view.set`) is authoritative while the daemon
-/// names it: the panel shows exactly the panes in `agent_order`, in that
-/// order, so agents its filter excluded stay hidden and an empty order means
-/// none match. Upstream's client keys this on the label, not on the order
-/// being non-empty, and drops ids the snapshot has no agent for. Without a
-/// view the local sort applies.
+/// One host's agents in the order the Devices layout lists them under its
+/// header: what [`host_agents`] lists, by the daemon's key under Priority
+/// unless a plugin view orders them.
 pub(super) fn sorted_agents(
     snapshot: &ClientShellSnapshot,
     sort: crate::preferences::AgentSort,
 ) -> Vec<&ClientShellAgent> {
-    if snapshot.agent_view_label.is_some() {
-        return snapshot
-            .agent_order
-            .iter()
-            .filter_map(|pane_id| {
-                snapshot
-                    .agents
-                    .iter()
-                    .find(|agent| agent.pane_id == *pane_id)
-            })
-            .collect();
+    let mut agents = host_agents(snapshot);
+    if sort == crate::preferences::AgentSort::Priority && snapshot.agent_view_label.is_none() {
+        agents.sort_by(|left, right| by_priority_key(left, right));
     }
-    let mut ordered: Vec<_> = snapshot.agents.iter().collect();
-    if sort == crate::preferences::AgentSort::Priority {
-        ordered.sort_by_key(|agent| {
-            (
-                std::cmp::Reverse(status_priority(agent.agent_status)),
-                std::cmp::Reverse(agent.state_change_seq),
-            )
-        });
-    }
-    ordered
+    agents
+}
+
+/// The daemon's `priority` order between two agents: their keys as plain byte
+/// strings, smallest first, and an empty key, which a daemon that computes
+/// none sends, after every other one. A key is opaque and never read.
+fn by_priority_key(left: &ClientShellAgent, right: &ClientShellAgent) -> std::cmp::Ordering {
+    let (left, right) = (&left.priority_key, &right.priority_key);
+    left.is_empty()
+        .cmp(&right.is_empty())
+        .then_with(|| left.as_bytes().cmp(right.as_bytes()))
 }
 
 /// Every listed host's agents in the order the panel paints them, with the
-/// host's endpoint index. Grouped lists one host's agents after another's, in
-/// sidebar order. Priority merges hosts as Herdr's terminal client does: a
-/// disconnected host's last-known agents after connected ones, then attention,
-/// then the most recent change on the clock every connection shares, so a
-/// blocked agent on one host rises above an idle one on another. A plugin
-/// view orders only its own host's agents, so while any host shows one, each
-/// host keeps its own order.
+/// host's endpoint index. `hosts` come in sidebar order, each with whether it
+/// is online ([`crate::endpoint::Endpoint::online`]).
+///
+/// Grouped lists one host's agents after another's, each in its daemon's
+/// listing order. Priority is the daemon's order: each agent's `priority_key`
+/// is its place in it, with the priority-token lift applied, and keys from
+/// different daemons compare the same way. So the panel only compares keys, as
+/// plain byte strings, smallest first, and never reads one; an empty key
+/// comes after every other. Equal keys keep the sidebar's host order, then
+/// the agents' order in their snapshot, which the stable sort gives for free.
+/// This client's own rule comes before any key: the last-known agents of a
+/// host that is not online follow those of the online ones.
+///
+/// A plugin view orders only its own host's agents, so while any host shows
+/// one, hosts are not merged: the view's host lists what the view orders, and
+/// every other host its own agents, by key under Priority.
+///
+/// Mirrors `priority_order` in the Herdr fork's
+/// `src/client/shell/aggregate_navigation.rs`; its cases are ported in
+/// `tests/agent_order.rs`.
 pub(super) fn panel_agents<'a>(
-    hosts: impl IntoIterator<Item = (usize, &'a crate::state::LiveState)>,
+    hosts: impl IntoIterator<Item = (usize, bool, &'a crate::state::LiveState)>,
     sort: crate::preferences::AgentSort,
 ) -> Vec<(usize, &'a ClientShellAgent)> {
-    let mut merge = sort == crate::preferences::AgentSort::Priority;
-    let mut listed = 0;
+    let by_key = sort == crate::preferences::AgentSort::Priority;
+    let hosts: Vec<_> = hosts
+        .into_iter()
+        .filter_map(|(index, online, live)| Some((index, online, live.snapshot.as_deref()?)))
+        .collect();
+    let viewed = hosts
+        .iter()
+        .any(|(_, _, snapshot)| snapshot.agent_view_label.is_some());
     let mut rows = Vec::new();
-    for (index, live) in hosts {
-        let Some(snapshot) = live.snapshot.as_deref() else {
-            continue;
-        };
-        listed += 1;
-        merge &= snapshot.agent_view_label.is_none();
-        rows.extend(
-            sorted_agents(snapshot, sort)
-                .into_iter()
-                .map(|agent| (index, live, agent)),
-        );
+    for &(index, online, snapshot) in &hosts {
+        let mut agents = host_agents(snapshot);
+        if by_key && viewed && snapshot.agent_view_label.is_none() {
+            agents.sort_by(|left, right| by_priority_key(left, right));
+        }
+        rows.extend(agents.into_iter().map(|agent| (index, online, agent)));
     }
-    // One host is already in order; the stable merge would only repeat it.
-    if merge && listed > 1 {
-        rows.sort_by_key(|(_, live, agent)| {
-            (
-                !live.status.is_connected(),
-                std::cmp::Reverse(status_priority(agent.agent_status)),
-                std::cmp::Reverse(live.agent_recency.of(&agent.pane_id)),
-            )
+    if by_key && !viewed {
+        rows.sort_by(|(_, left_online, left), (_, right_online, right)| {
+            (!left_online)
+                .cmp(&!right_online)
+                .then_with(|| by_priority_key(left, right))
         });
     }
     rows.into_iter()
@@ -359,7 +372,7 @@ pub(super) fn status_style(status: AgentStatus, theme: &Theme) -> (f32, bool, u3
 
 #[cfg(test)]
 mod tests {
-    use super::{Indicators, sorted_agents, state_label, status_indicator};
+    use super::{Indicators, state_label, status_indicator};
     use crate::{config::FontConfig, herdr_settings::IndicatorStyle};
     use gpui::{Styled, rgb};
     use herdr_client::protocol::AgentStatus;
@@ -475,38 +488,5 @@ mod tests {
         let long = "x".repeat(10_000);
         let long = agent(AgentStatus::Idle, &[("idle", &long)]);
         assert_eq!(state_label(&long, "idle").chars().count(), 80);
-    }
-
-    fn ordered(
-        snapshot: &herdr_client::protocol::ClientShellSnapshot,
-        sort: crate::preferences::AgentSort,
-    ) -> Vec<&str> {
-        sorted_agents(snapshot, sort)
-            .into_iter()
-            .map(|agent| agent.pane_id.as_str())
-            .collect()
-    }
-
-    #[test]
-    fn a_plugin_view_order_replaces_the_local_sort_and_filters() {
-        use crate::preferences::AgentSort;
-        let mut snapshot = crate::sidebar::layout_tests::snapshot(2);
-        snapshot.agents[1].agent_status = AgentStatus::Blocked;
-        // Without a view the order is local, even when the daemon sent one.
-        snapshot.agent_order = vec!["p1".into()];
-        assert_eq!(ordered(&snapshot, AgentSort::Grouped), ["p0", "p1"]);
-        assert_eq!(ordered(&snapshot, AgentSort::Priority), ["p1", "p0"]);
-
-        snapshot.agent_view_label = Some("review".into());
-        snapshot.agent_order = vec!["p1".into(), "gone".into(), "p0".into()];
-        for sort in [AgentSort::Grouped, AgentSort::Priority] {
-            // A pane the snapshot no longer lists as an agent is skipped.
-            assert_eq!(ordered(&snapshot, sort), ["p1", "p0"]);
-        }
-        snapshot.agents[1].agent_status = AgentStatus::Idle;
-        snapshot.agent_order = vec!["p0".into()];
-        assert_eq!(ordered(&snapshot, AgentSort::Priority), ["p0"]);
-        snapshot.agent_order.clear();
-        assert!(ordered(&snapshot, AgentSort::Grouped).is_empty());
     }
 }
