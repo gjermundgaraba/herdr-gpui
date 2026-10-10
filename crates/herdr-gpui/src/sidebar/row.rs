@@ -264,8 +264,8 @@ pub(super) fn name_line(
     place_line(parts, width, font, muted)
 }
 
-fn place_line(
-    parts: impl IntoIterator<Item = (&'static str, f32, Div)>,
+fn place_line<'a>(
+    parts: impl IntoIterator<Item = (&'a str, f32, Div)>,
     width: f32,
     font: &FontConfig,
     muted: u32,
@@ -279,7 +279,9 @@ fn place_line(
     let mut x = 0.;
     for (separator, advance, cell) in parts {
         if !separator.is_empty() {
-            let gap = separator.chars().count() as f32 * glyph_width(font);
+            // A configured separator is any text, so its cells are counted
+            // by display width, as the row's budget counted them.
+            let gap = separator.width() as f32 * glyph_width(font);
             line = line.child(
                 div()
                     .absolute()

@@ -414,10 +414,12 @@ mod tests {
         let icon = |style| ResolvedToken {
             kind: TokenKind::StateIcon,
             style,
+            separator_before: None,
         };
         let name = ResolvedToken {
             kind: TokenKind::Text("repo".into(), TextRole::Workspace),
             style: TokenStyle::default(),
+            separator_before: None,
         };
         let red = TokenStyle {
             fg: Some(0xff0000),

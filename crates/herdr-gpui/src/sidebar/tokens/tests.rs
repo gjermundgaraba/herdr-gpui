@@ -3,6 +3,7 @@ use crate::config::SidebarLayout;
 use crate::sidebar::layout_tests;
 
 mod plugin_rows;
+mod separators;
 
 fn agent_layout(text: &str) -> AgentLayout {
     toml::from_str(text).unwrap()
@@ -101,7 +102,8 @@ claude = [[{ token = "$pct", rules = [{ gt = 90, hide = true }, { gt = 80, fg = 
                 fg: Some(0xff0000),
                 bold: None,
                 dim: None
-            }
+            },
+            separator_before: None,
         }]]
     );
     snapshot.agents[0].tokens[0].1 = "95".into();
