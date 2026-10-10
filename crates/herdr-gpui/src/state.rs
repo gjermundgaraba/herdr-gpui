@@ -521,6 +521,8 @@ impl LiveState {
             // Kept by the connection's picker mailbox before reaching this
             // state; a picker changes nothing the window draws from here.
             ClientEvent::PickOpen(_) | ClientEvent::PickClose(_) => return,
+            // Kept by the connection's contract mailbox the same way.
+            ClientEvent::ClientJump(_) => return,
             // The `Disconnected` that follows carries the reason text.
             ClientEvent::VersionMismatch(mismatch) => {
                 if let Some(version) = mismatch.server_version() {

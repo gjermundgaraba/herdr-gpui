@@ -111,17 +111,23 @@ impl HerdrWindow {
         target: NavigationTarget<&str>,
         cx: &mut Context<Self>,
     ) -> bool {
+        // A navigation asked for by a jump is followed to its host's answer.
+        let purpose = self.client_contract.follows.claim(&target);
         if !self.input_ready() {
+            if let Some(purpose) = purpose {
+                self.client_contract.follows.unsent(purpose);
+            }
             return false;
         }
-        let queued =
-            self.request_focus_change("Navigate", Some((&target).into()), |handle, boot| {
-                match target {
-                    NavigationTarget::Workspace(id) => handle.focus_workspace(boot, id),
-                    NavigationTarget::Tab(id) => handle.focus_tab(boot, id),
-                    NavigationTarget::Pane(id) => handle.focus_pane(boot, id),
-                }
-            });
+        let focus = |handle: &herdr_client::ClientHandle, boot: &str| match target {
+            NavigationTarget::Workspace(id) => handle.focus_workspace(boot, id),
+            NavigationTarget::Tab(id) => handle.focus_tab(boot, id),
+            NavigationTarget::Pane(id) => handle.focus_pane(boot, id),
+        };
+        let queued = match purpose {
+            Some(purpose) => self.follow_focus_change(purpose, target.clone(), focus),
+            None => self.request_focus_change("Navigate", Some((&target).into()), focus),
+        };
         self.discard_composition(cx);
         cx.notify();
         queued

@@ -41,7 +41,7 @@ fn newer_choice(cx: &mut gpui::TestAppContext, choice: Choice) {
             view.move_tab_to_group(Pick::Page(moved), destination, window, cx);
             assert_eq!(
                 view.pending_navigation,
-                Some(NavigationTarget::Tab("replacement".into()))
+                Some(NavigationTarget::Tab("replacement".into()).into())
             );
 
             let expected = match choice {
@@ -49,7 +49,7 @@ fn newer_choice(cx: &mut gpui::TestAppContext, choice: Choice) {
                     view.choose_herdr_tab(source, "newer", window, cx);
                     assert_eq!(
                         view.pending_navigation,
-                        Some(NavigationTarget::Tab("newer".into()))
+                        Some(NavigationTarget::Tab("newer".into()).into())
                     );
                     Pick::Herdr("newer".into())
                 }
