@@ -14,7 +14,15 @@ use herdr_client::{
 };
 use std::sync::Arc;
 
+mod followed;
+mod jump_presentation;
+mod jump_replacement;
+mod jump_target;
+mod jump_waiting;
+mod jumps;
 mod mailbox;
+mod online;
+mod outstanding;
 mod report_rows;
 mod wiring;
 
@@ -197,6 +205,57 @@ fn window(
         setup(&mut view);
         view
     })
+}
+
+/// The surface the daemon projects for `snapshot`, coherent with it.
+fn surface_for(snapshot: &ClientShellSnapshot) -> Arc<herdr_client::protocol::PaneSurfaceFrame> {
+    use herdr_client::protocol::{FrameData, PaneSurfaceFrame, PaneSurfacePane, SurfaceRect};
+    let rect = SurfaceRect {
+        x: 0,
+        y: 0,
+        width: 80,
+        height: 24,
+    };
+    Arc::new(PaneSurfaceFrame {
+        boot_id: snapshot.boot_id.clone(),
+        projection_revision: snapshot.revision,
+        surface_revision: 1,
+        frame: FrameData {
+            width: 80,
+            height: 24,
+            cells: vec![],
+            cursor: None,
+            hyperlinks: vec![],
+            graphics: vec![],
+        },
+        panes: vec![PaneSurfacePane {
+            pane_id: snapshot.focused_pane_id.clone().unwrap_or_default(),
+            content_revision: 1,
+            rect,
+            inner_rect: rect,
+            scrollbar_rect: None,
+            scroll: None,
+            focused: true,
+            mouse_reporting: false,
+            sgr_pixel_mouse: false,
+            alternate_screen_active: false,
+            pixel_width: 800,
+            pixel_height: 480,
+        }],
+        splits: vec![],
+        popup: None,
+        graphics: Default::default(),
+    })
+}
+
+/// The presented host's surface is active and shows its latest snapshot, as
+/// once the daemon acknowledged the activation and projected a frame.
+fn presented(view: &mut HerdrWindow) {
+    let index = view.selected_endpoint;
+    view.endpoints[index].assume_surface_requested();
+    let snapshot = view.live.snapshot.clone().expect("a presented snapshot");
+    view.live.surface = Some(surface_for(&snapshot));
+    view.live.activation = None;
 }
 
 fn report_of(view: &HerdrWindow) -> ClientReport {

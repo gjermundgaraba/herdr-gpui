@@ -3007,6 +3007,24 @@ Ctrl+Shift+U is left unbound for
   each a client of its own to the daemon; it reports on its own connection and
   stays with that one while it holds it, even when a group swap parks it, so
   the daemon keeps one report per window.
+- A tool can ask a window to show a pane: the Herdr fork's `client.jump`,
+  which a daemon forwards to the client it names. The window navigates the way
+  a click on the agent's row does, switching host when the pane is on another
+  one, and answers `client.jump.resolve` on the connection the jump arrived
+  on, whichever host or editor group that is. Before navigating it answers
+  `not_found` for a host it does not list, `unavailable` for one without a
+  snapshot, `stale_boot` when the host now runs another boot than the jump
+  names, `unavailable` for one that is not online, and `not_found` for a pane
+  the snapshot does not list. `focused` is sent only once the window presents
+  that host with the pane focused, not when the request was accepted; a jump
+  that has not got there after 12 seconds is answered `timeout`, before the
+  daemon's own 20. A host that refuses the focus request ends the jump at
+  once (`not_found`, `stale_boot`, `timeout`, or `failed` with its message);
+  that refusal belongs to the tool, so the status bar does not show it and
+  input is not left waiting for the focus. A jump never closes a menu or
+  dialog: it waits for the window, and times out if the menu stays open. An
+  answer whose connection has since been replaced is dropped, and a jump this
+  client cannot read is ignored.
 - Resizable sidebar with width persisted per local daemon socket, shared across
   host groups. Drag the divider between Spaces and Agents up or down to resize
   their sections; double-click it to restore an even split. The split is saved

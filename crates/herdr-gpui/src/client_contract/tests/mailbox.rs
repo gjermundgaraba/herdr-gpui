@@ -20,7 +20,7 @@ pub(super) fn snapshot(boot: &str) -> ClientEvent {
     ClientEvent::Snapshot(Arc::new(machine(boot, Vec::new())))
 }
 
-fn response(id: &str, body: serde_json::Value) -> ClientEvent {
+pub(super) fn response(id: &str, body: serde_json::Value) -> ClientEvent {
     ClientEvent::Response {
         request_id: id.into(),
         response: body,

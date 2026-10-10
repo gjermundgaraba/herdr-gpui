@@ -9,33 +9,6 @@ const PICK_OPEN: &str =
 const PICK_CLOSE: &str =
     include_str!("../../../herdr-protocol/tests/fixtures/endpoint-pick-close-v1.json");
 
-fn control(kind: &str, data: &str) -> ServerMessage {
-    ServerMessage::EndpointControl {
-        kind: kind.into(),
-        data: data.into(),
-    }
-}
-
-/// A handshake whose welcome advertises `methods`, with its two events read.
-fn handshake_offering(client: &Client, server: &mut Stream, methods: &[&str]) {
-    server
-        .set_read_timeout(Some(Duration::from_secs(3)))
-        .unwrap();
-    server
-        .set_write_timeout(Some(Duration::from_secs(3)))
-        .unwrap();
-    assert!(matches!(
-        receive(server),
-        ClientMessage::EndpointControl { kind, .. } if kind == ENDPOINT_HELLO_KIND
-    ));
-    let mut welcome: Value = serde_json::from_str(WELCOME).unwrap();
-    welcome["methods"] = json!(methods);
-    send(server, control(ENDPOINT_WELCOME_KIND, &welcome.to_string()));
-    send(server, control(ENDPOINT_SNAPSHOT_KIND, SNAPSHOT));
-    assert!(matches!(event(client), ClientEvent::Connected(_)));
-    assert!(matches!(event(client), ClientEvent::Snapshot(_)));
-}
-
 #[test]
 fn pick_open_then_close_arrive_as_ordered_events() {
     let (client, mut server, worker) = test_client();
