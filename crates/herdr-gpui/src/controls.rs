@@ -97,6 +97,7 @@ pub enum Command {
     NextAgent,
     AgentNumber(u8),
     ReloadConfig,
+    MarkUnread,
 }
 
 pub struct CommandInfo {
@@ -461,6 +462,11 @@ pub const COMMANDS: &[CommandInfo] = &[
         command: Command::NextAgent,
         name: "next_agent",
         label: "Next Agent",
+    },
+    CommandInfo {
+        command: Command::MarkUnread,
+        name: "mark_unread",
+        label: "Mark Agent Unread",
     },
     CommandInfo {
         command: Command::AgentNumber(1),
@@ -828,8 +834,21 @@ pub fn request(command: Command, snapshot: &ClientShellSnapshot) -> Option<(Meth
         | Command::PreviousAgent
         | Command::NextAgent
         | Command::AgentNumber(_)
-        | Command::ReloadConfig => return None,
+        | Command::ReloadConfig
+        // Not a focus change, so the window sends it without fencing input.
+        | Command::MarkUnread => return None,
     })
+}
+
+/// `agent.mark_unread` for the focused pane: the daemon holds that agent's
+/// acknowledged completion, so its badge comes back, for every client, once
+/// this one leaves the pane. `None` without a focused pane.
+///
+/// Whether the pane has an agent, and whether that agent is idle, is the
+/// daemon's to decide: it answers `agent_not_found` or `agent_not_idle`.
+pub fn mark_unread(snapshot: &ClientShellSnapshot) -> Option<(Method, Value)> {
+    let pane_id = snapshot.focused_pane_id.as_deref()?;
+    Some((Method::AgentMarkUnread, json!({"pane_id": pane_id})))
 }
 
 /// The pane direction a directional command names.

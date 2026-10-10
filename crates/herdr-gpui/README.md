@@ -3136,7 +3136,18 @@ Ctrl+Shift+U is left unbound for
   makes h, j, k, l or the arrows resize the focused pane until Escape, Enter,
   or the shortcut again; the status bar shows it. Renames and
   `close_workspace` open the same dialogs as their menus, and `reload_config`
-  reloads both the daemon's config and this one. The daemon's
+  reloads both the daemon's config and this one. `mark_unread`, an action of
+  the Herdr fork that is unset by default (`mark_unread = "prefix+u"`), sends
+  `agent.mark_unread` for the focused pane to the host that owns it: the
+  selected one. That daemon keeps the hold, so every client attached to it
+  shows the same thing: the completion badge returns once you leave the pane,
+  and arriving at it again clears it. Only an acknowledged completion, shown
+  as idle, can be held; the daemon refuses a working, blocked, or still-badged
+  agent and a pane without one, and its reason appears in the status bar like
+  any other daemon error. This client keeps no unread record of its own and
+  shows no confirmation: the badge comes only from the snapshot. The command
+  is also in the palette as **Mark Agent Unread** and can be bound under
+  `[keybindings]` as `mark_unread`. The daemon's
   `[[keys.command]]` shortcuts, prefix chords or direct keys, run their
   command through `command.invoke` on the focused pane, and the palette lists
   them with these keys; like Herdr, a keystroke one of its actions already
