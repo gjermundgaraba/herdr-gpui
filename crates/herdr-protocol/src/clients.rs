@@ -2,18 +2,23 @@
 //! jump a tool asks one of them to perform.
 //!
 //! Adapted from the `gjermundgaraba/herdr` fork's `src/api/schema/clients.rs`
-//! (the report, the client record, and the jump parameters and outcome) and
+//! (the report, and the jump answer's parameters and outcome) and
 //! `src/protocol/endpoint.rs` (the jump control); Apache-2.0, see NOTICE.md.
-//! The JSON shapes, optional fields, tags, and message kind are unchanged.
-//! The daemon's report validation and `schemars` derives are not retained.
+//! The JSON shapes, optional fields, tags, and message kind are unchanged,
+//! and [`ClientReport::normalize`] is the daemon's own check, so a client can
+//! hold a report to the limits before sending it. The `schemars` derives are
+//! not retained. [`MAX_ENDPOINT_COMMAND_BYTES`] is the daemon's limit from
+//! `src/server/client_commands.rs`.
 //!
 //! A client is one connection, keyed by the `client_id` the daemon assigned
 //! it. It sends [`ClientReport`] with the `client.report` method, and each
-//! report replaces the previous one. A tool reads the reports as
-//! [`ClientInfo`] and asks one client to show a pane with
-//! [`ClientJumpParams`]. The daemon forwards that as [`EndpointClientJump`]
-//! to the client, which navigates and answers on the same connection with
-//! the `client.jump.resolve` method ([`ClientJumpResolveParams`]).
+//! report replaces the previous one. Tools read the reports through the
+//! daemon's socket API (`client.list`, `client.changed`) and ask one client to
+//! show a pane with `client.jump`; those shapes are a tool's, not a client's,
+//! so this crate does not declare them. The daemon forwards a jump as
+//! [`EndpointClientJump`] to the client, which navigates and answers on the
+//! same connection with the `client.jump.resolve` method
+//! ([`ClientJumpResolveParams`]).
 
 use crate::{ClientShellAgent, Error, Result};
 use serde::{Deserialize, Serialize};
@@ -32,6 +37,10 @@ pub const MAX_CLIENT_REPORT_ID_BYTES: usize = 128;
 pub const MAX_CLIENT_REPORT_TEXT_BYTES: usize = 512;
 /// State labels or tokens the daemon keeps per agent row; it drops the rest.
 pub const MAX_CLIENT_REPORT_PAIRS: usize = 32;
+/// Bytes of JSON one client-lane request may be. The daemon closes a
+/// connection that sends a larger one, so a client measures a request that
+/// may exceed it, as a report of long rows can, before sending.
+pub const MAX_ENDPOINT_COMMAND_BYTES: usize = 1024 * 1024;
 
 /// What a client shows in its Agents list, across every endpoint it is
 /// attached to. Each report replaces the previous one.
@@ -85,24 +94,130 @@ pub struct ClientReportAgent {
     pub agent: ClientShellAgent,
 }
 
-/// One attached client, as `client.list` and `client.changed` describe it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClientInfo {
-    pub client_id: u64,
-    /// The client's latest report; absent until it sends one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub report: Option<ClientReport>,
+/// Why the daemon rejects a report.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum ClientReportError {
+    #[error("a report lists at most 64 endpoints")]
+    TooManyEndpoints,
+    #[error("a report lists at most 512 agents")]
+    TooManyAgents,
+    #[error("endpoint, boot, workspace, tab, and pane ids are at most 128 bytes")]
+    IdTooLong,
+    #[error("endpoint and pane ids must not be empty")]
+    EmptyId,
+    #[error("an endpoint id is listed more than once")]
+    DuplicateEndpoint,
+    #[error("active_endpoint_id names an endpoint the report omits")]
+    UnknownActiveEndpoint,
+    #[error("an agent names an endpoint the report omits")]
+    UnknownAgentEndpoint,
+    #[error("at most one agent is focused")]
+    MultipleFocusedAgents,
 }
 
-/// Asks one client to show a pane, switching endpoint when it has to.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClientJumpParams {
-    pub client_id: u64,
-    /// The endpoint, in the ids of that client's report.
-    pub endpoint_id: String,
-    /// The endpoint's boot the pane id was read from.
-    pub boot_id: String,
-    pub pane_id: String,
+impl ClientReport {
+    /// Checks the report's structure and bounds its display text, exactly as
+    /// the daemon does on receipt: a report this accepts is one the daemon
+    /// keeps as sent.
+    pub fn normalize(&mut self) -> std::result::Result<(), ClientReportError> {
+        if self.endpoints.len() > MAX_CLIENT_REPORT_ENDPOINTS {
+            return Err(ClientReportError::TooManyEndpoints);
+        }
+        if self.agents.len() > MAX_CLIENT_REPORT_AGENTS {
+            return Err(ClientReportError::TooManyAgents);
+        }
+        for (index, endpoint) in self.endpoints.iter().enumerate() {
+            check_id(&endpoint.endpoint_id)?;
+            if let Some(boot_id) = &endpoint.boot_id {
+                check_id_length(boot_id)?;
+            }
+            if self.endpoints[..index]
+                .iter()
+                .any(|earlier| earlier.endpoint_id == endpoint.endpoint_id)
+            {
+                return Err(ClientReportError::DuplicateEndpoint);
+            }
+        }
+        let listed = |endpoint_id: &str| {
+            self.endpoints
+                .iter()
+                .any(|endpoint| endpoint.endpoint_id == endpoint_id)
+        };
+        if self
+            .active_endpoint_id
+            .as_deref()
+            .is_some_and(|endpoint_id| !listed(endpoint_id))
+        {
+            return Err(ClientReportError::UnknownActiveEndpoint);
+        }
+        if self.agents.iter().any(|row| !listed(&row.endpoint_id)) {
+            return Err(ClientReportError::UnknownAgentEndpoint);
+        }
+        if self.agents.iter().filter(|row| row.focused).count() > 1 {
+            return Err(ClientReportError::MultipleFocusedAgents);
+        }
+        for row in &self.agents {
+            check_id(&row.agent.pane_id)?;
+            check_id_length(&row.agent.workspace_id)?;
+            check_id_length(&row.agent.tab_id)?;
+        }
+        for endpoint in &mut self.endpoints {
+            truncate(&mut endpoint.label);
+        }
+        for row in &mut self.agents {
+            truncate(&mut row.workspace_label);
+            for text in [&mut row.cwd, &mut row.foreground_cwd] {
+                truncate_optional(text);
+            }
+            let agent = &mut row.agent;
+            for text in [
+                &mut agent.name,
+                &mut agent.display_agent,
+                &mut agent.agent,
+                &mut agent.title,
+                &mut agent.terminal_title,
+                &mut agent.terminal_title_stripped,
+                &mut agent.priority_mark,
+            ] {
+                truncate_optional(text);
+            }
+            truncate(&mut agent.priority_key);
+            for pairs in [&mut agent.state_labels, &mut agent.tokens] {
+                pairs.truncate(MAX_CLIENT_REPORT_PAIRS);
+                for (key, value) in pairs {
+                    truncate(key);
+                    truncate(value);
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+fn check_id(id: &str) -> std::result::Result<(), ClientReportError> {
+    if id.is_empty() {
+        return Err(ClientReportError::EmptyId);
+    }
+    check_id_length(id)
+}
+
+fn check_id_length(id: &str) -> std::result::Result<(), ClientReportError> {
+    if id.len() > MAX_CLIENT_REPORT_ID_BYTES {
+        return Err(ClientReportError::IdTooLong);
+    }
+    Ok(())
+}
+
+fn truncate_optional(text: &mut Option<String>) {
+    if let Some(text) = text {
+        truncate(text);
+    }
+}
+
+/// Cuts `text` to the report's text limit on a character boundary.
+fn truncate(text: &mut String) {
+    let end = text.floor_char_boundary(MAX_CLIENT_REPORT_TEXT_BYTES);
+    text.truncate(end);
 }
 
 /// How a client's jump ended.
@@ -115,7 +230,9 @@ pub enum ClientJumpOutcome {
     StaleBoot,
     /// The client knows no such endpoint, or the endpoint no such pane.
     NotFound,
-    /// The endpoint is not online.
+    /// The endpoint is not online, or the client's navigation did not reach
+    /// it or was withdrawn. After a request the client withdrew in flight
+    /// the jump may still have happened.
     Unavailable,
     /// The client did not see the pane focused in time; it may still happen.
     Timeout,

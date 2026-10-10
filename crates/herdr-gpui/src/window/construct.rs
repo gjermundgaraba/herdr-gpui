@@ -137,6 +137,7 @@ impl HerdrWindow {
             catalog,
             cell_width: 9.,
             checkpoints: Default::default(),
+            client_contract: Default::default(),
             #[cfg(feature = "cloud")]
             cloud_jobs: Default::default(),
             code_indexes: Default::default(),

@@ -2985,6 +2985,28 @@ Ctrl+Shift+U is left unbound for
   here; a daemon that sends no key leaves its agents in listing order. The
   indexed, next, and previous agent shortcuts step through the same rows.
   While any host shows an agent view, each host keeps its own order.
+- Each window tells its local Herdr daemon what its Agents list shows, with the
+  Herdr fork's `client.report`, so tools can read it through that daemon's
+  `client.list` and `client.changed`. The report names whether the window is
+  the active one, the host it presents, every host with its status
+  (`connecting`, `online`, `reconnecting`, `attention` for a host that needs an
+  update or a sign-in, `disabled` for one switched off or detached) and boot,
+  and the panel's rows in the order it shows them under its current sort, each
+  with the snapshot's agent record unchanged, its space's label and number, and
+  the pane's directories. At most one row is focused: the focused pane of the
+  presented host. An agent whose space the snapshot no longer lists has no row.
+  The report goes to the local daemon only, never to another host, and only
+  when its content changed: again after a new local connection, which is also
+  how a restarted daemon is met, and one at a time, so changes that arrive
+  while the daemon has not answered become one report. It keeps to the
+  daemon's limits (64 hosts, 512 rows, ids of 128 bytes, text of 512), and a
+  report still larger than one 1 MiB command loses rows from its end. Without
+  a local connection, or with a daemon that does not offer `client.report`,
+  nothing is sent, and a report the daemon rejects is logged, not retried. A
+  window holds one connection per editor group that shows another Herdr tab,
+  each a client of its own to the daemon; it reports on its own connection and
+  stays with that one while it holds it, even when a group swap parks it, so
+  the daemon keeps one report per window.
 - Resizable sidebar with width persisted per local daemon socket, shared across
   host groups. Drag the divider between Spaces and Agents up or down to resize
   their sections; double-click it to restore an even split. The split is saved

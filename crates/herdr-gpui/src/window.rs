@@ -121,6 +121,8 @@ pub(crate) struct HerdrWindow {
     pub(crate) cell_width: f32,
     /// Snapshots of checkouts taken at agent turns, and the dialog listing them.
     pub(crate) checkpoints: crate::checkpoint::Checkpoints,
+    /// What this window last told its local daemon about itself.
+    pub(crate) client_contract: crate::client_contract::ClientContract,
     /// Cloud machines being added; see `cloud::Jobs`.
     #[cfg(feature = "cloud")]
     pub(crate) cloud_jobs: crate::cloud::Jobs,
@@ -529,6 +531,9 @@ impl HerdrWindow {
         // After every connection was polled and settled into its slot: a
         // picker is answered on the connection that asked for it.
         self.poll_picker(window, cx);
+        // After the same settling: the report goes out on one connection, and
+        // says what every host shows after this tick's updates.
+        self.sync_client_contract();
         // After polling: a connection that just got its first snapshot, or a
         // reconnect, is told the theme without waiting for it to change.
         self.sync_host_theme();
