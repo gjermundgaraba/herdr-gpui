@@ -102,6 +102,11 @@ fn split_ratio_wire_name() {
 /// only methods it answers on the client endpoint. Anything else is
 /// rejected, so a variant outside this list is a dead code path.
 const OFFERED: &[&str] = &[
+    // Offered by the gjermundgaraba/herdr fork's client contract: the unread
+    // hold, the answer to a jump, and the Agents list report.
+    "agent.mark_unread",
+    "client.jump.resolve",
+    "client.report",
     "client_shell.surface.set",
     "command.invoke",
     "integration.install",
@@ -149,6 +154,9 @@ const OFFERED: &[&str] = &[
 /// Every variant. The match in the test stops compiling when a variant is
 /// added, as a reminder to list it here too.
 const ALL: &[Method] = &[
+    Method::AgentMarkUnread,
+    Method::ClientJumpResolve,
+    Method::ClientReport,
     Method::ClientShellSurfaceSet,
     Method::CommandInvoke,
     Method::IntegrationList,
@@ -196,7 +204,10 @@ const ALL: &[Method] = &[
 fn every_method_is_offered_to_endpoint_clients() {
     for method in ALL {
         match method {
-            Method::ClientShellSurfaceSet
+            Method::AgentMarkUnread
+            | Method::ClientJumpResolve
+            | Method::ClientReport
+            | Method::ClientShellSurfaceSet
             | Method::CommandInvoke
             | Method::IntegrationList
             | Method::IntegrationInstall
@@ -245,4 +256,25 @@ fn every_method_is_offered_to_endpoint_clients() {
     }
     // `workspace.get` is API-socket only; the snapshot carries what we need.
     assert!(!OFFERED.contains(&"workspace.get"));
+}
+
+/// The client-lane methods of the Herdr fork's client contract, spelled as
+/// its `endpoint-client-report-v1.json`, `endpoint-client-jump-resolve-v1.json`
+/// and `endpoint-agent-mark-unread-v1.json` fixtures spell them.
+#[test]
+fn client_contract_methods_match_the_forks_spelling() {
+    for (method, name) in [
+        (Method::ClientReport, "client.report"),
+        (Method::ClientJumpResolve, "client.jump.resolve"),
+        (Method::AgentMarkUnread, "agent.mark_unread"),
+    ] {
+        assert_eq!(method.as_str(), name);
+        assert_eq!(method.to_string(), name);
+        assert!(method.advertised_in(&["pane.focus".into(), name.into()]));
+        // Stock Herdr advertises none of them, so each is rejected there
+        // before it is sent.
+        assert!(!method.advertised_in(&["client_shell.surface.set".into()]));
+    }
+    // `client.jump` is the tool's socket API method, never a lane method.
+    assert!(!Method::ClientJumpResolve.advertised_in(&["client.jump".into()]));
 }

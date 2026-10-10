@@ -41,6 +41,20 @@ parameters are not retained. That fork has no fixture for these shapes, so
 `tests/fixtures/endpoint-pick-{open,close,resolve}-v1.json` were written here
 to match its serialisation.
 
+The client contract declarations adapt the same fork at commit `9eb37f42`,
+same license: `pinned_sections`, `ClientShellPinnedSection`, and the agent's
+`priority_key` and `priority_mark` in `src/wire.rs` from its
+`src/protocol/wire.rs`, and `src/clients.rs` from its
+`src/api/schema/clients.rs` (the client report, the client record, the jump
+parameters and outcome) and `src/protocol/endpoint.rs` (the
+`endpoint.client-jump.v1` control). JSON field names and order, optional
+fields, serde defaults, the outcome tag, and the report limits are unchanged;
+the `schemars` derives and the daemon's report validation are not retained.
+`tests/fixtures/endpoint-{snapshot-shared,client-report,client-jump,client-jump-resolve,agent-mark-unread}-v1.json`
+and `tests/fixtures/api-client-{list,changed,jump}-v1.json` are verbatim copies
+of that fork's `tests/fixtures/` files. The snapshot fixture is the fork's
+working copy on top of that commit, which no longer carries `plugin_entries`.
+
 The client discovery rules also adapt `src/server/socket_paths.rs`,
 `src/session.rs`, and `src/config/io.rs` from the same source/license.
 The native client's build mode does not implicitly select Herdr's dev session.
