@@ -176,6 +176,7 @@ impl HerdrWindow {
             git: git::Git::default(),
             gui_config_diagnostic,
             held_keys: Default::default(),
+            history: Default::default(),
             hover: None,
             hover_menu: None,
             hovered_terminal_link: false,

@@ -480,13 +480,11 @@ pub const COMMANDS: &[CommandInfo] = &[
         command: Command::AgentPicker,
         name: "agent_picker",
         label: "Agent Picker",
-        shortcuts: &[],
     },
     CommandInfo {
         command: Command::WorkspaceList,
         name: "workspace_list",
         label: "Workspace List",
-        shortcuts: &[],
     },
     CommandInfo {
         command: Command::AgentNumber(1),

@@ -62,33 +62,6 @@ impl HerdrWindow {
         self.dispatch_navigation(target, cx)
     }
 
-    /// Back or Forward along the selected endpoint's focus trail. The trail
-    /// remembers the step only once its request is queued, so a press while
-    /// an earlier one is still landing leaves that one in charge.
-    pub(crate) fn travel(&mut self, step: Step, cx: &mut Context<Self>) {
-        let Some(snapshot) = self.live.snapshot.clone() else {
-            return;
-        };
-        let Some((index, pane)) = self.endpoints[self.selected_endpoint]
-            .history
-            .peek(step, &snapshot)
-            .map(|(index, pane)| (index, pane.to_owned()))
-        else {
-            return;
-        };
-        if self.navigate(NavigationTarget::Pane(&pane), cx) {
-            self.endpoints[self.selected_endpoint].history.begin(index);
-        }
-    }
-
-    pub(crate) fn can_travel(&self, step: Step) -> bool {
-        self.live.snapshot.as_deref().is_some_and(|snapshot| {
-            self.endpoints[self.selected_endpoint]
-                .history
-                .can(step, snapshot)
-        })
-    }
-
     /// Complete an accepted navigation even if its context menu has since opened.
     pub(crate) fn dispatch_navigation(
         &mut self,
