@@ -188,6 +188,8 @@ pub(crate) struct HerdrWindow {
     pub(crate) menu: menu::MenuState,
     /// The picker on the menu's picker page, and whoever waits on its answer.
     pub(crate) picker: Option<crate::picker::Picker>,
+    /// What this window last told its local daemon about itself.
+    pub(crate) client_contract: crate::client_contract::ClientContract,
     /// A `worktree.remove` queued after its dialog closed.
     pub(crate) removal: Option<menu::Removal>,
     /// Removing worktrees whose pull request is merged, when enabled.
@@ -494,6 +496,9 @@ impl HerdrWindow {
         // After every connection was polled and settled into its slot: a
         // picker is answered on the connection that asked for it.
         self.poll_picker(window, cx);
+        // After the same settling: the report goes out on one connection, and
+        // says what every host shows after this tick's updates.
+        self.sync_client_contract();
         // After polling: a connection that just got its first snapshot, or a
         // reconnect, is told the theme without waiting for it to change.
         self.sync_host_theme();
@@ -856,6 +861,7 @@ impl HerdrWindow {
             local_error: error,
             menu: menu::MenuState::new(cx),
             picker: None,
+            client_contract: Default::default(),
             removal: None,
             merged_cleanup: Default::default(),
             worktree_script: None,

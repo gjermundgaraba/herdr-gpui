@@ -156,7 +156,7 @@ pub(super) fn outcome(choice: Option<Choice>) -> UiPickOutcome {
 impl HerdrWindow {
     /// Every connection this window holds: each endpoint's own, and each
     /// editor group's parked one.
-    fn connections(&self) -> impl Iterator<Item = &ConnectionBridge> {
+    pub(crate) fn connections(&self) -> impl Iterator<Item = &ConnectionBridge> {
         self.endpoints
             .iter()
             .map(|endpoint| &endpoint.connection)
