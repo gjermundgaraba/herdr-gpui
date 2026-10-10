@@ -24,6 +24,7 @@ mod caffeine;
 mod caption;
 mod checkpoint;
 mod cli;
+mod client_contract;
 mod close_modal;
 // `cloud` is the machinery every provider shares; alone it offers nothing to add.
 #[cfg(all(

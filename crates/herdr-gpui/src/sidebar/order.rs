@@ -12,19 +12,23 @@ use std::collections::HashSet;
 pub(crate) type Row<'a> = (usize, &'a str);
 
 impl HerdrWindow {
+    /// The live state the window draws host `index` from: its own copy for
+    /// the selected host, which carries what the window stamped since the
+    /// last poll, and the endpoint's for every other.
+    pub(crate) fn host_live(&self, index: usize) -> &LiveState {
+        if index == self.selected_endpoint {
+            &self.live
+        } else {
+            &self.endpoints[index].live
+        }
+    }
+
     /// Each host the sidebar lists, with the live state it draws from.
     fn listed_lives(&self) -> impl Iterator<Item = (usize, &LiveState)> {
         self.displayed_devices()
             .into_iter()
             .filter(|(_, endpoint)| endpoint.enabled && self.device_visible(&endpoint.id))
-            .map(|(index, endpoint)| {
-                let live = if index == self.selected_endpoint {
-                    &self.live
-                } else {
-                    &endpoint.live
-                };
-                (index, live)
-            })
+            .map(|(index, _)| (index, self.host_live(index)))
     }
 
     /// Each host the sidebar lists, with the snapshot it draws from.
@@ -58,9 +62,10 @@ impl HerdrWindow {
             .collect()
     }
 
-    /// The agents the panel paints, by host index, in its order. Painting
-    /// and stepping both read it, so a shortcut lands on the row below.
-    pub(super) fn panel_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
+    /// The agents the panel paints, by host index, in its order. Painting,
+    /// stepping, and the client report all read it, so a shortcut lands on
+    /// the row below and tools read the list that is on screen.
+    pub(crate) fn panel_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
         panel_agents(self.listed_lives(), self.agent_sort)
     }
 

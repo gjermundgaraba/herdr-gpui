@@ -150,6 +150,7 @@ impl HerdrWindow {
             cell_width: 9.,
             checkpoints: Default::default(),
             chrome_region: None,
+            client_contract: Default::default(),
             #[cfg(feature = "cloud")]
             cloud_jobs: Default::default(),
             #[cfg(feature = "cloud")]
