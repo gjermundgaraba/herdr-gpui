@@ -32,6 +32,15 @@ applies the same structural limits before touching any baseline. The
 `surface-*-v1.bin` fixtures in `tests/fixtures/` were produced by Herdr's own
 encoders at that commit.
 
+The `ui.pick` declarations in `src/pick.rs` adapt the two picker controls in
+`src/protocol/endpoint.rs` and the picker types in `src/api/schema/ui.rs` from
+the `gjermundgaraba/herdr` fork of Herdr, same license. Message kinds, JSON
+field names, optional fields, and the outcome tag are unchanged; the
+`schemars` derives and the server-side `ui.pick` and `ui.pick.close`
+parameters are not retained. That fork has no fixture for these shapes, so
+`tests/fixtures/endpoint-pick-{open,close,resolve}-v1.json` were written here
+to match its serialisation.
+
 The client discovery rules also adapt `src/server/socket_paths.rs`,
 `src/session.rs`, and `src/config/io.rs` from the same source/license.
 The native client's build mode does not implicitly select Herdr's dev session.

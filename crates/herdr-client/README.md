@@ -272,6 +272,8 @@ Surface(Arc<PaneSurfaceFrame>)
 SurfaceImages(Arc<SurfaceImages>)
 Response { request_id: String, response: serde_json::Value }
 CommandRejected { request_id: Option<String>, reason: Error }
+PickOpen(EndpointPickOpen)
+PickClose(EndpointPickClose)
 Message(ServerMessage)
 VersionMismatch(VersionMismatch)
 Disconnected { reason: String }
@@ -287,6 +289,14 @@ capability, or, over SSH or WSL, has no installed Herdr able to serve this clien
 version, stripped of controls and capped at 64 characters, when it gave one.
 `Error::version_mismatch` applies the same classification to an error. Other
 failures, including an SSH host with no Herdr at all, are not mismatches.
+
+`PickOpen` and `PickClose` are the `endpoint.pick.open.v1` and
+`endpoint.pick.close.v1` controls of a daemon that offers `ui.pick` to plugins.
+The daemon holds the plugin's request open until the connection that received
+`PickOpen` answers with `Method::UiPickResolve`
+(`protocol::pick::UiPickResolveParams`), the picker is closed, or the
+connection ends. A picker payload this client cannot decode is ignored like an
+unknown control, not treated as a protocol failure.
 
 The receiver is `crossbeam_channel::Receiver`, re-exported as `Receiver`.
 Responses preserve either the endpoint's `{id,result}` or `{id,error}` object;

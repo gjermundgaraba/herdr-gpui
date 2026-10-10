@@ -565,6 +565,9 @@ impl LiveState {
                 }
             }
             ClientEvent::SurfaceImages(images) => self.surface_images = images,
+            // Kept by the connection's picker mailbox before reaching this
+            // state; a picker changes nothing the window draws from here.
+            ClientEvent::PickOpen(_) | ClientEvent::PickClose(_) => return,
             // The `Disconnected` that follows carries the reason text.
             ClientEvent::VersionMismatch(mismatch) => self.version_mismatch = Some(mismatch),
             ClientEvent::Disconnected { reason, ssh } => {

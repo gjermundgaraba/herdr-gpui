@@ -86,6 +86,7 @@ mod palette;
 mod pane_menu;
 mod pane_move;
 mod panel_resize;
+mod picker;
 mod plugin_values;
 mod port_forward;
 mod pr_actions;
