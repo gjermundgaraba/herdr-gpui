@@ -66,6 +66,8 @@ mod selection_scroll;
 #[cfg(test)]
 mod sidebar_cache;
 #[cfg(test)]
+mod space_groups;
+#[cfg(test)]
 mod spacing_overrides;
 #[cfg(test)]
 mod split_pane;
