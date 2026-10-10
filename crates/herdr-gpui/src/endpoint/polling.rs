@@ -191,8 +191,8 @@ impl HerdrWindow {
             self.activation_deadline = None;
             if let Some(id) = self.pending_toast {
                 self.navigate_toast(id, cx);
-            } else if let Some(target) = self.pending_navigation.take() {
-                self.dispatch_navigation(target.as_deref(), cx);
+            } else if let Some(pending) = self.pending_navigation.take() {
+                self.dispatch_navigation(pending.target.as_deref(), pending.purpose, cx);
             }
         } else if self
             .activation_deadline
@@ -206,6 +206,7 @@ impl HerdrWindow {
             if let Some(reason) = &self.live.error {
                 error.push_str(&format!(": {reason}"));
             }
+            self.history_host_failed();
             if self.selected_endpoint != 0 {
                 self.switch_endpoint(LOCAL, cx);
             } else {

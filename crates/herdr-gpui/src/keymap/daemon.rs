@@ -140,6 +140,9 @@ const ACTIONS: &[(&str, Target, &str)] = &[
         Target::Command(Command::WorkspaceList),
         "",
     ),
+    // The fork's Back and Forward through visited panes; unset there too.
+    ("history_back", Target::Command(Command::Back), ""),
+    ("history_forward", Target::Command(Command::Forward), ""),
     ("focus_agent", Target::Indexed(Indexed::Agent), ""),
     ("new_tab", Target::Command(Command::Tab), "prefix+c"),
     (

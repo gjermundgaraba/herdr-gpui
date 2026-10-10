@@ -1427,12 +1427,13 @@ under the traffic lights.
 
 Back and Forward follow the sidebar toggle, in the header or in the expanded
 sidebar's first row; a sidebar dragged too narrow for them, or collapsed,
-hands them to the leftmost strip with the toggle. They walk the panes this connection has
-focused, across tabs and workspaces, the way a browser walks its pages: going
-somewhere new drops what was ahead, closed panes are stepped over, and the
-trail (at most 100 panes) starts over when the daemon restarts. `back`
-(Cmd-[) and `forward` (Cmd-]) do the same from the keyboard, and so do a
-mouse's side buttons anywhere in the window. Each platform draws the pair its
+hands them to the leftmost strip with the toggle. They walk the panes this window has
+visited, on any host, the way a browser walks its pages: going somewhere new
+drops what was ahead, and a pane its host no longer lists is forgotten. This
+is the fork's history, described with the daemon's `history_back` and
+`history_forward` keys below, which step through it too. `back` (Cmd-[) and
+`forward` (Cmd-]) do the same from the keyboard, and so do a mouse's side
+buttons anywhere in the window. Each platform draws the pair its
 own way: macOS joins two chevrons in one segmented bezel as Finder and Xcode
 do, Windows uses Fluent's subtle arrow buttons as File Explorer does, and
 Linux uses GNOME's flat rounded header bar buttons. A header narrower than
@@ -3853,7 +3854,25 @@ Ctrl+Shift+U is left unbound for
   `[keybindings]`. Unlike the terminal client, a row shows no second line
   with its workspace, tab, and pane id, the focused pane is not marked, and
   the navigator's tree layout (the fork's `prefix+g` list) is not offered:
-  Go To covers it. The daemon's
+  Go To covers it. `history_back` and `history_forward`, the fork's too and
+  unset by default, run **Back** and **Forward**: like the title bar's
+  buttons, they step through the panes this window visited, on any host. On
+  macOS Option-Left and Option-Right are pane keys by default and a pane key
+  wins over a daemon binding, so bind other keys or clear those two under
+  `[pane_keys]`. A visit is recorded when the presented host's
+  snapshot shows another pane focused than the last visit, however that came
+  about, so focus changes that never reached the window are not visits. The
+  history is per window and in memory, holds at most 100 visits, forgets a
+  host that is removed, switched off, detached, or restarted and a pane its
+  host no longer lists, and steps over a host that is not online. A step
+  focuses the pane with the same cross-host navigation as a click, and the
+  snapshot that shows it focused confirms the step without becoming a new
+  visit; a new visit from the middle drops what lay ahead. A step past either
+  end says `No earlier pane in history` or `No later pane in history` over
+  the terminal. When the host refuses the focus request the step is taken
+  back, a pane that no longer exists is forgotten, and the refusal is shown
+  in the status bar like any other. Both are in the palette as **Back** and
+  **Forward** and can be bound under `[keybindings]`. The daemon's
   `[[keys.command]]` shortcuts, prefix chords or direct keys, run their
   command through `command.invoke` on the focused pane, and the palette lists
   them with these keys; like Herdr, a keystroke one of its actions already

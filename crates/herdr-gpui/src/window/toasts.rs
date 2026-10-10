@@ -58,7 +58,7 @@ impl HerdrWindow {
         if !self.select_endpoint(&endpoint_id, cx) {
             return;
         }
-        self.pending_navigation = Some(target);
+        self.pending_navigation = Some(target.into());
         self.pending_toast = Some(id);
         self.navigate_toast(id, cx);
         cx.notify();

@@ -71,8 +71,9 @@ pub(crate) struct ClientContract {
 }
 
 impl HerdrWindow {
-    /// One window tick of the contract: what the hosts answered, the jumps
-    /// they forwarded, then the report, which so reflects where a jump led.
+    /// One window tick of the contract: what the hosts answered to the
+    /// requests the window follows, the jumps they forwarded, then the
+    /// report, which so reflects where a jump led.
     pub(crate) fn tick_client_contract(&mut self, now: Instant, cx: &mut gpui::Context<Self>) {
         for (purpose, answer) in self.take_followed_answers() {
             match (purpose, answer) {
@@ -82,6 +83,11 @@ impl HerdrWindow {
                 // An accepted focus request proves nothing yet: the jump is
                 // answered by the snapshot that shows its pane focused.
                 (Purpose::Jump(_), Ok(())) => {}
+                (Purpose::History(visit), Err(refusal)) => {
+                    self.history_step_failed(&visit, refusal == Refusal::PaneNotFound);
+                }
+                // The step is confirmed by the snapshot too.
+                (Purpose::History(_), Ok(())) => {}
             }
         }
         self.settle_client_jumps(now, cx);
