@@ -37,6 +37,8 @@ pub(crate) enum Page {
     Palette,
     /// Go to Symbol and Go to File over the focused pane's checkout.
     CodeSearch,
+    /// The window's picker: a filterable list answered with one choice.
+    Picker,
     ConfirmClose,
     Update,
     AppUpdate,

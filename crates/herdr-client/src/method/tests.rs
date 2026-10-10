@@ -132,6 +132,8 @@ const OFFERED: &[&str] = &[
     "tab.focus",
     "tab.move",
     "tab.rename",
+    // Offered by the gjermundgaraba/herdr fork, which adds `ui.pick`.
+    "ui.pick.resolve",
     "workspace.close",
     "workspace.create",
     "workspace.focus",
@@ -177,6 +179,7 @@ const ALL: &[Method] = &[
     Method::TabFocus,
     Method::TabMove,
     Method::TabRename,
+    Method::UiPickResolve,
     Method::WorkspaceClose,
     Method::WorkspaceCreate,
     Method::WorkspaceFocus,
@@ -223,6 +226,7 @@ fn every_method_is_offered_to_endpoint_clients() {
             | Method::TabFocus
             | Method::TabMove
             | Method::TabRename
+            | Method::UiPickResolve
             | Method::WorkspaceClose
             | Method::WorkspaceCreate
             | Method::WorkspaceFocus

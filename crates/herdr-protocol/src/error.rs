@@ -60,6 +60,8 @@ pub enum Error {
     DeltaSpan,
     #[error("surface delta popup update does not match its popup")]
     DeltaPopup,
+    #[error("invalid picker payload: {0}")]
+    PickPayload(#[source] serde_json::Error),
 }
 
 impl Error {

@@ -22,6 +22,9 @@ pub(crate) struct ConnectionBridge {
     pub(crate) links: Arc<Mutex<crate::links::LinkInbox>>,
     /// Scrollback answers, fenced with the connection like the main inbox.
     pub scrollback: Arc<Mutex<crate::scrollback::Inbox>>,
+    /// The `ui.pick` picker the daemon asked this connection to show. Replaced
+    /// with the connection, which is also what names the connection to answer.
+    pub(crate) picks: Arc<Mutex<crate::picker::plugin::Inbox>>,
     sound_cancel: Arc<AtomicBool>,
 }
 
@@ -105,6 +108,7 @@ impl ConnectionBridge {
             integrations: Arc::default(),
             links: Arc::default(),
             scrollback: Arc::default(),
+            picks: Arc::default(),
         }
     }
 
@@ -128,6 +132,7 @@ impl ConnectionBridge {
         self.integrations = Arc::default();
         self.links = Arc::default();
         self.scrollback = Arc::default();
+        self.picks = Arc::default();
     }
 
     pub fn detach(&mut self, active: bool) {
@@ -216,6 +221,7 @@ impl ConnectionBridge {
                 let integrations = self.integrations.clone();
                 let links = self.links.clone();
                 let scrollback = self.scrollback.clone();
+                let picks = self.picks.clone();
                 // Drain ordered events even while GPUI is busy; retain only coherent state.
                 spawn(Box::new(move || {
                     while let Ok(event) = client.events.recv() {
@@ -234,6 +240,10 @@ impl ConnectionBridge {
                         });
                         let event = event.and_then(|event| match links.lock() {
                             Ok(mut links) => links.apply(event),
+                            Err(_) => Some(event),
+                        });
+                        let event = event.and_then(|event| match picks.lock() {
+                            Ok(mut picks) => picks.apply(event),
                             Err(_) => Some(event),
                         });
                         if let Ok(mut state) = inbox.lock() {
