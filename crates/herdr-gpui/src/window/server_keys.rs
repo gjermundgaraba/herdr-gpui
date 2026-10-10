@@ -3,6 +3,11 @@
 //! then follows the selected endpoint: that host's published `[keys]` profile,
 //! with this GUI's own `[keybindings]` still layered on top. Everything else,
 //! themes and sidebar included, stays local by upstream design.
+//!
+//! The actions the client performs itself are the exception within the
+//! profile: the navigators, Back and Forward, and the unread hold keep the
+//! bindings of this machine's own `[keys]` table, as in the Herdr fork, so
+//! they answer the same keys whichever host is selected.
 
 use super::HerdrWindow;
 use crate::{
@@ -21,6 +26,8 @@ pub(crate) struct ServerKeymap {
     profile: Option<String>,
     overrides: BTreeMap<String, Binding>,
     pane_keys: PaneKeys,
+    /// This machine's `[keys]`, for the client's own actions.
+    local: DaemonKeys,
     /// An error leaves the window on its local keymap, as Herdr keeps the
     /// bindings it had when a profile cannot be applied.
     keymap: Result<Keymap>,
@@ -32,9 +39,11 @@ impl ServerKeymap {
         profile: Option<&str>,
         overrides: &BTreeMap<String, Binding>,
         pane_keys: &PaneKeys,
+        local: &DaemonKeys,
     ) -> Self {
-        let keymap = DaemonKeys::from_profile(profile)
-            .and_then(|keys| Keymap::with_overrides(overrides, pane_keys, &keys));
+        let keymap = DaemonKeys::from_profile(profile).and_then(|keys| {
+            Keymap::with_overrides(overrides, pane_keys, &keys.with_client_actions(local))
+        });
         if let Err(error) = &keymap {
             tracing::warn!(endpoint, %error, "Using local keybindings for this device");
         }
@@ -43,6 +52,7 @@ impl ServerKeymap {
             profile: profile.map(str::to_owned),
             overrides: overrides.clone(),
             pane_keys: pane_keys.clone(),
+            local: local.clone(),
             keymap,
         }
     }
@@ -53,11 +63,13 @@ impl ServerKeymap {
         profile: Option<&str>,
         overrides: &BTreeMap<String, Binding>,
         pane_keys: &PaneKeys,
+        local: &DaemonKeys,
     ) -> bool {
         self.endpoint == endpoint
             && self.profile.as_deref() == profile
             && self.overrides == *overrides
             && self.pane_keys == *pane_keys
+            && self.local == *local
     }
 }
 
@@ -97,22 +109,24 @@ impl HerdrWindow {
     pub(crate) fn sync_server_keymap(&mut self, cx: &mut Context<Self>) {
         let endpoint = &self.endpoints[self.selected_endpoint].id;
         let wanted = self.config.keybinding_source(endpoint) == KeybindingSource::Server;
-        let next =
-            match (wanted, &self.live.snapshot) {
-                (true, Some(snapshot)) => {
-                    let profile = snapshot.server_keybindings_toml.as_deref();
-                    let overrides = &self.config.keybinding_overrides;
-                    let pane_keys = &self.config.pane_keys;
-                    if self.server_keys.as_ref().is_some_and(|keys| {
-                        keys.built_from(endpoint, profile, overrides, pane_keys)
-                    }) {
-                        return;
-                    }
-                    Some(ServerKeymap::build(endpoint, profile, overrides, pane_keys))
+        let next = match (wanted, &self.live.snapshot) {
+            (true, Some(snapshot)) => {
+                let profile = snapshot.server_keybindings_toml.as_deref();
+                let overrides = &self.config.keybinding_overrides;
+                let pane_keys = &self.config.pane_keys;
+                let local = &self.config.daemon_keys;
+                if self.server_keys.as_ref().is_some_and(|keys| {
+                    keys.built_from(endpoint, profile, overrides, pane_keys, local)
+                }) {
+                    return;
                 }
-                _ if self.server_keys.is_none() => return,
-                _ => None,
-            };
+                Some(ServerKeymap::build(
+                    endpoint, profile, overrides, pane_keys, local,
+                ))
+            }
+            _ if self.server_keys.is_none() => return,
+            _ => None,
+        };
         let before = self.server_keymap().cloned();
         self.server_keys = next;
         if self.server_keymap() == before.as_ref() {

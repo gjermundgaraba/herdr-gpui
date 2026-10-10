@@ -11,6 +11,7 @@ pub(crate) mod backdrop;
 mod bitmap_fonts;
 mod boat;
 mod coder;
+mod color_fonts;
 mod daytona;
 mod devices;
 mod edit;
@@ -42,6 +43,7 @@ pub(crate) use boat::BoatFields;
 pub use coder::CoderConfig;
 #[cfg(feature = "coder")]
 pub(crate) use coder::CoderFields;
+pub(crate) use color_fonts::ColorGlyphs;
 pub use daytona::DaytonaConfig;
 #[cfg(feature = "daytona")]
 pub(crate) use daytona::DaytonaFields;
@@ -117,6 +119,9 @@ pub struct Config {
     pub clipboard_toast: ClipboardToast,
     pub code: CodeConfig,
     pub coder: CoderConfig,
+    /// The codepoints the terminal's cascade takes from a color font, which
+    /// the painter draws in their own colors rather than in the text color.
+    pub(crate) color_glyphs: ColorGlyphs,
     pub confirm_close_pane: bool,
     pub confirm_close_tab: bool,
     /// Whether a workspace close shows its dialog when the check finds no
@@ -124,6 +129,10 @@ pub struct Config {
     pub confirm_close_workspace: bool,
     /// How far the app's own marks and labels stand off its chrome.
     pub contrast: Contrast,
+    /// The local daemon's `[keys]` table `keybindings` was built from. A
+    /// device's server keys still take this machine's bindings for the
+    /// actions the client performs itself.
+    pub(crate) daemon_keys: DaemonKeys,
     pub daytona: DaytonaConfig,
     /// Per saved device, by catalog profile ID.
     pub(crate) devices: BTreeMap<String, DeviceSettings>,
@@ -396,10 +405,12 @@ impl Default for Config {
             clipboard_toast: ClipboardToast::default(),
             code: CodeConfig::default(),
             coder: CoderConfig::default(),
+            color_glyphs: ColorGlyphs::default(),
             confirm_close_pane: true,
             confirm_close_tab: true,
             confirm_close_workspace: true,
             contrast: Contrast::default(),
+            daemon_keys: DaemonKeys::default(),
             daytona: DaytonaConfig::default(),
             devices: BTreeMap::new(),
             editor_command: None,
@@ -845,6 +856,7 @@ impl Config {
             Keymap::with_overrides(&settings.keybindings, &settings.pane_keys, &base.keys)?;
         config.keybinding_overrides = settings.keybindings;
         config.pane_keys = settings.pane_keys;
+        config.daemon_keys = base.keys.clone();
         if settings.devices.len() > MAX_DEVICES {
             return Err(Error::TooManyDevices(MAX_DEVICES));
         }
