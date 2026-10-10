@@ -48,8 +48,11 @@ same license: `pinned_sections`, `ClientShellPinnedSection`, and the agent's
 `src/api/schema/clients.rs` (the client report, the client record, the jump
 parameters and outcome) and `src/protocol/endpoint.rs` (the
 `endpoint.client-jump.v1` control). JSON field names and order, optional
-fields, serde defaults, the outcome tag, and the report limits are unchanged;
-the `schemars` derives and the daemon's report validation are not retained.
+fields, serde defaults, the outcome tag, and the report limits are unchanged,
+and `ClientReport::normalize` is that file's report validation, kept so a
+client holds its report to the limits before sending; the `schemars` derives
+are not retained. `MAX_ENDPOINT_COMMAND_BYTES` is the limit of the same name
+in its `src/server/client_commands.rs`.
 `tests/fixtures/endpoint-{snapshot-shared,client-report,client-jump,client-jump-resolve,agent-mark-unread}-v1.json`
 and `tests/fixtures/api-client-{list,changed,jump}-v1.json` are verbatim copies
 of that fork's `tests/fixtures/` files. The snapshot fixture is the one from

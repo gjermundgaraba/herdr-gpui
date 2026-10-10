@@ -11,6 +11,7 @@ use herdr_client::protocol::{
 };
 use std::sync::Arc;
 
+mod client_report;
 mod plugin_picks;
 mod titlebar_navigation;
 
