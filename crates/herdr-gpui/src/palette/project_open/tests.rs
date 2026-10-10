@@ -327,7 +327,7 @@ fn a_created_project_under_a_symlinked_root_reuses_its_workspace(cx: &mut TestAp
         assert!(view.menu.palette.is_none());
         assert_eq!(
             view.pending_navigation,
-            Some(NavigationTarget::Workspace("w1".into()))
+            Some(NavigationTarget::Workspace("w1".into()).into())
         );
     });
 }

@@ -258,7 +258,7 @@ mod flow {
                 assert!(view.live.editor_response.is_none());
                 assert_eq!(
                     view.pending_navigation,
-                    Some(NavigationTarget::Pane("w1:p7".into()))
+                    Some(NavigationTarget::Pane("w1:p7".into()).into())
                 );
             })
         });

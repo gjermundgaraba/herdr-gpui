@@ -84,7 +84,7 @@ fn the_notes_filter_lists_open_noted_checkouts_and_goes_to_them(cx: &mut TestApp
         // The host has no connection yet, so navigation waits for it.
         assert_eq!(
             view.pending_navigation,
-            Some(NavigationTarget::Workspace("w1".into()))
+            Some(NavigationTarget::Workspace("w1".into()).into())
         );
     });
 }

@@ -498,7 +498,7 @@ impl HerdrWindow {
         self.poll_picker(window, cx);
         // After the same settling: the report goes out on one connection, and
         // says what every host shows after this tick's updates.
-        self.sync_client_contract();
+        self.tick_client_contract(std::time::Instant::now(), cx);
         // After polling: a connection that just got its first snapshot, or a
         // reconnect, is told the theme without waiting for it to change.
         self.sync_host_theme();

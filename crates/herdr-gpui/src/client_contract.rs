@@ -1,13 +1,13 @@
 //! The client contract's traffic: this window's `client.report` to the local
-//! daemon.
+//! daemon, and the jumps daemons forward to it.
 //!
 //! The Herdr fork's daemon computes what its clients must agree on, and each
 //! client tells its local daemon what its Agents list shows so tools can read
 //! it (`docs/next/website/src/content/docs/client-contract.md` in that fork).
-//! [`report`] decides what to say and [`Inbox`] holds what a connection
-//! answered; this module only says it, at most once per window tick and never
-//! from a render. It mirrors `src/client/client_contract.rs` in the Herdr
-//! fork.
+//! [`report`] decides what to say, [`jump`] where a jump leads and how it
+//! ended, and [`Inbox`] holds what a connection sent and answered; this
+//! module only says it, at most once per window tick and never from a render.
+//! It mirrors `src/client/client_contract.rs` in the Herdr fork.
 //!
 //! # Which connection reports
 //!
@@ -24,18 +24,22 @@
 //!
 //! # Not on its own lane
 //!
-//! The daemon takes a report without the command lease. This client still
-//! queues it with its other requests, because its connection worker holds one
-//! request at a time and correlates every answer; a report can therefore wait
-//! behind a slow command, and is then the latest one, not a backlog.
+//! The daemon takes a report or a jump's answer without the command lease.
+//! This client still queues them with its other requests, because its
+//! connection worker holds one request at a time and correlates every
+//! answer; a report can therefore wait behind a slow command, and is then
+//! the latest one, not a backlog.
 
+mod follow;
 mod inbox;
+pub(crate) mod jump;
 pub(crate) mod report;
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests;
 
-pub(crate) use inbox::Inbox;
+pub(crate) use follow::Purpose;
+pub(crate) use inbox::{Answer, Inbox, Refusal};
 
 use crate::{HerdrWindow, connection::ConnectionBridge};
 use herdr_client::{
@@ -45,6 +49,7 @@ use herdr_client::{
 use std::{
     hash::{Hash, Hasher},
     sync::{Arc, Mutex, Weak},
+    time::Instant,
 };
 
 /// The report the local daemon holds for this window.
@@ -61,13 +66,32 @@ struct SentReport {
 #[derive(Default)]
 pub(crate) struct ClientContract {
     sent: Option<SentReport>,
+    pub(crate) follows: follow::Follows,
+    jumps: jump::Jumps,
 }
 
 impl HerdrWindow {
-    /// The report for what the window shows now.
-    pub(crate) fn client_report(&self) -> Result<ClientReport, ClientReportError> {
-        let hosts: Vec<_> = self
-            .endpoints
+    /// One window tick of the contract: what the hosts answered, the jumps
+    /// they forwarded, then the report, which so reflects where a jump led.
+    pub(crate) fn tick_client_contract(&mut self, now: Instant, cx: &mut gpui::Context<Self>) {
+        for (purpose, answer) in self.take_followed_answers() {
+            match (purpose, answer) {
+                (Purpose::Jump(key), Err(refusal)) => {
+                    self.client_contract.jumps.refused(key, refusal);
+                }
+                // An accepted focus request proves nothing yet: the jump is
+                // answered by the snapshot that shows its pane focused.
+                (Purpose::Jump(_), Ok(())) => {}
+            }
+        }
+        self.settle_client_jumps(now, cx);
+        self.sync_client_contract();
+    }
+
+    /// Every host as the contract sees it: the id and status its report
+    /// lists, and the snapshot the window retains for it.
+    fn contract_hosts(&self) -> Vec<report::Host<'_>> {
+        self.endpoints
             .iter()
             .enumerate()
             .map(|(index, endpoint)| report::Host {
@@ -76,9 +100,13 @@ impl HerdrWindow {
                 status: endpoint.availability().into(),
                 snapshot: self.host_live(index).snapshot.as_deref(),
             })
-            .collect();
+            .collect()
+    }
+
+    /// The report for what the window shows now.
+    pub(crate) fn client_report(&self) -> Result<ClientReport, ClientReportError> {
         report::build(
-            &hosts,
+            &self.contract_hosts(),
             self.selected_endpoint,
             Some(self.active),
             self.panel_agents(),
