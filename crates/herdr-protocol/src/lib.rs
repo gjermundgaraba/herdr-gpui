@@ -1,5 +1,6 @@
 //! Stable gen1 wire model with no terminal or server runtime dependencies.
 #![doc = include_str!("../README.md")]
+pub mod clients;
 pub mod endpoint;
 pub mod pick;
 pub mod surface_delta;

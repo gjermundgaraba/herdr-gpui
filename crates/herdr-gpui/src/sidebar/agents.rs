@@ -628,6 +628,8 @@ mod tests {
                 .collect(),
             tokens: Vec::new(),
             focused: false,
+            priority_key: String::new(),
+            priority_mark: None,
         };
         let labels = [("working", "deep in the mines"), ("blocked", "  ")];
         for (status, fallback, expected) in [
