@@ -227,13 +227,14 @@ fn the_agents_header_toggles_between_grouped_and_priority(cx: &mut gpui::TestApp
         SidebarFixture(view)
     });
     let view = cx.update(|_, cx| fixture.read(cx).0.clone());
-    // The second agent wants attention; only priority floats it to the top.
+    // The daemon ranks the second agent first; only priority floats it to
+    // the top.
     cx.update(|_, cx| {
         view.update(cx, |view, _| {
             let snapshot = Arc::make_mut(view.live.snapshot.as_mut().unwrap());
-            snapshot.agents[0].state_change_seq = 9;
+            snapshot.agents[0].priority_key = "1.2.fffffffffffffff6".into();
             snapshot.agents[1].agent_status = AgentStatus::Blocked;
-            snapshot.agents[1].state_change_seq = 1;
+            snapshot.agents[1].priority_key = "1.0.0000000000000001".into();
         })
     });
     cx.simulate_resize(size(px(800.), px(600.)));
