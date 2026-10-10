@@ -58,6 +58,8 @@ pub(crate) enum Page {
     Pane,
     /// The processes under the pane menu's pane.
     PaneProcesses,
+    /// The window's picker: a filterable list answered with one choice.
+    Picker,
     PrComment,
     /// Choosing a merge method, and confirming it.
     PrMerge,

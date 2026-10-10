@@ -34,6 +34,7 @@ mod health;
 mod host_theme_order;
 mod host_themes;
 mod liveness;
+mod picks;
 mod remote_transport;
 mod session_state;
 mod surface_encoding;

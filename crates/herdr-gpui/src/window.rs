@@ -230,6 +230,8 @@ pub(crate) struct HerdrWindow {
     pub(crate) pending_releases: Vec<endpoint::Release>,
     pub(crate) pending_resize: Option<(ConnectOptions, std::time::Instant)>,
     pub(crate) pending_toast: Option<u64>,
+    /// The picker on the menu's picker page, and whoever waits on its answer.
+    pub(crate) picker: Option<crate::picker::Picker>,
     /// Remote ports forwarded to this machine; they end with the window.
     pub(crate) port_forwards: crate::port_forward::PortForwards,
     /// Comment, merge, and review reads for the focused branch's open PR.
@@ -524,6 +526,9 @@ impl HerdrWindow {
             self.redraw_terminal(cx);
         }
         self.reconcile_group_terminals(cx);
+        // After every connection was polled and settled into its slot: a
+        // picker is answered on the connection that asked for it.
+        self.poll_picker(window, cx);
         // After polling: a connection that just got its first snapshot, or a
         // reconnect, is told the theme without waiting for it to change.
         self.sync_host_theme();

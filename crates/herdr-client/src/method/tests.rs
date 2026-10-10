@@ -133,6 +133,8 @@ const OFFERED: &[&str] = &[
     "tab.focus",
     "tab.move",
     "tab.rename",
+    // Offered by the gjermundgaraba/herdr fork, which adds `ui.pick`.
+    "ui.pick.resolve",
     "workspace.close",
     "workspace.create",
     "workspace.focus",

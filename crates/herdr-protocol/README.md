@@ -44,6 +44,16 @@ Reconstruction is fenced on boot ID, base projection/surface revision, and the
 next surface revision; the result still goes through `FrameData::validate`.
 Failures are typed (`ScrollBounds`, `DeltaSpan`, `SurfaceBaseline`, ...).
 
+## Pickers
+
+`pick` holds the JSON shapes of a plugin's `ui.pick`, from the
+`gjermundgaraba/herdr` fork: the `PICK_OPEN_KIND` and `PICK_CLOSE_KIND`
+controls (`EndpointPickOpen`, `EndpointPickClose`), an item, the create row,
+and the outcome and parameters of the `ui.pick.resolve` answer. `decode_open`
+and `decode_close` return `Error::PickPayload` with the `serde_json` source.
+Unknown fields are ignored and the optional ones default, as generation 1
+grows by optional fields.
+
 ## Clipboard Images
 
 `encode_clipboard_image(target: ClientClipboardImageTarget, extension: &str,

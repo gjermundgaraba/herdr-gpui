@@ -4,7 +4,11 @@
 use crate::{
     Error, Result, VersionMismatch,
     limits::POLL,
-    protocol::{endpoint::EndpointServerWelcome, *},
+    protocol::{
+        endpoint::EndpointServerWelcome,
+        pick::{EndpointPickClose, EndpointPickOpen},
+        *,
+    },
     surface_images::SurfaceImages,
 };
 use crossbeam_channel::{SendTimeoutError, Sender};
@@ -33,6 +37,13 @@ pub enum ClientEvent {
         request_id: Option<String>,
         reason: Error,
     },
+    /// The daemon asks this client to show a `ui.pick` picker. It holds the
+    /// plugin's request open until this connection answers with
+    /// `ui.pick.resolve`, the picker is closed, or the connection ends.
+    PickOpen(EndpointPickOpen),
+    /// The picker with this id ended without this client's answer; nothing
+    /// is owed for it any more.
+    PickClose(EndpointPickClose),
     /// Notifications, clipboard, title, bell, and other non-surface wire events.
     Message(ServerMessage),
     /// The handshake was refused because one side must be updated. Sent
