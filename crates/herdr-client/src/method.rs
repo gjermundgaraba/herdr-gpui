@@ -33,6 +33,9 @@ macro_rules! methods {
 
 methods! {
     // keep-sorted start
+    AgentMarkUnread => "agent.mark_unread",
+    ClientJumpResolve => "client.jump.resolve",
+    ClientReport => "client.report",
     ClientShellSurfaceSet => "client_shell.surface.set",
     CommandInvoke => "command.invoke",
     IntegrationInstall => "integration.install",
