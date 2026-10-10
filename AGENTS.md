@@ -1,5 +1,7 @@
 # AGENTS.md
 
+This checkout is a personal fork, not `penso/herdr-gpui`. Before any work, read @FORK.md and, if present, @FORK.local.md.
+
 Engineering guidance for agents working in this repository. Read this alongside
 `README.md`, the relevant crate documentation, and the code before making changes.
 
