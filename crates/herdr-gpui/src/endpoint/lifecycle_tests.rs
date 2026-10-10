@@ -36,6 +36,7 @@ mod input_settings;
 mod install_prompt;
 mod keyboard;
 mod link_clicks;
+mod mark_unread;
 mod mouse_cell_motion;
 mod mouse_frame_gap;
 mod mouse_gestures;
@@ -241,6 +242,7 @@ fn connected_endpoint(id: &str) -> (Endpoint, Server) {
             Method::WorktreeOpen,
             Method::WorktreeRemove,
             Method::UiPickResolve,
+            Method::AgentMarkUnread,
         ]
         .map(|method| method.as_str().to_owned()),
     );

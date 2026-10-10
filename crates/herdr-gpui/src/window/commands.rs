@@ -502,6 +502,11 @@ impl HerdrWindow {
                 self.open_focused_workspace_dialog(action, window, cx);
                 return;
             }
+            Command::MarkUnread => {
+                self.mark_focused_agent_unread();
+                cx.notify();
+                return;
+            }
             // As Herdr's binding does: the daemon rereads its file, and this
             // client its own, which holds the daemon's `[keys]` too.
             Command::ReloadConfig => {
@@ -572,6 +577,32 @@ impl HerdrWindow {
         }
         window.focus(&self.focus, cx);
         cx.notify();
+    }
+
+    /// Asks the daemon to hold the focused agent's acknowledged completion
+    /// (`agent.mark_unread`), on the connection of the host that owns the
+    /// pane: the selected one, which is the client presenting it. The daemon
+    /// keeps the hold, so no record of it lives here. The badge returns with a
+    /// later snapshot's `agent_status`, and a refusal such as `agent_not_idle`
+    /// comes back as the request's error, shown like any other daemon error.
+    ///
+    /// Counterpart of `mark_focused_pane_unread` in the Herdr fork's
+    /// `src/client/shell/endpoints.rs`.
+    fn mark_focused_agent_unread(&mut self) {
+        let (Some(handle), Some(snapshot)) = (
+            &self.endpoints[self.selected_endpoint].connection.handle,
+            &self.live.snapshot,
+        ) else {
+            return;
+        };
+        let Some((method, params)) = controls::mark_unread(snapshot) else {
+            self.local_error = Some("Mark Agent Unread: no pane is focused.".into());
+            return;
+        };
+        self.local_error = handle
+            .request(&snapshot.boot_id, method, params)
+            .err()
+            .map(|error| format!("Mark Agent Unread: {error}"));
     }
 
     /// Focuses the workspace or agent a sidebar step lands on, selecting its

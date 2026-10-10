@@ -52,8 +52,8 @@ fields, serde defaults, the outcome tag, and the report limits are unchanged;
 the `schemars` derives and the daemon's report validation are not retained.
 `tests/fixtures/endpoint-{snapshot-shared,client-report,client-jump,client-jump-resolve,agent-mark-unread}-v1.json`
 and `tests/fixtures/api-client-{list,changed,jump}-v1.json` are verbatim copies
-of that fork's `tests/fixtures/` files. The snapshot fixture is the fork's
-working copy on top of that commit, which no longer carries `plugin_entries`.
+of that fork's `tests/fixtures/` files. The snapshot fixture is the one from
+its commit `86d9716b`, which no longer carries `plugin_entries`.
 
 The client discovery rules also adapt `src/server/socket_paths.rs`,
 `src/session.rs`, and `src/config/io.rs` from the same source/license.

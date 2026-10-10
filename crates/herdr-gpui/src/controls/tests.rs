@@ -1,5 +1,7 @@
 use super::*;
 
+mod mark_unread;
+
 fn snapshot() -> ClientShellSnapshot {
     serde_json::from_str(include_str!(
         "../../../herdr-protocol/tests/fixtures/endpoint-snapshot-v1.json"
@@ -83,6 +85,7 @@ fn catalog_has_all_native_commands_and_gpui_shortcuts() {
         (TabNumber(9), &["cmd-9"]),
         (PreviousAgent, &[]),
         (NextAgent, &[]),
+        (MarkUnread, &[]),
         (AgentNumber(1), &[]),
         (AgentNumber(2), &[]),
         (AgentNumber(3), &[]),
