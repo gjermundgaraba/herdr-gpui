@@ -12,7 +12,7 @@ use crate::{
         agents::status_mark,
         cell::RowContext,
         glyph_width, line_height,
-        tokens::{ResolvedToken, TextRole, TokenKind, budgets, separator},
+        tokens::{Placed, ResolvedToken, TextRole, TokenKind, place},
     },
 };
 use gpui::{prelude::*, *};
@@ -86,31 +86,22 @@ fn token_line(row: &[ResolvedToken], look: TokenLook, width: f32, cx: &RowContex
     let status = look.status;
     let (font, theme) = (cx.font, cx.theme);
     let glyph = glyph_width(font);
-    let budgets = budgets(
+    let visible = place(
         row,
         |kind| fixed_glyphs(kind, glyph, cx.indicators.width(font)),
         (width / glyph).floor() as usize,
     );
-    let visible: Vec<_> = row
+    let used = visible
         .iter()
-        .zip(budgets)
-        .filter_map(|(token, width)| Some((token, width?)))
-        .collect();
-    let used = visible.iter().map(|(_, width)| width).sum::<usize>()
-        + visible
-            .windows(2)
-            .map(|pair| separator(pair[0].0, pair[1].0).chars().count())
-            .sum::<usize>();
+        .map(|placed| placed.budget + placed.gap.width())
+        .sum::<usize>();
     let slack = (width - used as f32 * glyph).max(0.);
     let last_text = visible
         .iter()
-        .rposition(|(token, _)| token.kind.text().is_some());
-    let parts = visible.iter().enumerate().map(|(index, (token, budget))| {
-        let gap = if index == 0 {
-            ""
-        } else {
-            separator(visible[index - 1].0, token)
-        };
+        .rposition(|placed| placed.token.kind.text().is_some());
+    let parts = visible.iter().enumerate().map(|(index, placed)| {
+        let Placed { token, gap, budget } = placed;
+        let gap = *gap;
         let advance = *budget as f32 * glyph + if last_text == Some(index) { slack } else { 0. };
         let (color, weight) = styled(token_appearance(&token.kind, look, cx), token.style, theme);
         let cell = div();
