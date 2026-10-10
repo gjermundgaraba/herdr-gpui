@@ -527,6 +527,15 @@ impl Session {
                     Err(_) => tracing::warn!(category = "pick_close", "malformed control ignored"),
                 }
             }
+            // A jump is optional too, and its payload is a tool's: one this
+            // client cannot read is dropped the same way. The daemon stops
+            // waiting for its answer on its own.
+            ServerMessage::EndpointControl { kind, data } if kind == clients::CLIENT_JUMP_KIND => {
+                match clients::decode_jump(&data) {
+                    Ok(jump) => emit(ClientEvent::ClientJump(jump))?,
+                    Err(_) => tracing::warn!(category = "client_jump", "malformed control ignored"),
+                }
+            }
             ServerMessage::EndpointControl { .. } => {} // Unknown optional named controls are ignored.
             ServerMessage::PaneSurface(next) => {
                 accept_surface(next, snapshot.as_deref(), surface, images, &mut emit)?;

@@ -9,7 +9,7 @@ use herdr_client::protocol::{ClientMessage, ClientPaneInputEvent};
 use serde_json::{Value, json};
 
 /// The boot of the snapshot every mock peer sends its client.
-const BOOT: &str = "boot-v1";
+pub(super) const BOOT: &str = "boot-v1";
 const REPORT: &str = "client.report";
 
 /// Puts host `index` on a connection to `peer`, as its reader would have
@@ -72,7 +72,7 @@ fn turn(view: &Entity<HerdrWindow>, cx: &mut VisualTestContext) {
 /// The lane requests `peer` was sent since the last call, as `(boot id,
 /// request)`. A sentinel typed straight into the connection marks the end,
 /// so "nothing" is a positive observation and not a timeout.
-fn received(peer: &mut MockPeer) -> Vec<(String, Value)> {
+pub(super) fn received(peer: &mut MockPeer) -> Vec<(String, Value)> {
     ConnectionBridge::send_input(
         &peer.client.handle,
         BOOT,
@@ -96,7 +96,7 @@ fn received(peer: &mut MockPeer) -> Vec<(String, Value)> {
 
 /// Answers `request` on `peer` with `body` and hands the answer to host
 /// `index`'s mailboxes, as that connection's reader does.
-fn answer(
+pub(super) fn answer(
     peer: &mut MockPeer,
     view: &Entity<HerdrWindow>,
     index: usize,

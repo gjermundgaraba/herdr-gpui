@@ -53,7 +53,7 @@ fn a_query_swaps_the_spaces_list_for_results_and_enter_opens_one(cx: &mut gpui::
         let view = view.read(cx);
         assert_eq!(
             view.pending_navigation,
-            Some(crate::NavigationTarget::Workspace("w5".into()))
+            Some(crate::NavigationTarget::Workspace("w5".into()).into())
         );
         // Opening a result clears the search and hands the keyboard back.
         assert!(view.sidebar_search.query().is_none());
