@@ -3557,7 +3557,36 @@ Ctrl+Shift+U is left unbound for
   any other daemon error. This client keeps no unread record of its own and
   shows no confirmation: the badge comes only from the snapshot. The command
   is also in the palette as **Mark Agent Unread** and can be bound under
-  `[keybindings]` as `mark_unread`. The daemon's
+  `[keybindings]` as `mark_unread`. `agent_picker` and `workspace_list`, also
+  the fork's and unset by default (`agent_picker = "prefix+a"`,
+  `workspace_list = "prefix+shift+l"`), open that client's two navigators as
+  modes of this window's picker; Go To is unchanged beside them. The agent
+  picker is a flat list of every agent on every enabled host, in the Agents
+  panel's `priority` order whatever the panel's own sort or the device filter
+  shows, with the top row selected, the agent's status, and the daemon's
+  `priority_mark` before the label; another host's agents carry its name. The
+  keyboard starts on the rows: `j`/`k` or Up/Down move, Ctrl-D/Ctrl-U move
+  eight rows, Home and End or `G` go to either end, `/` moves to the search,
+  and Enter opens the row with the same cross-host navigation as a click on
+  it. `b`, `w`, `i`, and `d` narrow the list to blocked, working, idle, or
+  done agents and drop the search, Backspace drops that filter, and `a` drops
+  both; a search starts from every status again. The workspace list shows
+  workspaces alone, under a row per host when there are several, with the
+  search focused and the focused workspace selected: typing searches, every
+  word in any order, through host, workspace, branch, tab, pane label,
+  directory, agent, and pane id, and matching panes appear under their
+  workspaces while a search or a status filter is active. In the search, Up
+  and Down or Ctrl-N and Ctrl-P move and every other key is text; Escape
+  leaves the search for the rows, where Left and Right step between the
+  workspaces that list panes, and a second Escape closes. Rows follow the
+  hosts while a navigator is open. A host that is not online keeps its
+  last-known rows, dimmed; Enter on one of another host's says
+  `<host> is not ready` and leaves the navigator open. Both are in the palette
+  as **Agent Picker** and **Workspace List** and can be bound under
+  `[keybindings]`. Unlike the terminal client, a row shows no second line
+  with its workspace, tab, and pane id, the focused pane is not marked, and
+  the navigator's tree layout (the fork's `prefix+g` list) is not offered:
+  Go To covers it. The daemon's
   `[[keys.command]]` shortcuts, prefix chords or direct keys, run their
   command through `command.invoke` on the focused pane, and the palette lists
   them with these keys; like Herdr, a keystroke one of its actions already

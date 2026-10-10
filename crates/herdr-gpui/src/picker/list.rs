@@ -10,6 +10,7 @@
 
 use crate::notifications::safe_text;
 use gpui::SharedString;
+use herdr_client::protocol::AgentStatus;
 
 /// Characters of a label or detail a row shows. The text is a peer's; what a
 /// row cannot show is not shaped either. The whole text is still searched.
@@ -27,6 +28,12 @@ pub(crate) struct Item {
     pub(crate) detail: SharedString,
     /// Short marker before the label; empty when there is none.
     pub(crate) badge: SharedString,
+    /// Steps the row is indented by, for a list that nests its rows.
+    pub(crate) indent: u8,
+    /// The agent status drawn before the label, for a row that is an agent.
+    pub(crate) status: Option<AgentStatus>,
+    /// Drawn muted: the row shows something that may no longer be so.
+    pub(crate) dimmed: bool,
     /// The label and detail as given, lowercased once: what a query searches.
     haystack: String,
     /// The label, trimmed and lowercased: what a query must equal to name
@@ -44,6 +51,9 @@ impl Item {
                 .trim()
                 .to_owned()
                 .into(),
+            indent: 0,
+            status: None,
+            dimmed: false,
             haystack: format!("{label} {}", detail.unwrap_or_default()).to_lowercase(),
             name: label.trim().to_lowercase(),
         }
@@ -75,8 +85,8 @@ pub(crate) struct List {
     query: String,
     /// The rows `query` leaves, recomputed only when it changes.
     rows: Vec<Row>,
-    /// Index into `rows`.
-    selected: usize,
+    /// Index into `rows`; `None` once the row a list followed is gone.
+    selected: Option<usize>,
 }
 
 impl List {
@@ -88,16 +98,18 @@ impl List {
             create: create.map(|label| safe_text(label, SHOWN_CHARS).into()),
             query: String::new(),
             rows: Vec::new(),
-            selected: 0,
+            selected: Some(0),
         };
         list.rows = list.matching();
-        list.selected = selected
-            .and_then(|id| {
-                list.rows
-                    .iter()
-                    .position(|row| matches!(row, Row::Item(index) if list.items[*index].id == id))
-            })
-            .unwrap_or(0);
+        list.selected = Some(
+            selected
+                .and_then(|id| {
+                    list.rows.iter().position(
+                        |row| matches!(row, Row::Item(index) if list.items[*index].id == id),
+                    )
+                })
+                .unwrap_or(0),
+        );
         list
     }
 
@@ -127,7 +139,7 @@ impl List {
         }
         self.query = query.to_owned();
         self.rows = self.matching();
-        self.selected = 0;
+        self.selected = Some(0);
         true
     }
 
@@ -143,18 +155,34 @@ impl List {
         self.items.get(index)
     }
 
-    pub(crate) fn selected(&self) -> usize {
+    /// The selected row, if any is.
+    pub(crate) fn selected(&self) -> Option<usize> {
         self.selected
     }
 
-    /// Moves the selection by `delta` rows, stopping at either end.
-    /// Returns whether it moved.
+    /// Moves the selection by `delta` rows, stopping at either end. With
+    /// nothing selected, any step selects the first row. Returns whether the
+    /// selection changed.
     pub(crate) fn step(&mut self, delta: isize) -> bool {
-        let last = self.rows.len().saturating_sub(1);
-        let next = self.selected.saturating_add_signed(delta).min(last);
-        let moved = next != self.selected;
-        self.selected = next;
+        if self.rows.is_empty() {
+            return false;
+        }
+        let last = self.rows.len() - 1;
+        let next = self.selected.map_or(0, |selected| {
+            selected.saturating_add_signed(delta).min(last)
+        });
+        let moved = self.selected != Some(next);
+        self.selected = Some(next);
         moved
+    }
+
+    /// The selected row's item, by its index; `None` on the create row, an
+    /// empty list, or with nothing selected.
+    pub(crate) fn selected_item(&self) -> Option<usize> {
+        match *self.rows.get(self.selected?)? {
+            Row::Item(index) => Some(index),
+            Row::Create => None,
+        }
     }
 
     /// Selects `row` when it exists, as pointing at it does.
@@ -162,8 +190,14 @@ impl List {
         if row >= self.rows.len() {
             return false;
         }
-        self.selected = row;
+        self.selected = Some(row);
         true
+    }
+
+    /// Selects nothing, as a list does whose selected row went away: Enter
+    /// then chooses nothing.
+    pub(crate) fn deselect(&mut self) {
+        self.selected = None;
     }
 
     /// The create row's label prefix.
@@ -176,9 +210,10 @@ impl List {
         self.query.trim()
     }
 
-    /// What Enter chooses: the selected row, or nothing when no row is left.
+    /// What Enter chooses: the selected row, or nothing when no row is left
+    /// or none is selected.
     pub(crate) fn choice(&self) -> Option<Choice> {
-        Some(match *self.rows.get(self.selected)? {
+        Some(match *self.rows.get(self.selected?)? {
             Row::Item(index) => Choice::Item(self.items.get(index)?.id.clone()),
             Row::Create => Choice::Create(self.create_text().to_owned()),
         })

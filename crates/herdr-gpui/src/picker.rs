@@ -3,17 +3,25 @@
 //!
 //! The list itself ([`list::List`]) knows nothing about who asked: it holds
 //! items with an id, label, detail and badge, the query, the selection, an
-//! optional "create" row, and the choice Enter makes. [`Source`] is the only
-//! thing that differs between the modes sharing this component: it says what
-//! opened the picker and so where its answer goes. Today that is a plugin's
-//! `ui.pick` ([`plugin`]); a mode fed by client-side data adds a variant and
-//! builds a `List` the same way.
+//! optional "create" row, and the choice Enter makes. [`Source`] says what
+//! opened the picker. A plugin's `ui.pick` ([`plugin`]) uses the list whole:
+//! its filter, keys, and choice, answered on the connection that asked. The
+//! agent picker and the workspace list ([`navigator`]) share the page, the
+//! filter field, the painting, and the list's selection and stepping, but
+//! build and filter their own rows from the hosts' snapshots, take their own
+//! keys and clicks, and open what is chosen in this window; their items carry
+//! no id.
 //!
 //! The picker is a menu page, so input isolation, focus, and what the page
 //! covers are the menu's. Its filter field is the palette's `SearchInput`, so
 //! text editing and composition behave as they do there.
+//!
+//! Mirrored client logic: the plugin picker's counterpart in the Herdr fork
+//! is `src/client/shell/picks.rs` with `src/client/shell/pick_overlay.rs`,
+//! and the navigators' is named in [`navigator`].
 
 mod list;
+pub(crate) mod navigator;
 pub(crate) mod plugin;
 mod render;
 #[cfg(test)]
@@ -41,6 +49,9 @@ pub(crate) struct Picker {
 pub(crate) enum Source {
     /// A plugin's `ui.pick`, answered on the connection that asked.
     Plugin(plugin::PluginPick),
+    /// The agent picker or the workspace list, which answer nobody: the
+    /// window opens the chosen row itself.
+    Navigator(Box<navigator::Navigator>),
 }
 
 impl HerdrWindow {
@@ -61,6 +72,9 @@ impl HerdrWindow {
         let search = cx.new(SearchInput::new);
         let subscription = cx.subscribe(&search, |this, search, _: &Changed, cx| {
             let query = search.read(cx).text().to_owned();
+            if this.navigator_query(&query, cx) {
+                return;
+            }
             if let Some(picker) = &mut this.picker
                 && picker.list.set_query(&query)
             {
@@ -74,7 +88,9 @@ impl HerdrWindow {
             window.focus(&input.focus, cx);
         });
         let scroll = UniformListScrollHandle::new();
-        scroll.scroll_to_item(list.selected(), ScrollStrategy::Center);
+        if let Some(row) = list.selected() {
+            scroll.scroll_to_item(row, ScrollStrategy::Center);
+        }
         self.picker = Some(Picker {
             title: crate::notifications::safe_text(title, render::TITLE_CHARS).into(),
             search,
@@ -90,6 +106,8 @@ impl HerdrWindow {
     fn answer_picker(&mut self, source: Source, choice: Option<Choice>) {
         match source {
             Source::Plugin(pick) => self.answer_plugin_pick(pick, plugin::outcome(choice)),
+            // Nobody waits on a navigator.
+            Source::Navigator(_) => {}
         }
     }
 
@@ -143,6 +161,7 @@ impl HerdrWindow {
             cx.notify();
         }
         self.poll_plugin_picks(window, cx);
+        self.refresh_navigator(cx);
         // A dismissal the menu refused leaves an answered picker's page up.
         if self.picker.is_none() && self.menu.page == Some(Page::Picker) {
             self.dismiss_menu(window, cx);
@@ -154,6 +173,9 @@ impl HerdrWindow {
         let Some(picker) = &mut self.picker else {
             return;
         };
+        if matches!(picker.source, Source::Navigator(_)) {
+            return self.choose_navigator_row(row, window, cx);
+        }
         if picker.list.select(row)
             && let Some(choice) = picker.list.choice()
         {
@@ -173,19 +195,15 @@ impl HerdrWindow {
         let Some(picker) = &mut self.picker else {
             return;
         };
+        if matches!(picker.source, Source::Navigator(_)) {
+            return self.navigator_key(event, window, cx);
+        }
         if picker.search.read(cx).is_composing() {
             return;
         }
         let modifiers = event.keystroke.modifiers;
         let control_only =
             modifiers.control && !modifiers.alt && !modifiers.shift && !modifiers.platform;
-        let step = match event.keystroke.key.as_str() {
-            "up" => Some(-1),
-            "down" => Some(1),
-            "p" if control_only => Some(-1),
-            "n" if control_only => Some(1),
-            _ => None,
-        };
         match event.keystroke.key.as_str() {
             "escape" => self.finish_picker(None, window, cx),
             // Enter on a list the query emptied chooses nothing and waits.
@@ -194,15 +212,21 @@ impl HerdrWindow {
                     self.finish_picker(Some(choice), window, cx);
                 }
             }
-            _ if step.is_some() => {
-                if picker.list.step(step.unwrap_or_default()) {
-                    picker
-                        .scroll
-                        .scroll_to_item(picker.list.selected(), ScrollStrategy::Nearest);
+            key => {
+                let step = match key {
+                    "up" => -1,
+                    "down" => 1,
+                    "p" if control_only => -1,
+                    "n" if control_only => 1,
+                    _ => return,
+                };
+                if picker.list.step(step)
+                    && let Some(row) = picker.list.selected()
+                {
+                    picker.scroll.scroll_to_item(row, ScrollStrategy::Nearest);
                     cx.notify();
                 }
             }
-            _ => return,
         }
         cx.stop_propagation();
         window.prevent_default();
