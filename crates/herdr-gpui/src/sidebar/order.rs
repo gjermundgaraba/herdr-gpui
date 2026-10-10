@@ -2,9 +2,10 @@
 //! next, and numbered shortcuts step through, as Herdr's TUI steps through
 //! its own sidebar: every listed host's rows, top to bottom.
 
-use super::{agents::panel_agents, visible_workspace_entries};
+use super::{agents::panel_agents, space_groups::workspace_rows};
 use crate::{HerdrWindow, controls::Command, state::LiveState};
 use herdr_client::protocol::{ClientShellAgent, ClientShellSnapshot};
+use std::collections::HashSet;
 
 /// A listed row: its host, by endpoint index, and the workspace or agent
 /// pane it shows.
@@ -33,21 +34,27 @@ impl HerdrWindow {
             .filter_map(|(index, live)| live.snapshot.as_deref().map(|snapshot| (index, snapshot)))
     }
 
+    /// What a host has folded away: its collapsed worktree repositories,
+    /// space groups, and pinned sections, each under its own kind of key.
+    pub(super) fn collapsed_for(&self, endpoint: usize) -> &HashSet<String> {
+        if endpoint == 0 {
+            &self.collapsed_repos
+        } else {
+            &self.endpoints[endpoint].collapsed_repos
+        }
+    }
+
     /// The workspace rows the sidebar shows: a folded group or host hides
-    /// its rows here too.
+    /// its rows here too, and a pinned section's mirrors are left out, so
+    /// each space is stepped to once.
     pub(crate) fn sidebar_workspaces(&self) -> Vec<Row<'_>> {
         let multi = self.endpoints.len() > 1;
         self.listed_hosts()
             .filter(|(index, _)| !(multi && self.endpoints[*index].collapsed))
             .flat_map(|(index, snapshot)| {
-                let collapsed = if index == 0 {
-                    &self.collapsed_repos
-                } else {
-                    &self.endpoints[index].collapsed_repos
-                };
-                visible_workspace_entries(&snapshot.workspaces, collapsed)
+                workspace_rows(snapshot, self.collapsed_for(index))
                     .into_iter()
-                    .map(move |(row, _, _)| (index, snapshot.workspaces[row].workspace_id.as_str()))
+                    .map(move |(row, _)| (index, snapshot.workspaces[row].workspace_id.as_str()))
             })
             .collect()
     }

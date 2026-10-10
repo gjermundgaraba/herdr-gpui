@@ -9,7 +9,8 @@ use super::{
     cell::RowState,
     label_text,
     layout::{self, SidebarLook},
-    line_height, visible_workspace_entries,
+    line_height,
+    space_groups::workspace_rows,
     workspaces::workspace_label,
 };
 use crate::{
@@ -208,15 +209,10 @@ impl HerdrWindow {
             let Some(snapshot) = &live.snapshot else {
                 continue;
             };
-            let collapsed_repos = if endpoint_index == 0 {
-                &self.collapsed_repos
-            } else {
-                &endpoint.collapsed_repos
-            };
             let host = multi.then_some(endpoint.label.as_str());
-            for (index, indented, _) in
-                visible_workspace_entries(&snapshot.workspaces, collapsed_repos)
-            {
+            // One mark per space the expanded list would show as its own
+            // row: group headers, dividers, and pinned mirrors have none.
+            for (index, indented) in workspace_rows(snapshot, self.collapsed_for(endpoint_index)) {
                 let workspace = &snapshot.workspaces[index];
                 let id = workspace.workspace_id.clone();
                 let key = format!("rail-workspace-{endpoint_id}-{id}");
