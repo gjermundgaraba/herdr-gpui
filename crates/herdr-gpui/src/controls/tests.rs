@@ -1,6 +1,7 @@
 use super::*;
 
 mod mark_unread;
+mod navigators;
 
 fn snapshot() -> ClientShellSnapshot {
     serde_json::from_str(include_str!(
@@ -86,6 +87,8 @@ fn catalog_has_all_native_commands_and_gpui_shortcuts() {
         (PreviousAgent, &[]),
         (NextAgent, &[]),
         (MarkUnread, &[]),
+        (AgentPicker, &[]),
+        (WorkspaceList, &[]),
         (AgentNumber(1), &[]),
         (AgentNumber(2), &[]),
         (AgentNumber(3), &[]),

@@ -111,6 +111,8 @@ pub enum Command {
     AgentNumber(u8),
     ReloadConfig,
     MarkUnread,
+    AgentPicker,
+    WorkspaceList,
 }
 
 pub struct CommandInfo {
@@ -485,6 +487,18 @@ pub const COMMANDS: &[CommandInfo] = &[
         command: Command::MarkUnread,
         name: "mark_unread",
         label: "Mark Agent Unread",
+    },
+    CommandInfo {
+        command: Command::AgentPicker,
+        name: "agent_picker",
+        label: "Agent Picker",
+        shortcuts: &[],
+    },
+    CommandInfo {
+        command: Command::WorkspaceList,
+        name: "workspace_list",
+        label: "Workspace List",
+        shortcuts: &[],
     },
     CommandInfo {
         command: Command::AgentNumber(1),
@@ -885,7 +899,10 @@ pub fn request(command: Command, snapshot: &ClientShellSnapshot) -> Option<(Meth
         | Command::AgentNumber(_)
         | Command::ReloadConfig
         // Not a focus change, so the window sends it without fencing input.
-        | Command::MarkUnread => return None,
+        | Command::MarkUnread
+        // Client-side lists: nothing is asked of the daemon to open one.
+        | Command::AgentPicker
+        | Command::WorkspaceList => return None,
     })
 }
 

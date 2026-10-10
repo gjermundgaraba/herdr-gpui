@@ -1,13 +1,40 @@
 //! The picker paints its prepared list; keys and answers live elsewhere.
 
-use super::{Picker, Row};
-use crate::{HerdrWindow, notifications::safe_text};
+use super::{Picker, Row, Source, navigator::Layout};
+use crate::{HerdrWindow, notifications::safe_text, sidebar};
 use gpui::{prelude::*, *};
 
 /// Characters of a title the header shows.
 pub(super) const TITLE_CHARS: usize = 200;
 /// Rows shown before the list scrolls.
 const VISIBLE_ROWS: usize = 12;
+/// How far one step of a nested row is indented.
+const INDENT: f32 = 16.;
+
+impl Picker {
+    /// What an empty list says.
+    fn empty_text(&self) -> &'static str {
+        match &self.source {
+            Source::Navigator(navigator) if navigator.narrowed() => "No matches.",
+            Source::Navigator(navigator) => match navigator.layout() {
+                Layout::Agents => "No agents.",
+                Layout::Workspaces => "No workspaces.",
+            },
+            Source::Plugin(_) if self.list.len() == 0 => "Nothing to choose from.",
+            Source::Plugin(_) => "No matches.",
+        }
+    }
+
+    /// The keys the footer names.
+    fn hint(&self) -> &'static str {
+        match &self.source {
+            Source::Plugin(_) => "↑ / ↓ navigate · Enter choose · Esc cancel",
+            Source::Navigator(_) => {
+                "j / k move · / search · b w i d status · a all · Enter open · Esc close"
+            }
+        }
+    }
+}
 
 impl HerdrWindow {
     fn picker_row_height(&self) -> f32 {
@@ -26,7 +53,7 @@ impl HerdrWindow {
             .items_center()
             .gap(px(8.))
             .cursor_pointer()
-            .when(index == picker.list.selected(), |row| {
+            .when(picker.list.selected() == Some(index), |row| {
                 row.bg(rgb(theme.active))
             })
             .hover(|row| row.bg(rgb(theme.active)))
@@ -57,7 +84,29 @@ impl HerdrWindow {
         let Some(item) = item else {
             return row;
         };
-        row.when(!item.badge.is_empty(), |row| {
+        row.when(item.indent > 0, |row| {
+            row.pl(px(16. + INDENT * f32::from(item.indent)))
+        })
+        .when(item.dimmed, |row| row.text_color(rgb(theme.muted)))
+        .when_some(item.status, |row, status| {
+            let light = matches!(
+                cx.window_appearance(),
+                WindowAppearance::Light | WindowAppearance::VibrantLight
+            );
+            let indicators = sidebar::Indicators::new(
+                self.settings.shared.as_ref(),
+                self.config.status_icons,
+                self.config.edge_rail,
+                light,
+                theme,
+            );
+            row.child(sidebar::status_indicator(
+                status,
+                &self.config.ui,
+                indicators,
+            ))
+        })
+        .when(!item.badge.is_empty(), |row| {
             row.child(
                 div()
                     .flex_none()
@@ -118,11 +167,7 @@ impl HerdrWindow {
                         .flex_none()
                         .p(px(16.))
                         .text_color(rgb(theme.muted))
-                        .child(if picker.list.len() == 0 {
-                            "Nothing to choose from."
-                        } else {
-                            "No matches."
-                        }),
+                        .child(picker.empty_text()),
                 )
             })
             .when(rows > 0, |panel| {
@@ -155,7 +200,19 @@ impl HerdrWindow {
                     .border_t_1()
                     .border_color(rgb(theme.active))
                     .text_color(rgb(theme.muted))
-                    .child("↑ / ↓ navigate · Enter choose · Esc cancel"),
+                    .map(|footer| match &picker.source {
+                        Source::Navigator(navigator) => match navigator.notice() {
+                            Some(notice) => footer
+                                .text_color(rgb(theme.ink(theme.palette[3])))
+                                .child(notice.clone()),
+                            None => footer
+                                .when_some(navigator.filter_label(), |footer, filter| {
+                                    footer.child(format!("{filter} only · "))
+                                })
+                                .child(picker.hint()),
+                        },
+                        Source::Plugin(_) => footer.child(picker.hint()),
+                    }),
             )
     }
 }

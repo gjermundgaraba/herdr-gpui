@@ -20,11 +20,19 @@ use herdr_client::{
 use serde_json::{Value, json};
 use std::sync::Arc;
 
+mod backpressure;
+mod crossed;
 mod dismissal;
 mod inbox;
 mod keys;
 mod list;
+mod navigator_agents;
+mod navigator_fixture;
+mod navigator_scroll;
+mod navigator_selection;
+mod navigator_workspaces;
 mod outcomes;
+mod presented;
 
 fn snapshot(boot: &str) -> ClientEvent {
     let mut snapshot: ClientShellSnapshot = serde_json::from_str(include_str!(
@@ -107,6 +115,26 @@ fn key(keystroke: &str) -> KeyDownEvent {
         is_held: false,
         prefer_character_input: false,
     }
+}
+
+/// Drives the window's own key and text handlers, the route typing takes to
+/// the pane when nothing isolates it.
+fn type_at_the_terminal(view: &Entity<HerdrWindow>, cx: &mut VisualTestContext) {
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            use gpui::EntityInputHandler;
+            // Drawing sized the terminal; give it the frame it asked for, so
+            // a menu is the only thing that can stand between it and input.
+            let size = view.options.surface_size;
+            let frame = &mut Arc::make_mut(view.live.surface.as_mut().unwrap()).frame;
+            (frame.width, frame.height) = (size.cols, size.rows);
+            assert!(view.input_ready());
+            view.key_down(&key("a"), window, cx);
+            view.key_down(&key("enter"), window, cx);
+            view.replace_text_in_range(None, "typed", window, cx);
+            view.send(ClientPaneInputEvent::Paste("pasted".into()), cx);
+        })
+    });
 }
 
 /// What a connection was sent that matters here.
@@ -262,5 +290,6 @@ fn shown(view: &HerdrWindow) -> Option<&Picker> {
 fn pick_id(picker: &Picker) -> &str {
     match &picker.source {
         Source::Plugin(pick) => pick.pick_id(),
+        Source::Navigator(_) => panic!("a navigator answers no plugin"),
     }
 }
