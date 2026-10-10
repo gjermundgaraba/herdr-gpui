@@ -5,6 +5,7 @@ use herdr_client::protocol::ClientShellCommand;
 
 mod agent_filter;
 mod background_ranking;
+mod client_action_keys;
 mod go_to_search;
 mod notes;
 mod plugin_selection;
@@ -249,7 +250,7 @@ fn go_to_lists_the_selected_host_first_and_switches_host_for_a_remote_row(cx: &m
             assert!(view.menu.page.is_none(), "a valid row closes the picker");
             assert_eq!(view.endpoints[view.selected_endpoint].id, "ssh:box");
             // The remote host has no connection yet, so navigation waits for it.
-            assert_eq!(view.pending_navigation, Some(target));
+            assert_eq!(view.pending_navigation, Some(target.into()));
         })
     });
 }

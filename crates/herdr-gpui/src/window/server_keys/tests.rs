@@ -3,6 +3,8 @@ use crate::{Command, Error, config::DeviceSettings, keymap::Binding};
 use gpui::{Entity, Keystroke, TestAppContext, VisualTestContext};
 use std::sync::Arc;
 
+mod client_actions;
+
 const ID: &str = "0123456789abcdef0123456789abcdef";
 const HOST: &str = "ssh:0123456789abcdef0123456789abcdef";
 const PROFILE: &str = "[keys]\nprefix = \"cmd+j\"\ntoggle_sidebar = \"prefix+cmd+b\"\n";

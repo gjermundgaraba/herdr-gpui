@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 mod backdrop;
 mod bitmap_fonts;
 mod bold_color;
+mod client_action_keys;
 mod code;
 mod code_navigation;
 mod code_start;
