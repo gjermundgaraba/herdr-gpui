@@ -5,7 +5,7 @@ use super::*;
 
 /// Drives the window's own key and text handlers, the route typing takes to
 /// the pane when nothing isolates it.
-fn type_at_the_terminal(view: &Entity<HerdrWindow>, cx: &mut VisualTestContext) {
+pub(super) fn type_at_the_terminal(view: &Entity<HerdrWindow>, cx: &mut VisualTestContext) {
     cx.update(|window, cx| {
         view.update(cx, |view, cx| {
             use gpui::EntityInputHandler;
@@ -45,7 +45,7 @@ fn typed_text_and_list_keys_stay_in_the_picker_and_never_reach_the_pane(
         assert_eq!(picker.search.read(cx).text(), "o");
         assert_eq!(rows(picker), ["Work", "Home", "+ o"]);
         // Editing the query away and back selected the first row again.
-        assert_eq!(picker.list.selected(), 0);
+        assert_eq!(picker.list.selected(), Some(0));
         // Nothing was composed into the terminal's own input either.
         assert!(view.marked.is_empty());
     });
@@ -53,7 +53,7 @@ fn typed_text_and_list_keys_stay_in_the_picker_and_never_reach_the_pane(
     type_at_the_terminal(&view, cx);
     cx.simulate_keystrokes("ctrl-n ctrl-n ctrl-n ctrl-p");
     view.read_with(cx, |view, _| {
-        assert_eq!(shown(view).unwrap().list.selected(), 1);
+        assert_eq!(shown(view).unwrap().list.selected(), Some(1));
     });
     cx.simulate_keystrokes("enter");
     assert_eq!(
@@ -79,7 +79,7 @@ fn the_selection_stops_at_both_ends_and_other_keys_are_left_to_the_filter(
     let (_first, _second, view, cx) = window_with_two_connections(cx);
     deliver(&view, 0, open("pick-1", false), cx);
     let selected = |cx: &mut VisualTestContext| {
-        view.read_with(cx, |view, _| shown(view).unwrap().list.selected())
+        view.read_with(cx, |view, _| shown(view).unwrap().list.selected().unwrap())
     };
     assert_eq!(selected(cx), 1);
     for (keystroke, expected) in [
