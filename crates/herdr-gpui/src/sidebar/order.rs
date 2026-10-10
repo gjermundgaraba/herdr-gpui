@@ -2,33 +2,30 @@
 //! next, and numbered shortcuts step through, as Herdr's TUI steps through
 //! its own sidebar: every listed host's rows, top to bottom.
 
-use super::{agents::panel_agents, space_groups::workspace_rows};
+use super::{agents::panel_agents, visible_workspace_entries};
 use crate::{HerdrWindow, controls::Command, state::LiveState};
 use herdr_client::protocol::{ClientShellAgent, ClientShellSnapshot};
-use std::collections::HashSet;
 
 /// A listed row: its host, by endpoint index, and the workspace or agent
 /// pane it shows.
 pub(crate) type Row<'a> = (usize, &'a str);
 
-impl HerdrWindow {
-    /// The live state the window draws host `index` from: its own copy for
-    /// the selected host, which carries what the window stamped since the
-    /// last poll, and the endpoint's for every other.
-    pub(crate) fn host_live(&self, index: usize) -> &LiveState {
-        if index == self.selected_endpoint {
-            &self.live
-        } else {
-            &self.endpoints[index].live
-        }
-    }
+mod fork;
 
+impl HerdrWindow {
     /// Each host the sidebar lists, with the live state it draws from.
     fn listed_lives(&self) -> impl Iterator<Item = (usize, &LiveState)> {
         self.displayed_devices()
             .into_iter()
             .filter(|(_, endpoint)| endpoint.enabled && self.device_visible(&endpoint.id))
-            .map(|(index, _)| (index, self.host_live(index)))
+            .map(|(index, endpoint)| {
+                let live = if index == self.selected_endpoint {
+                    &self.live
+                } else {
+                    &endpoint.live
+                };
+                (index, live)
+            })
     }
 
     /// Each host the sidebar lists, with the snapshot it draws from.
@@ -37,50 +34,29 @@ impl HerdrWindow {
             .filter_map(|(index, live)| live.snapshot.as_deref().map(|snapshot| (index, snapshot)))
     }
 
-    /// What a host has folded away: its collapsed worktree repositories,
-    /// space groups, and pinned sections, each under its own kind of key.
-    pub(super) fn collapsed_for(&self, endpoint: usize) -> &HashSet<String> {
-        if endpoint == 0 {
-            &self.collapsed_repos
-        } else {
-            &self.endpoints[endpoint].collapsed_repos
-        }
-    }
-
     /// The workspace rows the sidebar shows: a folded group or host hides
-    /// its rows here too, and a pinned section's mirrors are left out, so
-    /// each space is stepped to once.
+    /// its rows here too.
     pub(crate) fn sidebar_workspaces(&self) -> Vec<Row<'_>> {
         let multi = self.endpoints.len() > 1;
         self.listed_hosts()
             .filter(|(index, _)| !(multi && self.endpoints[*index].collapsed))
             .flat_map(|(index, snapshot)| {
-                workspace_rows(snapshot, self.collapsed_for(index))
+                let collapsed = if index == 0 {
+                    &self.collapsed_repos
+                } else {
+                    &self.endpoints[index].collapsed_repos
+                };
+                visible_workspace_entries(&snapshot.workspaces, collapsed)
                     .into_iter()
-                    .map(move |(row, _)| (index, snapshot.workspaces[row].workspace_id.as_str()))
+                    .map(move |(row, _, _)| (index, snapshot.workspaces[row].workspace_id.as_str()))
             })
             .collect()
     }
 
-    /// The agents the panel paints, by host index, in its order. Painting,
-    /// stepping, and the client report all read it, so a shortcut lands on
-    /// the row below and tools read the list that is on screen.
-    pub(crate) fn panel_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
+    /// The agents the panel paints, by host index, in its order. Painting
+    /// and stepping both read it, so a shortcut lands on the row below.
+    pub(super) fn panel_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
         panel_agents(self.listed_lives(), self.agent_sort)
-    }
-
-    /// Every enabled host's agents in the panel's priority order, whatever
-    /// the panel's own sort and the device filter show. The agent picker
-    /// lists these.
-    pub(crate) fn fleet_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
-        panel_agents(
-            self.endpoints
-                .iter()
-                .enumerate()
-                .filter(|(_, endpoint)| endpoint.enabled)
-                .map(|(index, _)| (index, self.host_live(index))),
-            crate::preferences::AgentSort::Priority,
-        )
     }
 
     /// The agent panel's rows, whether or not the panel is shown, as Herdr

@@ -75,8 +75,6 @@ mod selection_scroll;
 #[cfg(test)]
 mod sidebar_cache;
 #[cfg(test)]
-mod space_groups;
-#[cfg(test)]
 mod spacing_overrides;
 #[cfg(test)]
 mod split_pane;
@@ -85,6 +83,8 @@ mod status_bar;
 #[cfg(test)]
 mod status_icons;
 #[cfg(test)]
+mod stepped_agents;
+#[cfg(test)]
 mod sticky_hosts;
 #[cfg(test)]
 mod superset_badges;
@@ -92,6 +92,8 @@ mod superset_badges;
 mod superset_dots;
 #[cfg(test)]
 mod text_width;
+#[cfg(test)]
+mod token_separators;
 #[cfg(test)]
 mod update_notes;
 #[cfg(test)]
@@ -680,9 +682,7 @@ pub(crate) fn fixture_window(window: &mut Window, cx: &mut Context<HerdrWindow>)
         hover_menu: None,
         local_error: None,
         menu: crate::menu::MenuState::new(cx),
-        picker: None,
-        client_contract: Default::default(),
-        history: Default::default(),
+        fork: Default::default(),
         settings: Default::default(),
         integrations: Default::default(),
         install_warning_shown: false,

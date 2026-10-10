@@ -6,10 +6,12 @@ use herdr_client::protocol::ClientShellCommand;
 
 mod agent_filter;
 mod background_ranking;
+mod client_action_keys;
 mod frecency_ranking;
 mod go_to_search;
 mod notes;
 mod plugin_selection;
+mod popup_selection;
 mod preview_layout;
 mod resume;
 

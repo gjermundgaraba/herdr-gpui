@@ -1,5 +1,8 @@
 //! `mark_unread` over a real connection: the one request it sends, on the
-//! host that owns the focused pane, and where the daemon's refusal shows.
+//! host that owns the focused pane, where the daemon's refusal shows, and the
+//! `Marked unread` it says once the daemon accepted, as the Herdr fork's
+//! terminal client does (`src/client/shell/actions.rs`), and what a press
+//! that cannot be sent says.
 
 use super::*;
 
@@ -34,11 +37,12 @@ fn mark_unread_asks_the_selected_host_about_its_focused_pane(cx: &mut gpui::Test
     cx.update(|window, cx| {
         view.update(cx, |view, cx| {
             prepare_mouse(view, endpoint, cx);
-            // An older failure of this client's own must not outlive the try.
+            // A queued mark is no news yet, so an unrelated error stays shown.
             view.local_error = Some("Input not sent: earlier".into());
             let before = view.live.snapshot.clone().unwrap();
             view.command(Command::MarkUnread, window, cx);
-            assert_eq!(view.local_error, None);
+            assert_eq!(view.local_error.as_deref(), Some("Input not sent: earlier"));
+            view.local_error = None;
             // It is no focus change: input is not fenced, and nothing about
             // the agent is recorded here. The badge is the snapshot's to show.
             assert!(view.input_ready());
@@ -68,6 +72,9 @@ fn mark_unread_asks_the_selected_host_about_its_focused_pane(cx: &mut gpui::Test
         view.update(cx, |view, cx| {
             project_until(view, cx, "the refusal", |view| view.live.error.is_some());
             assert_eq!(view.live.error.as_deref(), Some(REFUSAL));
+            // The answer is followed, and a refusal confirms nothing.
+            view.tick_client_contract(Instant::now(), cx);
+            assert!(view.flash.is_none());
             assert_eq!(
                 view.live.status_text(view.local_error.as_deref()),
                 format!("Connected: {REFUSAL}")
@@ -89,7 +96,28 @@ fn mark_unread_asks_the_selected_host_about_its_focused_pane(cx: &mut gpui::Test
     assert_eq!(second["method"], "agent.mark_unread");
     assert_eq!(second["params"], request["params"]);
     assert_ne!(second["id"], request["id"]);
+    // Sent is not accepted: nothing is said until the daemon answers.
+    cx.update(|_, cx| {
+        view.update(cx, |view, cx| {
+            view.tick_client_contract(Instant::now(), cx);
+            assert!(view.flash.is_none());
+        })
+    });
     server.respond(&second);
+    cx.update(|_, cx| {
+        view.update(cx, |view, cx| {
+            wait_until(|| {
+                view.tick_client_contract(Instant::now(), cx);
+                view.flash.is_some()
+            });
+            let said = view.flash.as_ref().map(|(flash, _)| flash.clone());
+            assert_eq!(said, Some(crate::window::Flash::success("Marked unread")));
+            // Said once: the answer is not read again on the next tick.
+            view.flash = None;
+            view.tick_client_contract(Instant::now(), cx);
+            assert!(view.flash.is_none());
+        })
+    });
 }
 
 #[gpui::test]
@@ -98,12 +126,25 @@ fn mark_unread_without_a_connection_or_under_a_menu_sends_nothing(cx: &mut gpui:
         Fixture(cx.new(|cx| crate::sidebar::layout_tests::fixture_window(window, cx)))
     });
     let view = fixture.update(cx, |fixture, _| fixture.0.clone());
-    // The fixture's own host has a snapshot and no connection.
+    // The fixture's own host has a snapshot and no connection: the press
+    // says so rather than nothing.
     cx.update(|window, cx| {
         view.update(cx, |view, cx| {
             assert!(view.endpoints[0].connection.handle.is_none());
+            Arc::make_mut(view.live.snapshot.as_mut().unwrap()).focused_pane_id = Some("p0".into());
             view.command(Command::MarkUnread, window, cx);
-            assert_eq!(view.local_error, None);
+            assert_eq!(
+                view.local_error.take().as_deref(),
+                Some("Mark Agent Unread: client is disconnected")
+            );
+            // Without a snapshot there is no pane to name yet.
+            let snapshot = view.live.snapshot.take();
+            view.command(Command::MarkUnread, window, cx);
+            assert_eq!(
+                view.local_error.take().as_deref(),
+                Some("Mark Agent Unread: the host has not shown its panes yet.")
+            );
+            view.live.snapshot = snapshot;
         })
     });
     let (endpoint, mut server) = connected_endpoint("ssh:fixture");

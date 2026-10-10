@@ -1,6 +1,7 @@
 //! Command dispatch and focus changes. A focus change is fenced behind an
 //! ordered surface barrier so input cannot reach the previous pane while the
-//! navigation and its projection are still in flight.
+//! navigation and its projection are still in flight. Mark Agent Unread
+//! mirrors the Herdr fork's `src/client/shell/endpoints.rs`.
 
 use super::{Flash, HerdrWindow};
 use crate::{
@@ -60,22 +61,23 @@ impl HerdrWindow {
         if self.menu.page.is_some() {
             return false;
         }
-        self.dispatch_navigation(target, cx)
+        self.dispatch_navigation(target, None, cx)
     }
 
     /// Complete an accepted navigation even if its context menu has since opened.
+    /// One asked for by a jump or by a Back or Forward step brings its
+    /// `purpose`, and is followed to its host's answer. Such a navigation is
+    /// dispatched only to a host that is ready for input: until then it
+    /// waits, with its purpose, as the window's pending navigation. So only
+    /// a navigation nobody follows is dropped here for a host not ready.
     #[track_caller]
     pub(crate) fn dispatch_navigation(
         &mut self,
         target: NavigationTarget<&str>,
+        purpose: Option<crate::client_contract::Purpose>,
         cx: &mut Context<Self>,
     ) -> bool {
-        // A navigation asked for by a jump is followed to its host's answer.
-        let purpose = self.client_contract.follows.claim(&target);
         if !self.input_ready() {
-            if let Some(purpose) = purpose {
-                self.client_contract.follows.unsent(purpose);
-            }
             return false;
         }
         let focus = |handle: &herdr_client::ClientHandle, boot: &str| match target {
@@ -563,20 +565,24 @@ impl HerdrWindow {
     /// Counterpart of `mark_focused_pane_unread` in the Herdr fork's
     /// `src/client/shell/endpoints.rs`.
     fn mark_focused_agent_unread(&mut self) {
-        let (Some(handle), Some(snapshot)) = (
-            &self.endpoints[self.selected_endpoint].connection.handle,
-            &self.live.snapshot,
-        ) else {
+        let Some(snapshot) = self.live.snapshot.clone() else {
+            self.local_error =
+                Some("Mark Agent Unread: the host has not shown its panes yet.".into());
             return;
         };
-        let Some((method, params)) = controls::mark_unread(snapshot) else {
+        let Some((method, params)) = controls::mark_unread(&snapshot) else {
             self.local_error = Some("Mark Agent Unread: no pane is focused.".into());
             return;
         };
-        self.local_error = handle
-            .request(&snapshot.boot_id, method, params)
-            .err()
-            .map(|error| format!("Mark Agent Unread: {error}"));
+        // Followed to the daemon's answer, which is all that confirms it. Only
+        // a failure is written: a queued request leaves any other error shown.
+        if let Err(error) = self
+            .follow_request(crate::client_contract::Purpose::MarkUnread, |handle| {
+                handle.request(&snapshot.boot_id, method, params)
+            })
+        {
+            self.local_error = Some(format!("Mark Agent Unread: {error}"));
+        }
     }
 
     /// Focuses the workspace or agent a sidebar step lands on, selecting its
@@ -587,7 +593,7 @@ impl HerdrWindow {
             Command::PreviousAgent | Command::NextAgent | Command::AgentNumber(_)
         );
         let rows = if agents {
-            self.sidebar_agents()
+            self.stepped_agents()
         } else {
             self.sidebar_workspaces()
         };

@@ -150,6 +150,10 @@ pub struct Config {
     pub confirm_close_workspace: bool,
     /// How far the app's own marks and labels stand off its chrome.
     pub contrast: Contrast,
+    /// The local daemon's `[keys]` table `keybindings` was built from. A
+    /// device's server keys still take this machine's bindings for the
+    /// actions the client performs itself.
+    pub(crate) daemon_keys: DaemonKeys,
     pub daytona: DaytonaConfig,
     /// Per saved device, by catalog profile ID.
     pub(crate) devices: BTreeMap<String, DeviceSettings>,
@@ -440,6 +444,7 @@ impl Default for Config {
             confirm_close_tab: true,
             confirm_close_workspace: true,
             contrast: Contrast::default(),
+            daemon_keys: DaemonKeys::default(),
             daytona: DaytonaConfig::default(),
             devices: BTreeMap::new(),
             edge_rail: false,
@@ -912,6 +917,7 @@ impl Config {
             Keymap::with_overrides(&settings.keybindings, &settings.pane_keys, &base.keys)?;
         config.keybinding_overrides = settings.keybindings;
         config.pane_keys = settings.pane_keys;
+        config.daemon_keys = base.keys.clone();
         if settings.devices.len() > MAX_DEVICES {
             return Err(Error::TooManyDevices(MAX_DEVICES));
         }
