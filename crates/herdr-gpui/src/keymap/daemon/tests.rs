@@ -2,6 +2,7 @@ use super::*;
 
 mod detach;
 mod literal_plus;
+mod mark_unread;
 mod worktree;
 
 fn keys(text: &str) -> DaemonKeys {

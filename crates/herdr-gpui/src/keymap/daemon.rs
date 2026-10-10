@@ -131,6 +131,8 @@ const ACTIONS: &[(&str, Target, &str)] = &[
         "",
     ),
     ("next_agent", Target::Command(Command::NextAgent), ""),
+    // The Herdr fork's unread hold; unset by default there too.
+    ("mark_unread", Target::Command(Command::MarkUnread), ""),
     ("focus_agent", Target::Indexed(Indexed::Agent), ""),
     ("new_tab", Target::Command(Command::Tab), "prefix+c"),
     (
