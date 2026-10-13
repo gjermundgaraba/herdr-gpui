@@ -1,5 +1,6 @@
 //! The actions the client performs itself stay on the local table under a
-//! host's profile, as in the Herdr fork's `src/config/keybinds.rs`.
+//! host's profile, as in the Herdr fork's
+//! `src/config/keybinds/client_actions.rs`.
 
 use super::{DaemonKeys, Target, Trigger};
 use crate::controls::{Command, ForkCommand};
@@ -14,7 +15,7 @@ pub(super) const WORKSPACE_LIST: Target =
 /// two navigators, Back and Forward, and the request for the unread hold.
 /// The Herdr fork reads them from the local config even while a host's
 /// keybinding profile is in effect (`Keybinds::copy_client_actions` in its
-/// `src/config/keybinds.rs`), and so does this client.
+/// `src/config/keybinds/client_actions.rs`), and so does this client.
 ///
 /// Here a keystroke the local config gives one of them is that action's
 /// over any command the profile binds to it. Their bindings come first in
