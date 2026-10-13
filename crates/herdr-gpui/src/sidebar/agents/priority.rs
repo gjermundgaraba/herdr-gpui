@@ -1,6 +1,6 @@
 //! The Herdr fork's agent order under the Priority sort, laid over
 //! upstream's. Mirrors `priority_order` in the Herdr fork's
-//! `src/client/shell/aggregate_navigation.rs`.
+//! `src/client/shell/aggregate_navigation/agent_order.rs`.
 //!
 //! The fork's daemon sends each agent's place in its queue as `priority_key`,
 //! with the `space_priority` lift applied, and keys from different daemons

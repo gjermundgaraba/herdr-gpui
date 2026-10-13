@@ -2,11 +2,12 @@
 //! snapshots alone, with no window in it.
 //!
 //! It mirrors the Navigator of the Herdr fork's terminal client:
-//! `navigator_rows`, `agent_navigator_rows`, and `navigator_selected_index`
-//! in its `src/client/shell/aggregate_navigation.rs`, for its `Agents` and
-//! `Workspaces` layouts. A row is found by the same text, labelled the same
-//! way, and carries the same target, so either client opens the same pane
-//! for the same search. The cases are ported in `tests/rows_agents.rs` and
+//! `navigator_rows` and `navigator_selected_index` in its
+//! `src/client/shell/aggregate_navigation.rs`, and `agent_navigator_rows` in
+//! its `src/client/shell/aggregate_navigation/agent_picker.rs`, for its
+//! `Agents` and `Workspaces` layouts. A row is found by the same text,
+//! labelled the same way, and carries the same target, so either client
+//! opens the same pane for the same search. The cases are ported in `tests/rows_agents.rs` and
 //! `tests/rows_workspaces.rs`.
 
 use herdr_client::protocol::{
