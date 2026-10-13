@@ -197,12 +197,7 @@ pub(super) async fn sidebar_hosts(
                     } else {
                         NavigationTarget::Pane("p0".to_owned())
                     };
-                    if view
-                        .pending_navigation
-                        .as_ref()
-                        .map(|pending| &pending.target)
-                        != Some(&expected)
-                    {
+                    if view.pending_navigation.as_ref() != Some(&expected) {
                         bail!("wrong duplicate-ID route at step {step}");
                     }
                 }

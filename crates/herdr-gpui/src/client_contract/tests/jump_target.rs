@@ -157,25 +157,6 @@ fn an_endpoint_that_is_not_online_is_unavailable() {
 }
 
 #[test]
-fn a_refused_focus_request_names_the_jumps_outcome() {
-    for (refusal, expected) in [
-        (Refusal::PaneNotFound, ClientJumpOutcome::NotFound),
-        (Refusal::StaleBoot, ClientJumpOutcome::StaleBoot),
-        (Refusal::Unsent, ClientJumpOutcome::Unavailable),
-        (
-            Refusal::Other {
-                message: "the pane cannot take focus".into(),
-            },
-            ClientJumpOutcome::Failed {
-                message: "the pane cannot take focus".into(),
-            },
-        ),
-    ] {
-        assert_eq!(ClientJumpOutcome::from(refusal), expected);
-    }
-}
-
-#[test]
 fn a_client_gives_up_before_the_daemon_does() {
     assert!(NAVIGATION_SETTLE_DEADLINE < Duration::from_secs(20));
 }

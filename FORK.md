@@ -76,26 +76,18 @@ Describe each local change here, with pointers to its code, when it is added.
   (`crates/herdr-gpui/src/client_contract.rs`,
   `crates/herdr-gpui/src/client_contract/report.rs`)
 - Client jump: `endpoint.client-jump.v1` navigates to the named pane, across
-  hosts if needed, and answers `client.jump.resolve` once the pane is
-  observed focused or after 12 seconds. A newer jump replaces a pending one,
-  which is never answered
-  (`crates/herdr-gpui/src/client_contract/jump.rs`,
-  `crates/herdr-gpui/src/client_contract/follow.rs`)
+  hosts if needed, with the navigation a click uses, and answers
+  `client.jump.resolve` by observation: `not_found`, `unavailable`, or
+  `stale_boot` at once when what the window holds rules the pane out, checked
+  on arrival and on every tick, `focused` once the window presents the pane
+  focused, and `timeout` after 12 seconds. Nothing follows the navigation's
+  request. A newer jump replaces a pending one, which is never answered
+  (`crates/herdr-gpui/src/client_contract/jump.rs`)
 - Agent picker and workspace list: the `agent_picker` and `workspace_list`
   actions of the daemon's `[keys]` table open two navigators over every
   enabled host, built on the picker's list
   (`crates/herdr-gpui/src/picker/navigator.rs`,
   `crates/herdr-gpui/src/picker/navigator/rows.rs`)
-- Back/Forward: one per-window, in-memory history of visited panes across
-  hosts, in place of upstream's trail per endpoint. Upstream's title bar
-  buttons, its `back` and `forward` commands, and the daemon's `history_back`
-  and `history_forward` keys all step through it: `travel` and `can_travel`
-  live in `history/sync.rs`, and `endpoint/history.rs` keeps only the
-  direction. Upstream's trail tests are gone and its title bar tests seed
-  this history instead, so when upstream changes `endpoint/history.rs`, the
-  `travel` it has in `window/commands.rs`, `titlebar/navigation/tests.rs`, or
-  `group_terminals/tests/titlebar_navigation.rs`, keep this side
-  (`crates/herdr-gpui/src/history.rs`, `crates/herdr-gpui/src/history/sync.rs`)
 - Client-side keys stay local: `agent_picker`, `workspace_list`,
   `history_back`, `history_forward`, and `mark_unread` are read from the local
   Herdr config even under a host's key profile
@@ -148,9 +140,9 @@ changing anything of the first two kinds below.
 | Space groups and pinned sections | `src/client/shell/space_groups.rs`, `src/space_order.rs` | `crates/herdr-gpui/src/sidebar/space_groups.rs`, `crates/herdr-gpui/src/sidebar/group_row.rs` | no: group headers do not drag in Herdr GPUI, and it keeps collapse state in memory where the TUI saves it to its preferences file |
 | Mark unread | `src/client/shell/endpoints.rs`, `src/client/shell/actions.rs` | `crates/herdr-gpui/src/window/commands.rs`, `crates/herdr-gpui/src/client_contract/follow.rs` | yes |
 | Client report | `src/client/shell/client_report.rs`, `src/client/client_contract.rs` | `crates/herdr-gpui/src/client_contract.rs`, `crates/herdr-gpui/src/client_contract/report.rs` | yes, except Herdr GPUI sends a report, and a jump or picker answer, only after the request its connection holds is answered |
-| Client jump | `src/client/shell/client_jump.rs` | `crates/herdr-gpui/src/client_contract/jump.rs` | yes, except under an open menu (Herdr GPUI leaves it open, so the jump waits for it and can time out) and for a refused cross-host jump (Herdr GPUI answers from the refusal of its `pane.focus`, the TUI's activation ends as `timeout`), and when the user leaves the jump's host before the pane shows (Herdr GPUI keeps the jump open until its 12 seconds are up, the TUI withdraws the request and answers `unavailable`) |
+| Client jump | `src/client/shell/client_jump.rs` | `crates/herdr-gpui/src/client_contract/jump.rs` | yes, except under an open menu (Herdr GPUI leaves it open, so the jump waits for it and can time out) |
 | Agent and workspace pickers | `src/client/shell/aggregate_navigation.rs`, `src/client/shell/overlay_input.rs` | `crates/herdr-gpui/src/picker/navigator.rs`, `crates/herdr-gpui/src/picker/navigator/rows.rs` | no: Herdr GPUI lacks the Tree layout, the second detail line, and the current marker, and under a plugin agent view its agent picker lists each host's own view where the TUI applies the active host's view across hosts |
-| Back/Forward history | `src/client/shell/history.rs` | `crates/herdr-gpui/src/history.rs`, `crates/herdr-gpui/src/history/sync.rs` | yes, except the TUI clears all history when Local becomes unavailable and Herdr GPUI keeps it, and between a step's request being accepted and its pane showing, the TUI records a pane off the traversed path as a visit at once, where Herdr GPUI records nothing and takes the step back if the pane has not shown after 5 seconds |
+| Back/Forward history | `src/client/shell/history.rs` | `crates/herdr-gpui/src/endpoint/history.rs` (upstream's, no fork code) | yes: the TUI ports upstream's per-host trail |
 | Client-side keys stay local | `src/config/keybinds.rs` | `crates/herdr-gpui/src/keymap/daemon.rs` | yes, except a direct key equal to the host profile's prefix key (the TUI runs the action, Herdr GPUI arms the prefix) and a local config that does not parse (the TUI keeps the previous five bindings, Herdr GPUI unbinds them) |
 
 Add a row, in both `FORK.md` files, when a mirrored feature lands in either

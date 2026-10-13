@@ -18,7 +18,6 @@ mod followed;
 mod jump_presentation;
 mod jump_replacement;
 mod jump_target;
-mod jump_waiting;
 mod jumps;
 mod mailbox;
 mod online;

@@ -196,7 +196,7 @@ fn toast_click_uses_origin_and_close_never_navigates(cx: &mut gpui::TestAppConte
         assert_eq!(view.pending_toast, Some(1));
         assert_eq!(
             view.pending_navigation,
-            Some(NavigationTarget::Workspace("w1".into()).into())
+            Some(NavigationTarget::Workspace("w1".into()))
         );
         assert_eq!(view.endpoints[1].toasts.entries.len(), 1);
         // A newer inbox boot is rejected even before it reaches the UI projection.

@@ -166,7 +166,7 @@ fn enter_on_a_host_or_its_workspace_presents_that_host(cx: &mut gpui::TestAppCon
         assert_eq!(view.selected_endpoint, 0);
         assert_eq!(
             view.pending_navigation,
-            Some(NavigationTarget::Workspace("w1".into()).into())
+            Some(NavigationTarget::Workspace("w1".into()))
         );
     });
 }

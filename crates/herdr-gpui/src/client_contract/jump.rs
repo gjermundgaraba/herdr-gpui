@@ -3,11 +3,19 @@
 //! back as `client.jump.resolve` on the connection the jump arrived on.
 //!
 //! The navigation is the window's own: the same cross-host navigation a click
-//! on an agent row starts. This module decides where a jump leads and how it
-//! ended, from the retained snapshots and explicit times. It mirrors
-//! `src/client/shell/client_jump.rs` in the Herdr fork, and answers jumps by
-//! the same rules; its cases are ported in `tests/jump_target.rs` and
-//! `tests/jumps.rs`.
+//! on an agent row starts, and nothing follows its request or its error. This
+//! module decides where a jump leads and how it ended, from the retained
+//! snapshots and explicit times. It mirrors `src/client/shell/client_jump.rs`
+//! in the Herdr fork, and answers jumps by the same rules; its cases are
+//! ported in `tests/jump_target.rs` and `tests/jumps.rs`.
+//!
+//! A jump is answered by what the window holds, checked when it arrives and
+//! again on every tick while it waits: the first of [`jump_target`]'s checks
+//! that fails is the answer, sent at once. Otherwise the window navigates,
+//! answers `focused` once it presents the jump's host with the pane focused,
+//! and `timeout` when that has not happened [`NAVIGATION_SETTLE_DEADLINE`]
+//! after the jump arrived. So a host's refusal of the focus request shows in
+//! the status bar like a click's, and the jump times out.
 //!
 //! The newest jump wins. A window performs one jump at a time, and a jump
 //! that arrives while another is still open replaces it. The replaced jump
@@ -25,26 +33,11 @@
 //! replaces nothing is answered `focused` without navigating. The terminal
 //! client keeps the same rule.
 //!
-//! Three things differ from the terminal client. A jump that arrives while a
+//! One thing differs from the terminal client: a jump that arrives while a
 //! menu or dialog is open waits for it to close instead of taking the window
 //! from under the user, and times out like any jump that never showed its
-//! pane. A jump to another host sends that host a focus request of its own
-//! once the host is presented, and a refusal of it ends the jump as it would
-//! on the host already presented: `not_found`, `stale_boot`, or `failed`.
-//! The terminal client's activation of that host carries the focus without a
-//! request it follows, so the same refusal ends its jump `timeout`. And this
-//! client does not withdraw a request: when the user selects another host
-//! before the pane shows, or navigates elsewhere before the request went
-//! out, the jump stays open until its pane shows after all or its time is
-//! up, where the terminal client cancels the request and answers
-//! `unavailable`.
-//!
-//! A focus request that never reached its host is `unavailable`, as it is in
-//! the terminal client: one the connection would not take, or one its worker
-//! would not send because the daemon does not offer the method. The window
-//! learns of either after the tick that navigated, and answers on a later
-//! one. A host that goes away with the request in flight is no longer
-//! online, which answers the jump the same way.
+//! pane. A host that goes away while the jump waits is no longer online,
+//! which answers it `unavailable` on the next tick.
 //!
 //! The navigation can itself retire the connection the jump arrived on: an
 //! editor group's parked connection belongs to the workspace it was parked
@@ -52,7 +45,7 @@
 //! connection is kept, out of every group, while it still owes a jump its
 //! answer.
 
-use super::{Inbox, Purpose, Refusal, report::Host};
+use super::{Inbox, report::Host};
 use crate::{HerdrWindow, connection::ConnectionBridge, navigation::NavigationTarget};
 use gpui::Context;
 use herdr_client::{
@@ -106,22 +99,7 @@ pub(crate) fn jump_target(
     Ok(index)
 }
 
-/// How a host's refusal of the focus request ends the jump.
-impl From<Refusal> for ClientJumpOutcome {
-    fn from(refusal: Refusal) -> Self {
-        match refusal {
-            Refusal::PaneNotFound => Self::NotFound,
-            Refusal::StaleBoot => Self::StaleBoot,
-            // No request and no activation means the host took nothing.
-            Refusal::Unsent => Self::Unavailable,
-            Refusal::Other { message } => Self::Failed { message },
-        }
-    }
-}
-
 struct Pending {
-    /// Names the jump to the focus request sent for it.
-    key: u64,
     /// The mailbox of the connection the jump arrived on, which names that
     /// connection: its answer goes back there and nowhere else.
     origin: Weak<Mutex<Inbox>>,
@@ -153,7 +131,6 @@ struct Retiring {
 /// The jump this window is performing, and answers not yet sent.
 #[derive(Default)]
 pub(crate) struct Jumps {
-    serial: u64,
     /// One at a time: a newer jump replaces it.
     pending: Option<Pending>,
     resolved: Vec<Resolved>,
@@ -184,8 +161,7 @@ impl Jumps {
     }
 
     /// Takes `jump` in place of the one still open, which is dropped without
-    /// an answer. Its key goes with it, so what its focus request is answered
-    /// later finds no jump to end.
+    /// an answer.
     fn receive(&mut self, origin: Weak<Mutex<Inbox>>, jump: EndpointClientJump, now: Instant) {
         // A retired connection still carries the report until another does,
         // so its daemon may forward it a jump long after it retired. The
@@ -195,7 +171,6 @@ impl Jumps {
                 retiring.until = now + DAEMON_JUMP_TIMEOUT;
             }
         }
-        self.serial += 1;
         let replaced_another = self.pending.is_some();
         if let Some(replaced) = &self.pending {
             tracing::debug!(
@@ -205,7 +180,6 @@ impl Jumps {
             );
         }
         self.pending = Some(Pending {
-            key: self.serial,
             origin,
             jump,
             deadline: now + NAVIGATION_SETTLE_DEADLINE,
@@ -220,14 +194,6 @@ impl Jumps {
             jump_id: pending.jump.jump_id,
             outcome,
         });
-    }
-
-    /// Ends the jump whose focus request its host refused, or that the
-    /// window could not send.
-    pub(super) fn refused(&mut self, key: u64, refusal: Refusal) {
-        if let Some(pending) = self.pending.take_if(|pending| pending.key == key) {
-            self.resolve(pending, refusal.into());
-        }
     }
 }
 
@@ -290,15 +256,16 @@ impl HerdrWindow {
                 Ok(_) if now >= pending.deadline => Some(ClientJumpOutcome::Timeout),
                 // An open menu keeps the window; the jump waits for it.
                 Ok(_) if pending.navigating || self.menu.page.is_some() => None,
+                // Navigated once: what the window does with it, or what the
+                // host answers, shows only in what the window then presents.
                 Ok(_) => {
                     pending.navigating = true;
-                    let navigating = self.navigate_endpoint_for(
+                    self.navigate_endpoint(
                         &pending.jump.endpoint_id,
                         NavigationTarget::Pane(&pending.jump.pane_id),
-                        Some(Purpose::Jump(pending.key)),
                         cx,
                     );
-                    (!navigating).then_some(ClientJumpOutcome::Unavailable)
+                    None
                 }
             };
             let jumps = &mut self.client_contract.jumps;

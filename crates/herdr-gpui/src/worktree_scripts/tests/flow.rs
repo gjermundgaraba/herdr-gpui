@@ -90,7 +90,7 @@ fn a_run_script_is_located_reviewed_trusted_and_typed_into_a_new_tab(
             assert_eq!(step(view), "none");
             assert_eq!(
                 view.pending_navigation,
-                Some(NavigationTarget::Tab("w1:t9".into()).into())
+                Some(NavigationTarget::Tab("w1:t9".into()))
             );
         })
     });

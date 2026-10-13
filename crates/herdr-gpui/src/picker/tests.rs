@@ -18,7 +18,10 @@ use herdr_client::{
     },
 };
 use serde_json::{Value, json};
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 mod backpressure;
 mod crossed;
@@ -33,6 +36,45 @@ mod navigator_selection;
 mod navigator_workspaces;
 mod outcomes;
 mod presented;
+
+impl MockPeer {
+    /// Stalls the connection behind a request this peer leaves unanswered,
+    /// then fills its command queue behind that for good: until the worker
+    /// has taken the one command it keeps beside the request in flight, it
+    /// frees a slot whenever it runs. Returns the stalled request. The
+    /// client contract's tests use it too.
+    pub(crate) fn stall_commands(&mut self, boot_id: &str) -> Value {
+        /// 64 queued commands and the one the worker keeps, as `herdr-client`
+        /// documents its bound.
+        const HELD_COMMANDS: usize = 65;
+        let queue = |peer: &Self| {
+            peer.client.handle.request(
+                boot_id,
+                herdr_client::Method::PaneFocus,
+                json!({"pane_id": "pane_1"}),
+            )
+        };
+        let stalled = queue(self).unwrap();
+        let blocker = self.request();
+        assert_eq!(blocker["id"], stalled.as_str());
+        let mut held = 0;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while held < HELD_COMMANDS {
+            match queue(self) {
+                Ok(_) => held += 1,
+                Err(_) => {
+                    assert!(
+                        Instant::now() < deadline,
+                        "the worker never took its command"
+                    );
+                    std::thread::yield_now();
+                }
+            }
+        }
+        assert!(matches!(queue(self), Err(herdr_client::Error::Full)));
+        blocker
+    }
+}
 
 fn snapshot(boot: &str) -> ClientEvent {
     let mut snapshot: ClientShellSnapshot = serde_json::from_str(include_str!(

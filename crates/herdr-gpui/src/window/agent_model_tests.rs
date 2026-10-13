@@ -148,10 +148,7 @@ fn a_click_types_model_into_claude_only(cx: &mut TestAppContext) {
     // The pane gets the focus, here once the window can navigate.
     let focus =
         |cx: &mut VisualTestContext| view.update(cx, |view, _| view.pending_navigation.take());
-    assert_eq!(
-        focus(cx),
-        Some(NavigationTarget::Pane("w1:p1".into()).into())
-    );
+    assert_eq!(focus(cx), Some(NavigationTarget::Pane("w1:p1".into())));
 
     // Another agent's click sends nothing and moves no focus: the next input
     // is one sent after it.
