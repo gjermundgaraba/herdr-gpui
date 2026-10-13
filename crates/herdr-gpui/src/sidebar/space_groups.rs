@@ -1,5 +1,5 @@
-//! Space groups and pinned sections in the spaces list: which rows one host
-//! shows, in what order, and where a header or a divider starts a run.
+//! Space groups in the spaces list: which rows one host shows, in what
+//! order, and where a header or a divider starts a run.
 //!
 //! Mirrors the Herdr fork's `src/client/shell/space_groups.rs`, with the group
 //! of a worktree family from its `src/space_order.rs` (`anchor`, `group`);
@@ -12,12 +12,8 @@
 //! family takes its parent checkout's group. Runs of one group share a
 //! collapse key, so collapsing either collapses both.
 //!
-//! Pinned sections come first. The daemon resolves them
-//! (`ClientShellSnapshot::pinned_sections`), so nothing here matches a token
-//! against a section: each section shows a header and a flat mirror row for
-//! every member it lists. Mirrors are copies; every space keeps its place in
-//! the regular list, which follows behind a divider. Navigation skips
-//! mirrors, so it visits every space once.
+//! The Herdr fork's terminal client also draws pinned sections above the
+//! list; this client does not show them.
 //!
 //! Collapse state is this client's own, in memory, per host: the keys here
 //! live in the same set as the collapsed worktree repositories, namespaced
@@ -33,12 +29,6 @@ pub(super) const GROUP_TOKEN: &str = "space_group";
 /// Collapse state key of a group, namespaced apart from worktree repo keys.
 pub(super) fn collapse_key(name: &str) -> String {
     format!("group:{name}")
-}
-
-/// Collapse state key of a pinned section, namespaced apart from group and
-/// worktree repo keys.
-pub(super) fn pinned_collapse_key(title: &str) -> String {
-    format!("pinned:{title}")
 }
 
 /// What grouping needs to know about one space.
@@ -99,29 +89,22 @@ pub(super) fn group<'a>(spaces: &[Space<'a>], index: usize) -> Option<&'a str> {
         .filter(|group| !group.is_empty())
 }
 
-/// A group header, or a pinned section's header.
+/// A group header.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Group<'a> {
     pub(super) name: &'a str,
     pub(super) collapsed: bool,
-    pub(super) pinned: bool,
-    /// Title color as the daemon sent it, `#rrggbb`; `None` keeps the default.
-    pub(super) fg: Option<&'a str>,
 }
 
 impl Group<'_> {
     /// The key this header's collapse state is kept under.
     pub(super) fn key(&self) -> String {
-        if self.pinned {
-            pinned_collapse_key(self.name)
-        } else {
-            collapse_key(self.name)
-        }
+        collapse_key(self.name)
     }
 }
 
 /// Starts a run: a group header, or with `group: None` the divider before
-/// ungrouped spaces that follow a group or the pinned sections.
+/// ungrouped spaces that follow a group.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Marker<'a> {
     pub(super) group: Option<Group<'a>>,
@@ -157,13 +140,6 @@ pub(super) struct Entry {
 pub(super) enum SidebarRow<'a> {
     Marker(Marker<'a>),
     Workspace(Entry),
-    /// A pinned section's copy of a space that also has its own row. `section`
-    /// is the section's position among the snapshot's, which tells apart the
-    /// copies of a space two sections pin.
-    Mirror {
-        index: usize,
-        section: usize,
-    },
 }
 
 impl SidebarRow<'_> {
@@ -204,67 +180,17 @@ fn runs(workspaces: &[ClientShellWorkspace]) -> Vec<Run<'_>> {
     runs
 }
 
-/// Pinned sections with at least one known member, in the daemon's order: a
-/// header, then unless collapsed a flat mirror row per member.
-fn pinned_rows<'a>(
-    snapshot: &'a ClientShellSnapshot,
-    collapsed: &HashSet<String>,
-) -> Vec<SidebarRow<'a>> {
-    let mut rows = Vec::new();
-    for (section, pinned) in snapshot.pinned_sections.iter().enumerate() {
-        // The daemon lists members in space order; an id this snapshot does
-        // not know is skipped rather than guessed at.
-        let members: Vec<_> = pinned
-            .workspace_ids
-            .iter()
-            .filter_map(|id| {
-                snapshot
-                    .workspaces
-                    .iter()
-                    .position(|workspace| workspace.workspace_id == *id)
-            })
-            .collect();
-        if members.is_empty() {
-            continue;
-        }
-        let collapsed = collapsed.contains(&pinned_collapse_key(&pinned.title));
-        let mirrors = if collapsed {
-            Vec::new()
-        } else {
-            members.clone()
-        };
-        rows.push(SidebarRow::Marker(Marker {
-            group: Some(Group {
-                name: &pinned.title,
-                collapsed,
-                pinned: true,
-                fg: pinned.fg.as_deref(),
-            }),
-            members,
-        }));
-        rows.extend(
-            mirrors
-                .into_iter()
-                .map(|index| SidebarRow::Mirror { index, section }),
-        );
-    }
-    rows
-}
-
-/// Sidebar rows for one host: the pinned sections, then its spaces in sidebar
-/// order with a marker starting each run after the first ungrouped one, or
-/// every run when pinned sections precede the list. Without groups and pinned
-/// sections this is the flat list, worktree groups aside.
+/// Sidebar rows for one host: its spaces in sidebar order with a marker
+/// starting each run after the first ungrouped one. Without groups this is
+/// the flat list, worktree groups aside.
 ///
-/// `collapsed` holds this host's collapsed worktree repositories, groups, and
-/// pinned sections.
+/// `collapsed` holds this host's collapsed worktree repositories and groups.
 pub(super) fn sidebar_rows<'a>(
     snapshot: &'a ClientShellSnapshot,
     collapsed: &HashSet<String>,
 ) -> Vec<SidebarRow<'a>> {
     let workspaces = &snapshot.workspaces;
-    let mut rows = pinned_rows(snapshot, collapsed);
-    let after_pinned = !rows.is_empty();
+    let mut rows = Vec::new();
     let runs = runs(workspaces);
     let mut run_of = vec![0; workspaces.len()];
     for (index, run) in runs.iter().enumerate() {
@@ -284,14 +210,9 @@ pub(super) fn sidebar_rows<'a>(
         let collapsed = run
             .name
             .is_some_and(|name| collapsed.contains(&collapse_key(name)));
-        if run.name.is_some() || index > 0 || after_pinned {
+        if run.name.is_some() || index > 0 {
             rows.push(SidebarRow::Marker(Marker {
-                group: run.name.map(|name| Group {
-                    name,
-                    collapsed,
-                    pinned: false,
-                    fg: None,
-                }),
+                group: run.name.map(|name| Group { name, collapsed }),
                 members: run.members,
             }));
         }
@@ -317,8 +238,7 @@ pub(super) fn sidebar_rows<'a>(
 }
 
 /// Each space's own row in sidebar order, as `(index, indented)`: what
-/// navigation steps through and the rail marks. Pinned mirrors are left out,
-/// so every shown space appears once.
+/// navigation steps through and the rail marks.
 pub(super) fn workspace_rows(
     snapshot: &ClientShellSnapshot,
     collapsed: &HashSet<String>,
@@ -327,7 +247,7 @@ pub(super) fn workspace_rows(
         .into_iter()
         .filter_map(|row| match row {
             SidebarRow::Workspace(entry) => Some((entry.index, entry.indented)),
-            SidebarRow::Marker(_) | SidebarRow::Mirror { .. } => None,
+            SidebarRow::Marker(_) => None,
         })
         .collect()
 }

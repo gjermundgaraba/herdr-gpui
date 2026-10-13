@@ -1,6 +1,6 @@
-//! The header of a space group or pinned section in the spaces list, and the
-//! divider before ungrouped spaces. Like a host's header, they are the same
-//! in every row layout: only the layout's spacing differs.
+//! The header of a space group in the spaces list, and the divider before
+//! ungrouped spaces. Like a host's header, they are the same in every row
+//! layout: only the layout's spacing differs.
 //!
 //! Counterpart of `render_marker` in the Herdr fork's
 //! `src/client/shell/space_groups.rs`, which draws the header as
@@ -14,14 +14,14 @@ use super::{
     glyph_width, label_text, line_height,
     space_groups::{Group, Marker},
 };
-use crate::{HerdrWindow, config::sidebar::parse_color};
+use crate::HerdrWindow;
 use gpui::{prelude::*, *};
 use herdr_client::protocol::ClientShellSnapshot;
 
 impl HerdrWindow {
-    /// Toggles a fold of one host's spaces list: a worktree repository, a
-    /// space group, or a pinned section, by its collapse key. Folding is this
-    /// client's own view of the list, never a daemon request.
+    /// Toggles a fold of one host's spaces list: a worktree repository or a
+    /// space group, by its collapse key. Folding is this client's own view
+    /// of the list, never a daemon request.
     pub(super) fn toggle_collapsed(&mut self, endpoint: &str, key: &str) {
         let Some(index) = self.endpoints.iter().position(|e| e.id == endpoint) else {
             return;
@@ -32,9 +32,9 @@ impl HerdrWindow {
         }
     }
 
-    /// The row a marker draws: a group or pinned section's header, or the
-    /// divider. `position` is the row's place among its host's rows, which
-    /// keeps the headers of a split group apart.
+    /// The row a marker draws: a group's header, or the divider. `position`
+    /// is the row's place among its host's rows, which keeps the headers of a
+    /// split group apart.
     pub(super) fn marker_row(
         &self,
         marker: &Marker<'_>,
@@ -63,12 +63,7 @@ impl HerdrWindow {
                 .map(|row| row_cx.mark.apply(row, &key, &look))
                 .child(div().h(px(1.)).w_full().bg(rgb(theme.active)));
         };
-        let Group {
-            name,
-            collapsed,
-            pinned: _,
-            fg,
-        } = *group;
+        let Group { name, collapsed } = *group;
         let key = format!("space-group-{endpoint_id}-{position}");
         let gap = look.density.host_gap();
         let count = marker.members.len().to_string();
@@ -85,11 +80,6 @@ impl HerdrWindow {
             - count_width
             - status_width)
             .max(0.);
-        // The daemon sends `#rrggbb`; the color reads like a token's, as in
-        // the terminal client.
-        let color = fg
-            .and_then(parse_color)
-            .map_or_else(|| theme.subtext(), |color| theme.ink(color));
         let (toggle_endpoint, toggle_key) = (endpoint_id.to_owned(), group.key());
         div()
             .id(SharedString::from(key.clone()))
@@ -126,7 +116,7 @@ impl HerdrWindow {
                             .w(px(name_width))
                             .truncate()
                             .font_weight(FontWeight::BOLD)
-                            .text_color(rgb(color))
+                            .text_color(rgb(theme.subtext()))
                             .child(label_text(name)),
                     ),
             )
@@ -163,6 +153,3 @@ impl HerdrWindow {
             }))
     }
 }
-
-#[cfg(test)]
-mod tests;

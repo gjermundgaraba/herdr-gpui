@@ -142,8 +142,8 @@ bundle, and the first one asks for notification permission.
 
 Spaces lists Local first, then saved hosts in the upstream catalog's order.
 Enabled hosts connect in the background with inactive terminal surfaces; disabled
-hosts remain visible. Host, repository, space group, and pinned section collapse
-state is endpoint-scoped, and
+hosts remain visible. Host, repository, and space group collapse state is
+endpoint-scoped, and
 Agents aggregates all connected endpoints with host labels. The catalog is read
 through `herdr-client` every two seconds; changes to targets, sessions, enablement,
 and ordering are reflected without restarting. Catalog errors preserve the last
@@ -1179,7 +1179,7 @@ carries so each layout draws its own lifted card. Layouts are assembled from
 the shared pieces in `layouts/parts.rs`: a `Line` gives fixed pieces (icons,
 status, fold) their size, lets labels shrink to a share of the row, and hands
 the rest to the name, so the whole `minimal` layout is under a hundred lines.
-Which rows a host lists, mirrors and group markers included, is decided in
+Which rows a host lists, group markers included, is decided in
 `src/sidebar/space_groups.rs`; `render/spaces.rs` builds them. Group headers
 and dividers are not part of a `RowLayout`: `group_row.rs` draws them from the
 layout's spacing, as `host_row.rs` draws a host's header.
@@ -3180,27 +3180,20 @@ Ctrl+Shift+U is left unbound for
   end on one-line rows, Compact included. Minimal rows leave them off. They
   appear only while the daemon's `[ui.sidebar.spaces]` rows name `git_status`,
   as its defaults do, because the daemon computes them only then.
-- Space groups and pinned sections, as in the Herdr fork's terminal client. A
-  space joins a group through its `space_group` workspace token, which the
-  daemon sets (`workspace.set_group`). The Spaces list never reorders spaces:
-  it shows the daemon's order and starts a header wherever the group changes,
-  with a divider where ungrouped spaces follow a group. A worktree family takes
-  its parent checkout's group. Each header shows the group's name and how many
-  spaces it has; click it to fold the group, which then shows only its focused
-  space and its members' most urgent status. Runs of one group fold together.
-  Pinned sections come from the snapshot's `pinned_sections`, which the daemon
-  resolves from `[[ui.sidebar.spaces.pinned]]`, so this client reads no pinned
-  config and matches no token: each section is drawn first, under a header in
-  the section's color, with a mirror row for every member. A mirror is a copy.
-  The space keeps its own row in the list, which follows behind a divider.
-  Clicking a mirror focuses the space and right-clicking opens its menu, but a
-  mirror cannot be dragged, and the previous, next, and numbered workspace
-  shortcuts skip mirrors, so they visit each space once. Folding is this
-  client's own, per host, and is not saved. Headers, dividers, and mirrors are
-  the same in every layout, sit under their host's row when several hosts are
+- Space groups, as in the Herdr fork's terminal client. A space joins a group
+  through its `space_group` workspace token, which the daemon sets
+  (`workspace.set_group`). The Spaces list never reorders spaces: it shows the
+  daemon's order and starts a header wherever the group changes, with a divider
+  where ungrouped spaces follow a group. A worktree family takes its parent
+  checkout's group. Each header shows the group's name and how many spaces it
+  has; click it to fold the group, which then shows only its focused space and
+  its members' most urgent status. Runs of one group fold together. Folding is
+  this client's own, per host, and is not saved. Headers and dividers are the
+  same in every layout, sit under their host's row when several hosts are
   listed, and have no mark on the collapsed rail, which marks each shown space
-  once.
-- Drag a space's own row to move it, with headers present as in a flat list:
+  once. The terminal client also shows pinned sections from
+  `[[ui.sidebar.spaces.pinned]]`; this client does not.
+- Drag a space's row to move it, with headers present as in a flat list:
   the drop sends `workspace.move_block`, and the daemon regroups the space by
   where it lands. Headers and dividers the row passes slide with the rows
   around them. A header itself is not draggable here; the terminal client
