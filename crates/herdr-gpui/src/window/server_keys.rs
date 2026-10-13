@@ -13,6 +13,8 @@ use crate::{
 use gpui::{App, Context, Global};
 use std::collections::BTreeMap;
 
+mod local;
+
 /// The keymap a window built from its selected endpoint's server profile, and
 /// what it was built from, so a new snapshot only rebuilds it when the profile
 /// or the GUI overrides actually changed.
@@ -100,6 +102,7 @@ impl HerdrWindow {
     /// or the opt-in changed. Until the first snapshot arrives there is no
     /// profile to judge, so the local keymap applies without a diagnostic.
     pub(crate) fn sync_server_keymap(&mut self, cx: &mut Context<Self>) {
+        self.drop_stale_server_keys(cx);
         let endpoint = &self.endpoints[self.selected_endpoint].id;
         let wanted = self.config.keybinding_source(endpoint) == KeybindingSource::Server;
         let next =
@@ -109,7 +112,6 @@ impl HerdrWindow {
                     let overrides = &self.config.keybinding_overrides;
                     let pane_keys = &self.config.pane_keys;
                     let local = &self.config.daemon_keys;
-                    self.server_keys.take_if(|keys| keys.local != *local);
                     if self.server_keys.as_ref().is_some_and(|keys| {
                         keys.built_from(endpoint, profile, overrides, pane_keys)
                     }) {
