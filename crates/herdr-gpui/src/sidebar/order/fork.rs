@@ -51,7 +51,7 @@ impl HerdrWindow {
     /// The rows the next, previous, and numbered agent keys step through:
     /// the panel's, without the agents of a host that is not online. Those
     /// are what the host last sent, and a key must not land on a pane that
-    /// cannot be shown. As the Herdr fork's `online_agent_rows`.
+    /// cannot be shown. As the Herdr fork's `online_agent_targets`.
     pub(crate) fn stepped_agents(&self) -> Vec<Row<'_>> {
         self.sidebar_agents()
             .into_iter()
