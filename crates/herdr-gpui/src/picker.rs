@@ -57,7 +57,7 @@ pub(crate) enum Source {
 impl HerdrWindow {
     /// Opens the picker page with `list`. Gives `source` back when the menu
     /// would not open, so the caller can still answer whoever asked.
-    pub(crate) fn open_picker(
+    fn open_picker(
         &mut self,
         title: &str,
         list: List,
@@ -129,7 +129,7 @@ impl HerdrWindow {
     }
 
     /// Closes the picker without answering: whoever asked no longer waits.
-    pub(crate) fn close_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn close_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.fork.picker.take().is_some() && self.menu.page == Some(Page::Picker) {
             self.dismiss_menu(window, cx);
         }

@@ -34,7 +34,7 @@
 mod follow;
 mod inbox;
 pub(crate) mod jump;
-pub(crate) mod report;
+mod report;
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests;
@@ -131,7 +131,7 @@ impl HerdrWindow {
     }
 
     /// The report for what the window shows now.
-    pub(crate) fn client_report(&self) -> Result<ClientReport, ClientReportError> {
+    fn client_report(&self) -> Result<ClientReport, ClientReportError> {
         report::build(
             &self.contract_hosts(),
             self.selected_endpoint,
