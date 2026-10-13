@@ -114,7 +114,8 @@ Keep it in step with this list.
   Herdr config even under a host's key profile. The daemon `[keys]` actions
   `history_back` and `history_forward` run upstream's Back and Forward
   (`crates/herdr-gpui/src/keymap/daemon.rs`,
-  `crates/herdr-gpui/src/keymap/daemon/client_actions.rs`)
+  `crates/herdr-gpui/src/keymap/daemon/client_actions.rs`,
+  `crates/herdr-gpui/src/window/server_keys/local.rs`)
 - Agent order: under upstream's Priority sort, agents with a daemon
   `priority_key` sort by it, connected hosts first, then by host and
   snapshot order on equal keys, with no client-side recency among keyed
