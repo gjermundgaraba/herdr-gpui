@@ -180,7 +180,7 @@ impl HerdrWindow {
                 let slot = drag
                     .and_then(|drag| drag.target.as_ref())
                     .map_or(plan.dragged(), |target| target.slot);
-                self.preview_shifts(&entries, plan, base, slot)
+                self.preview_shifts(&entries, plan, base, slot, spaces_custom)
             });
             // A child closes the group when no child follows it.
             let closes: Vec<bool> = (0..entries.len())
@@ -205,6 +205,7 @@ impl HerdrWindow {
                             &marker,
                             (snapshot, &endpoint_id, &row_cx),
                             (position, gapped, slide, now),
+                            spaces_custom,
                             cx,
                         );
                         sliding |= moving;
