@@ -25,7 +25,7 @@ pub(crate) enum Layout {
 
 /// One agent status the list is narrowed to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum StatusFilter {
+pub(super) enum StatusFilter {
     Blocked,
     Working,
     Idle,
@@ -33,7 +33,7 @@ pub(crate) enum StatusFilter {
 }
 
 impl StatusFilter {
-    pub(crate) fn label(self) -> &'static str {
+    pub(super) fn label(self) -> &'static str {
         match self {
             Self::Blocked => "blocked",
             Self::Working => "working",
@@ -56,14 +56,14 @@ impl StatusFilter {
 /// Where choosing a row leads. Hosts are named by endpoint id, which stays
 /// the same while the devices list changes under an open navigator.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Target {
+pub(super) enum Target {
     Host { endpoint: String },
     Workspace { endpoint: String, workspace: String },
     Pane { endpoint: String, pane: String },
 }
 
 impl Target {
-    pub(crate) fn endpoint(&self) -> &str {
+    pub(super) fn endpoint(&self) -> &str {
         match self {
             Self::Host { endpoint }
             | Self::Workspace { endpoint, .. }
@@ -73,46 +73,46 @@ impl Target {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Row {
+pub(super) struct Row {
     /// How far the row is indented: a host, its workspaces, their panes.
-    pub(crate) depth: u8,
-    pub(crate) label: String,
+    pub(super) depth: u8,
+    pub(super) label: String,
     /// The pane's directory, or the workspace's branch.
-    pub(crate) meta: String,
+    pub(super) meta: String,
     /// The agent's status; `None` for a host or a workspace.
-    pub(crate) status: Option<AgentStatus>,
+    pub(super) status: Option<AgentStatus>,
     /// The host is not online: the row shows what it last sent.
-    pub(crate) stale: bool,
+    pub(super) stale: bool,
     /// The `space_priority` token of the agent's space, shown before the
     /// label.
-    pub(crate) mark: Option<String>,
-    pub(crate) target: Target,
+    pub(super) mark: Option<String>,
+    pub(super) target: Target,
 }
 
 /// One host the navigator lists.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Host<'a> {
-    pub(crate) id: &'a str,
-    pub(crate) label: &'a str,
+pub(super) struct Host<'a> {
+    pub(super) id: &'a str,
+    pub(super) label: &'a str,
     /// The first host is the local one, which a label never names.
-    pub(crate) local: bool,
-    pub(crate) online: bool,
-    pub(crate) snapshot: Option<&'a ClientShellSnapshot>,
+    pub(super) local: bool,
+    pub(super) online: bool,
+    pub(super) snapshot: Option<&'a ClientShellSnapshot>,
 }
 
 /// What the user asked the navigator to show.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct View {
-    pub(crate) layout: Layout,
-    pub(crate) query: String,
-    pub(crate) filter: Option<StatusFilter>,
+pub(super) struct View {
+    pub(super) layout: Layout,
+    pub(super) query: String,
+    pub(super) filter: Option<StatusFilter>,
     /// The selected row, by where it leads. `None` selects the first pane,
     /// or the first row when no pane is listed.
-    pub(crate) selected: Option<Target>,
+    pub(super) selected: Option<Target>,
 }
 
 impl View {
-    pub(crate) fn new(layout: Layout) -> Self {
+    pub(super) fn new(layout: Layout) -> Self {
         Self {
             layout,
             query: String::new(),
@@ -124,7 +124,7 @@ impl View {
 
 /// The rows `view` lists. `agents` are every host's agents in the agents
 /// panel's priority order, each with its host's place in `hosts`.
-pub(crate) fn rows(
+pub(super) fn rows(
     hosts: &[Host<'_>],
     agents: &[(usize, &ClientShellAgent)],
     view: &View,
@@ -400,7 +400,7 @@ fn agent_rows(hosts: &[Host<'_>], agents: &[(usize, &ClientShellAgent)], view: &
 
 /// The row `selected` names, or the default: the first pane, else the first
 /// row. A selection that is no longer listed selects nothing.
-pub(crate) fn selected_index(rows: &[Row], selected: Option<&Target>) -> Option<usize> {
+pub(super) fn selected_index(rows: &[Row], selected: Option<&Target>) -> Option<usize> {
     match selected {
         Some(target) => rows.iter().position(|row| row.target == *target),
         None => rows
@@ -412,7 +412,7 @@ pub(crate) fn selected_index(rows: &[Row], selected: Option<&Target>) -> Option<
 
 /// Where Left and Right move the selection: the first pane of the nearest
 /// workspace before or after the selected row's that lists any.
-pub(crate) fn workspace_jump(rows: &[Row], selected: usize, forward: bool) -> Option<usize> {
+pub(super) fn workspace_jump(rows: &[Row], selected: usize, forward: bool) -> Option<usize> {
     let section = rows
         .get(..=selected)?
         .iter()
