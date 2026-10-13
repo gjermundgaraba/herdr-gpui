@@ -150,7 +150,6 @@ impl HerdrWindow {
             cell_width: 9.,
             checkpoints: Default::default(),
             chrome_region: None,
-            client_contract: Default::default(),
             #[cfg(feature = "cloud")]
             cloud_jobs: Default::default(),
             #[cfg(feature = "cloud")]
@@ -187,10 +186,10 @@ impl HerdrWindow {
             find_memory: Default::default(),
             flash: None,
             focus,
+            fork: Default::default(),
             git: git::Git::default(),
             gui_config_diagnostic,
             held_keys: Default::default(),
-            history: Default::default(),
             hover: None,
             hover_menu: None,
             hovered_terminal_link: false,
@@ -232,7 +231,6 @@ impl HerdrWindow {
             pending_releases: Vec::new(),
             pending_resize: None,
             pending_toast: None,
-            picker: None,
             port_forwards: Default::default(),
             pr_actions: Default::default(),
             prefix_armed: false,

@@ -14,6 +14,11 @@ use herdr_client::{
 };
 use std::sync::Arc;
 
+/// The daemon's control forwarding `jump`, as the connection hands it on.
+fn jumping(jump: &EndpointClientJump) -> ClientEvent {
+    crate::fork::control(CLIENT_JUMP_KIND, jump)
+}
+
 mod followed;
 mod jump_presentation;
 mod jump_replacement;

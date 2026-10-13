@@ -1,11 +1,10 @@
 use super::*;
 use crate::{preferences::AgentSort, state::ConnectionStatus};
 
-/// Priority lists every host's agents in one order, the daemons' own
-/// (`priority_key`), as Herdr's terminal client does, so a blocked agent on a
-/// remote host is painted above an idle local one. Grouped keeps hosts apart,
-/// and the agent shortcuts step through the rows in the order they are painted
-/// either way.
+/// Priority lists every host's agents in one order, as Herdr's terminal client
+/// does, so a blocked agent on a remote host is painted above an idle local
+/// one. Grouped keeps hosts apart, and the agent shortcuts step through the
+/// rows in the order they are painted either way.
 #[gpui::test]
 fn priority_paints_every_hosts_agents_in_one_order(cx: &mut gpui::TestAppContext) {
     let (fixture, cx) = cx.add_window_view(|window, cx| {
@@ -14,7 +13,6 @@ fn priority_paints_every_hosts_agents_in_one_order(cx: &mut gpui::TestAppContext
             let mut listing = snapshot(1);
             listing.agents.truncate(1);
             listing.agents[0].agent_status = AgentStatus::Idle;
-            listing.agents[0].priority_key = "1.3.ffffffffffffffff".into();
             view.live.snapshot = Some(Arc::new(listing.clone()));
             view.live.status = ConnectionStatus::Connected;
             let mut remote = crate::endpoint::Endpoint::new(
@@ -27,7 +25,6 @@ fn priority_paints_every_hosts_agents_in_one_order(cx: &mut gpui::TestAppContext
                 true,
             );
             listing.agents[0].agent_status = AgentStatus::Blocked;
-            listing.agents[0].priority_key = "1.0.0000000000000000".into();
             remote.live.snapshot = Some(Arc::new(listing));
             remote.live.status = ConnectionStatus::Connected;
             view.endpoints.push(remote);
@@ -58,21 +55,13 @@ fn priority_paints_every_hosts_agents_in_one_order(cx: &mut gpui::TestAppContext
         );
         assert!(top.top() < bottom.top(), "{sort:?}: {top:?} {bottom:?}");
         cx.update(|_, cx| {
-            let view = view.read(cx);
-            let rows = view.sidebar_agents();
-            let stepped: Vec<_> = rows.iter().map(|&(host, _)| host).collect();
+            let stepped: Vec<_> = view
+                .read(cx)
+                .sidebar_agents()
+                .into_iter()
+                .map(|(host, _)| host)
+                .collect();
             assert_eq!(stepped, hosts, "{sort:?}");
-            // The numbered shortcut and next/previous count the painted rows:
-            // the first agent is the one on top, and next from it the other.
-            use crate::controls::Command;
-            let step = |current, command| {
-                crate::sidebar::sidebar_step(&rows, current, view.selected_endpoint, command)
-                    .map(|index| rows[index].0)
-            };
-            assert_eq!(step(None, Command::AgentNumber(1)), Some(hosts[0]));
-            assert_eq!(step(None, Command::AgentNumber(2)), Some(hosts[1]));
-            assert_eq!(step(Some(0), Command::NextAgent), Some(hosts[1]));
-            assert_eq!(step(Some(0), Command::PreviousAgent), Some(hosts[1]));
         });
     }
 }

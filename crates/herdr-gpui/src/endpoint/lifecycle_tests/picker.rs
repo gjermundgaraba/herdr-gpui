@@ -27,7 +27,7 @@ fn control(server: &mut Server, kind: &str, data: &str) {
 }
 
 fn shown(view: &HerdrWindow) -> bool {
-    view.picker.is_some() && view.menu.page == Some(crate::menu::Page::Picker)
+    view.fork.picker.is_some() && view.menu.page == Some(crate::menu::Page::Picker)
 }
 
 /// The daemon's picker controls over a real socket and the connection's own
@@ -58,7 +58,7 @@ fn a_daemons_picker_is_shown_answered_and_closed_over_a_real_connection(
             view.send(ClientPaneInputEvent::TextCommit("leaked".into()), cx);
             // Enter chooses the item the plugin preselected.
             view.picker_key(&key("enter"), window, cx);
-            assert!(!shown(view) && view.picker.is_none());
+            assert!(!shown(view) && view.fork.picker.is_none());
             view.send(ClientPaneInputEvent::TextCommit("after".into()), cx);
         })
     });
@@ -94,7 +94,7 @@ fn a_daemons_picker_is_shown_answered_and_closed_over_a_real_connection(
         view.update(cx, |view, cx| {
             wait_until(|| {
                 view.poll_picker(window, cx);
-                view.picker.is_none()
+                view.fork.picker.is_none()
             });
             assert!(view.menu.page.is_none());
             view.send(ClientPaneInputEvent::TextCommit("closed".into()), cx);
@@ -117,7 +117,7 @@ fn a_daemons_picker_is_shown_answered_and_closed_over_a_real_connection(
         view.update(cx, |view, cx| {
             wait_until(|| {
                 view.poll_picker(window, cx);
-                view.picker.is_none()
+                view.fork.picker.is_none()
             });
             assert!(view.menu.page.is_none());
             assert!(

@@ -1,4 +1,4 @@
-//! Requests the window follows to their answers.
+//! Mark Agent Unread, and the requests the window follows to their answers.
 //!
 //! Most requests are sent and forgotten: a refusal reaches the status bar
 //! through the live state and nothing else depends on it. An accepted
@@ -11,10 +11,38 @@
 //! The Herdr fork's terminal client sends `agent.mark_unread` in
 //! `src/client/shell/endpoints.rs`.
 
-use crate::HerdrWindow;
+use crate::{HerdrWindow, controls::fork::mark_unread};
 use herdr_client::{ClientHandle, SendError};
 
 impl HerdrWindow {
+    /// Asks the daemon to hold the focused agent's acknowledged completion
+    /// (`agent.mark_unread`), on the connection of the host that owns the
+    /// pane: the selected one, which is the client presenting it. The daemon
+    /// keeps the hold, so no record of it lives here. The badge returns with a
+    /// later snapshot's `agent_status`, and a refusal such as `agent_not_idle`
+    /// comes back as the request's error, shown like any other daemon error.
+    ///
+    /// Counterpart of `mark_focused_pane_unread` in the Herdr fork's
+    /// `src/client/shell/endpoints.rs`.
+    pub(crate) fn mark_focused_agent_unread(&mut self) {
+        let Some(snapshot) = self.live.snapshot.clone() else {
+            self.local_error =
+                Some("Mark Agent Unread: the host has not shown its panes yet.".into());
+            return;
+        };
+        let Some((method, params)) = mark_unread(&snapshot) else {
+            self.local_error = Some("Mark Agent Unread: no pane is focused.".into());
+            return;
+        };
+        // Followed to the daemon's answer, which is all that confirms it. Only
+        // a failure is written: a queued request leaves any other error shown.
+        if let Err(error) =
+            self.follow_request(|handle| handle.request(&snapshot.boot_id, method, params))
+        {
+            self.local_error = Some(format!("Mark Agent Unread: {error}"));
+        }
+    }
+
     /// Queues a request on the selected host and follows its answer.
     /// Nothing is followed when it could not be queued; the caller reports
     /// that.
@@ -27,12 +55,12 @@ impl HerdrWindow {
         // Held across the queueing, so the answer cannot reach the mailbox
         // before it knows to keep it. The reader holds this lock only to
         // file one event.
-        let mut mailbox = connection
-            .clients
+        let mut fork = connection
+            .fork
             .lock()
             .map_err(|_| SendError::Disconnected)?;
         let id = enqueue(handle)?;
-        mailbox.follow(id);
+        fork.clients.follow(id);
         Ok(())
     }
 
@@ -44,9 +72,9 @@ impl HerdrWindow {
     pub(super) fn take_accepted_requests(&self) -> bool {
         self.connections().fold(false, |accepted, connection| {
             let taken = connection
-                .clients
+                .fork
                 .try_lock()
-                .is_ok_and(|mut mailbox| mailbox.take_accepted());
+                .is_ok_and(|mut fork| fork.clients.take_accepted());
             accepted | taken
         })
     }

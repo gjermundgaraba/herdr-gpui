@@ -5,7 +5,7 @@ use super::*;
 use crate::protocol::clients::*;
 
 const REPORT: &str =
-    include_str!("../../../herdr-protocol/tests/fixtures/endpoint-client-report-v1.json");
+    include_str!("../../../../herdr-protocol/tests/fixtures/endpoint-client-report-v1.json");
 
 /// The fixture's report.
 fn report() -> ClientReport {

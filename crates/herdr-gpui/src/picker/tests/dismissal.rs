@@ -29,7 +29,7 @@ fn escape_and_every_other_way_out_of_the_page_answer_cancelled(cx: &mut gpui::Te
     cx.update(|window, cx| view.update(cx, |view, cx| view.open_palette(Filter::All, window, cx)));
     assert_eq!(sent(&mut first), cancelled("pick-3"));
     view.read_with(cx, |view, _| {
-        assert!(view.picker.is_none());
+        assert!(view.fork.picker.is_none());
         assert_eq!(view.menu.page, Some(Page::Palette));
     });
     cx.update(|window, cx| view.update(cx, |view, cx| view.dismiss_menu(window, cx)));
@@ -73,7 +73,7 @@ fn a_close_for_the_open_picker_dismisses_it_without_an_answer(cx: &mut gpui::Tes
     cx.update(|window, cx| {
         view.update(cx, |view, cx| {
             let connection = &view.endpoints[0].connection;
-            feed(connection, ClientEvent::PickOpen(open("pick-2", true)));
+            feed(connection, opening(open("pick-2", true)));
             feed(connection, close("pick-2"));
             view.poll_picker(window, cx);
         })
@@ -145,7 +145,7 @@ fn a_removed_or_replaced_connection_takes_its_picker_with_it(cx: &mut gpui::Test
             let other = ConnectionBridge::new(ConnectTarget::Socket("/unused.sock".into()));
             let own = std::mem::replace(&mut view.endpoints[0].connection, other);
             view.poll_picker(window, cx);
-            assert!(view.picker.is_none());
+            assert!(view.fork.picker.is_none());
             view.endpoints[0].connection = own;
         })
     });
@@ -179,7 +179,7 @@ fn a_picker_arriving_over_another_page_is_cancelled_and_leaves_it_alone(
     deliver(&view, 0, open("pick-1", true), cx);
     assert_eq!(sent(&mut first), cancelled("pick-1"));
     view.read_with(cx, |view, _| {
-        assert!(view.picker.is_none());
+        assert!(view.fork.picker.is_none());
         assert_eq!(view.menu.page, Some(Page::Palette));
         assert!(view.menu.palette.is_some());
     });

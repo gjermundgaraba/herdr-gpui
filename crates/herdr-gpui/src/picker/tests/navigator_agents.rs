@@ -4,6 +4,7 @@
 
 use super::navigator_fixture::*;
 use super::*;
+use crate::controls::ForkCommand;
 use crate::{controls::Command, navigation::NavigationTarget, state::ConnectionStatus};
 use herdr_client::protocol::AgentStatus;
 
@@ -13,7 +14,7 @@ fn it_lists_every_hosts_agents_by_priority_with_the_top_row_selected(
 ) {
     let (_first, _second, view, cx) = window(cx);
 
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
 
     assert_eq!(
         state(&view, cx),
@@ -55,7 +56,7 @@ fn the_panels_own_sort_and_the_device_filter_do_not_change_the_list(cx: &mut gpu
         view.device_filter = Some(crate::endpoint::LOCAL.into());
     });
 
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
 
     assert_eq!(listed(&view, cx), [DEPLOYER, REVIEWER, HELPER]);
 }
@@ -65,7 +66,7 @@ fn the_list_keys_move_and_none_of_them_reaches_the_pane(cx: &mut gpui::TestAppCo
     let (mut first, mut second, view, cx) = window(cx);
     type_at_the_terminal(&view, cx);
     sent(&mut first);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
 
     // Through the window's real focus and key dispatch.
     for (keystrokes, expected) in [
@@ -103,7 +104,7 @@ fn the_list_keys_move_and_none_of_them_reaches_the_pane(cx: &mut gpui::TestAppCo
 #[gpui::test]
 fn slash_searches_and_escape_leaves_the_search_before_it_closes(cx: &mut gpui::TestAppContext) {
     let (mut first, _second, view, cx) = window(cx);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
 
     cx.simulate_keystrokes("/");
     assert!(state(&view, cx).unwrap().searching);
@@ -139,7 +140,7 @@ fn slash_searches_and_escape_leaves_the_search_before_it_closes(cx: &mut gpui::T
 #[gpui::test]
 fn the_status_letters_narrow_the_list_and_a_search_starts_over(cx: &mut gpui::TestAppContext) {
     let (_first, _second, view, cx) = window(cx);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
 
     for (keystroke, expected) in [
         ("b", vec![REVIEWER]),
@@ -175,7 +176,7 @@ fn enter_opens_the_agents_pane_on_the_presented_host(cx: &mut gpui::TestAppConte
     let (mut first, mut second, view, cx) = window(cx);
     ready(&view, cx);
     sent(&mut first);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
     ready(&view, cx);
 
     cx.simulate_keystrokes("j j enter");
@@ -196,7 +197,7 @@ fn enter_on_another_hosts_agent_presents_that_host_with_the_pane_as_target(
     cx: &mut gpui::TestAppContext,
 ) {
     let (_first, _second, view, cx) = window(cx);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
 
     cx.simulate_keystrokes("enter");
 
@@ -219,7 +220,7 @@ fn a_host_that_is_away_is_dimmed_and_not_opened(cx: &mut gpui::TestAppContext) {
         live.status = ConnectionStatus::Disconnected;
         live.error = Some("connection lost".into());
     });
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
     // Its last-known agent follows the connected hosts', as in the panel.
     assert_eq!(listed(&view, cx), [REVIEWER, HELPER, DEPLOYER]);
     view.read_with(cx, |view, _| {
@@ -258,7 +259,7 @@ fn a_host_that_is_away_is_dimmed_and_not_opened(cx: &mut gpui::TestAppContext) {
 #[gpui::test]
 fn the_rows_follow_the_hosts_while_the_picker_is_open(cx: &mut gpui::TestAppContext) {
     let (_first, _second, view, cx) = window(cx);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
     cx.simulate_keystrokes("j");
     assert_eq!(selected(&view, cx), REVIEWER);
 
@@ -286,7 +287,7 @@ fn clicking_a_row_opens_it(cx: &mut gpui::TestAppContext) {
     let (mut first, _second, view, cx) = window(cx);
     ready(&view, cx);
     sent(&mut first);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
     ready(&view, cx);
 
     cx.update(|window, cx| {
@@ -305,7 +306,7 @@ fn an_open_navigator_refuses_a_plugins_picker_and_another_menu_closes_it(
     cx: &mut gpui::TestAppContext,
 ) {
     let (mut first, _second, view, cx) = window(cx);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
 
     // A plugin must not take over the list the user is in.
     deliver(&view, 0, open("pick-1", false), cx);
@@ -317,6 +318,6 @@ fn an_open_navigator_refuses_a_plugins_picker_and_another_menu_closes_it(
 
     // Nobody waits on a navigator, so another page simply replaces it.
     cx.update(|window, cx| view.update(cx, |view, cx| view.open_menu(window, cx)));
-    view.read_with(cx, |view, _| assert!(view.picker.is_none()));
+    view.read_with(cx, |view, _| assert!(view.fork.picker.is_none()));
     assert_eq!(sent(&mut first), Sent::nothing());
 }

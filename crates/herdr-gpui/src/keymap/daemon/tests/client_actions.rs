@@ -5,7 +5,8 @@
 //! agent unread whichever host is selected.
 
 use super::*;
-use crate::keymap::{Keymap, PaneKeys};
+use crate::controls::ForkCommand;
+use crate::keymap::{Keymap, PaneKeys, daemon::client_actions::CLIENT_ACTIONS};
 use std::collections::BTreeMap;
 
 const LOCAL: &str = r#"
@@ -32,7 +33,7 @@ const PROFILE: &str = r#"
 fn a_profile_takes_this_machines_bindings_for_the_clients_own_actions() {
     let (local, profile) = (keys(LOCAL), keys(PROFILE));
     let merged = profile.clone().with_client_actions(&local);
-    for command in CLIENT_ACTIONS {
+    for &command in CLIENT_ACTIONS {
         assert_eq!(
             bound(&merged, command),
             bound(&local, command),
@@ -60,7 +61,7 @@ fn an_action_this_machine_leaves_unset_is_unset_under_a_profile_too() {
          history_forward = 'alt+f'\nmark_unread = 'alt+m'\n",
     );
     let merged = profile.with_client_actions(&DaemonKeys::default());
-    for command in CLIENT_ACTIONS {
+    for &command in CLIENT_ACTIONS {
         assert!(bound(&merged, command).is_empty(), "{command:?}");
     }
 }
@@ -71,9 +72,16 @@ fn a_local_binding_keeps_its_keystroke_over_the_hosts_use_of_it() {
     let merged = keys(PROFILE).with_client_actions(&local);
     let keymap = Keymap::with_overrides(&BTreeMap::new(), &PaneKeys::new(), &merged).unwrap();
     // The host gave alt+n to new_tab, and prefix+c is Herdr's default for it.
-    assert!(keymap.triggers(Command::AgentPicker, &parsed("alt-n"), false));
+    assert!(keymap.triggers(
+        Command::Fork(ForkCommand::AgentPicker),
+        &parsed("alt-n"),
+        false
+    ));
     assert!(!keymap.triggers(Command::Tab, &parsed("alt-n"), false));
-    assert_eq!(keymap.chord(&parsed("c")), Some(Command::MarkUnread));
+    assert_eq!(
+        keymap.chord(&parsed("c")),
+        Some(Command::Fork(ForkCommand::MarkUnread))
+    );
     // A chord is typed after the host's prefix, like every other chord
     // while its profile applies.
     assert!(keymap.is_prefix(&parsed("cmd-j")));

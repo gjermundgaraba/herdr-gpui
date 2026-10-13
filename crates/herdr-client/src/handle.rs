@@ -10,10 +10,7 @@ use crate::{
     host_theme::HostTheme,
     method::Method,
     options::{ConnectOptions, validate_options},
-    protocol::{
-        clients::{ClientReport, MAX_ENDPOINT_COMMAND_BYTES},
-        *,
-    },
+    protocol::*,
     queue::CommandSender,
 };
 use crossbeam_channel::Receiver;
@@ -22,6 +19,8 @@ use std::sync::{
     Arc, Mutex, PoisonError,
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
+
+mod report;
 
 pub struct Client {
     pub handle: ClientHandle,
@@ -281,42 +280,15 @@ impl ClientHandle {
     /// Serialize the API envelope, generate an ID, and queue on the ordered writer.
     /// Only methods advertised in Connected are sent. Responses retain API errors.
     /// The daemon closes a connection that sends a request longer than
-    /// [`MAX_ENDPOINT_COMMAND_BYTES`], so one that long is refused here with
+    /// [`clients::MAX_ENDPOINT_COMMAND_BYTES`], so one that long is refused here with
     /// [`Error::RequestTooLarge`] and nothing is written.
     pub fn request(&self, boot_id: &str, method: Method, params: Value) -> Result<String> {
         let id = self.next_request_id();
-        let request = encode_request(&id, method, &params)?;
-        if request.len() > MAX_ENDPOINT_COMMAND_BYTES {
+        let request = report::encode_request(&id, method, &params)?;
+        if request.len() > clients::MAX_ENDPOINT_COMMAND_BYTES {
             return Err(Error::RequestTooLarge);
         }
         self.queue_request(boot_id, id, method, request)
-    }
-    /// Queue `report` as `client.report`. The daemon closes a connection that
-    /// sends a lane request longer than [`MAX_ENDPOINT_COMMAND_BYTES`], and a
-    /// report within its row and text limits can still be, so the request is
-    /// measured as it will be written. One that does not fit loses rows from
-    /// the end of the list, in proportion to how far over it is, until it
-    /// does; a report that does not fit without rows is not sent at all.
-    pub fn report(&self, boot_id: &str, mut report: ClientReport) -> Result<String> {
-        let id = self.next_request_id();
-        loop {
-            let request = encode_request(&id, Method::ClientReport, &report)?;
-            if request.len() <= MAX_ENDPOINT_COMMAND_BYTES {
-                return self.queue_request(boot_id, id, Method::ClientReport, request);
-            }
-            let rows = report.agents.len();
-            if rows == 0 {
-                return Err(Error::ClientReportTooLarge);
-            }
-            let keep = (rows * MAX_ENDPOINT_COMMAND_BYTES / request.len()).min(rows - 1);
-            tracing::warn!(
-                category = "client_report",
-                rows,
-                keep,
-                "report exceeds the lane command size; dropping trailing rows"
-            );
-            report.agents.truncate(keep);
-        }
     }
     fn next_request_id(&self) -> String {
         format!(
@@ -357,20 +329,4 @@ impl ClientHandle {
             json!({"workspace_id": workspace_id}),
         )
     }
-}
-
-/// One lane request as it is written: `{"id", "method", "params"}`.
-#[derive(serde::Serialize)]
-struct LaneRequest<'a, P> {
-    id: &'a str,
-    method: &'a str,
-    params: &'a P,
-}
-
-fn encode_request(id: &str, method: Method, params: &impl serde::Serialize) -> Result<String> {
-    Ok(serde_json::to_string(&LaneRequest {
-        id,
-        method: method.as_str(),
-        params,
-    })?)
 }

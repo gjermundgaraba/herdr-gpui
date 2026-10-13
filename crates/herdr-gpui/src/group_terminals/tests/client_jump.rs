@@ -6,7 +6,9 @@ use super::*;
 use herdr_client::{
     ClientEvent,
     protocol::{
-        clients::{ClientJumpOutcome, ClientJumpResolveParams, EndpointClientJump},
+        clients::{
+            CLIENT_JUMP_KIND, ClientJumpOutcome, ClientJumpResolveParams, EndpointClientJump,
+        },
         endpoint::EndpointServerWelcome,
     },
 };
@@ -21,9 +23,10 @@ fn greet(connection: &ConnectionBridge) {
     ))
     .unwrap();
     welcome.methods.push(RESOLVE.into());
-    let mut clients = connection.clients.lock().unwrap();
-    clients.apply(ClientEvent::Connected(welcome));
-    clients.apply(ClientEvent::Snapshot(Arc::new(fixture_snapshot())));
+    let mut fork = connection.fork.lock().unwrap();
+    fork.clients.apply(ClientEvent::Connected(welcome));
+    fork.clients
+        .apply(ClientEvent::Snapshot(Arc::new(fixture_snapshot())));
 }
 
 /// The jump answers `peer` was sent; a sentinel typed into the connection
@@ -87,7 +90,7 @@ fn a_jump_forwarded_to_a_parked_connection_is_answered_on_it(cx: &mut TestAppCon
             parked
                 .connection
                 .mailboxes()
-                .deliver(ClientEvent::ClientJump(EndpointClientJump {
+                .deliver(jumping(&EndpointClientJump {
                     jump_id: "jump-9".into(),
                     endpoint_id: crate::endpoint::LOCAL.into(),
                     boot_id: "an-older-boot".into(),
@@ -126,7 +129,7 @@ fn elsewhere(view: &HerdrWindow) -> ClientShellSnapshot {
 fn jump_to_another_space(
     view: &Entity<HerdrWindow>,
     cx: &mut VisualTestContext,
-) -> (MockPeer, MockPeer, crate::connection::Mailboxes, Instant) {
+) -> (MockPeer, MockPeer, crate::fork::Mailboxes, Instant) {
     draw(cx);
     cx.update(|window, cx| {
         view.update(cx, |view, cx| {
@@ -150,13 +153,18 @@ fn jump_to_another_space(
             let parked = parked(left, key, target, &group, snapshot(40));
             greet(&parked.connection);
             let mailboxes = parked.connection.mailboxes();
-            mailboxes.deliver(ClientEvent::ClientJump(jump("jump-1")));
+            mailboxes.deliver(jumping(&jump("jump-1")));
             view.browser.terminals.parked.push(parked);
             view.tick_client_contract(start, cx);
             mailboxes
         })
     });
     (own, group, mailboxes, start)
+}
+
+/// The daemon's control forwarding `jump`, as the connection hands it on.
+fn jumping(jump: &EndpointClientJump) -> ClientEvent {
+    crate::fork::control(CLIENT_JUMP_KIND, jump)
 }
 
 fn jump(id: &str) -> EndpointClientJump {
@@ -229,7 +237,7 @@ fn a_later_jump_on_a_retired_connection_keeps_it_for_its_own_answer(cx: &mut Tes
 
             // Eleven seconds on, the daemon forwards a newer jump there,
             // which takes the first one's place and has its own time.
-            mailboxes.deliver(ClientEvent::ClientJump(jump("jump-2")));
+            mailboxes.deliver(jumping(&jump("jump-2")));
             view.tick_client_contract(at(11), cx);
             // Twenty seconds after the connection retired, the newer jump
             // is still open, so the connection is still here.
@@ -303,7 +311,7 @@ fn a_jump_open_when_the_primary_group_closes_is_answered_on_its_connection(
             view.endpoints[0]
                 .connection
                 .mailboxes()
-                .deliver(ClientEvent::ClientJump(jump("jump-1")));
+                .deliver(jumping(&jump("jump-1")));
             view.tick_client_contract(start, cx);
             assert_eq!(kept(view), 1, "the parked connection");
 

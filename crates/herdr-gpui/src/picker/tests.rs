@@ -14,7 +14,10 @@ use herdr_client::{
     ClientEvent, ConnectTarget,
     protocol::{
         ClientMessage, ClientPaneInputEvent, ClientShellSnapshot,
-        pick::{EndpointPickClose, EndpointPickOpen, UiPickCreate, UiPickItem},
+        pick::{
+            EndpointPickClose, EndpointPickOpen, PICK_CLOSE_KIND, PICK_OPEN_KIND, UiPickCreate,
+            UiPickItem,
+        },
     },
 };
 use serde_json::{Value, json};
@@ -111,16 +114,22 @@ fn open(pick_id: &str, create: bool) -> EndpointPickOpen {
     }
 }
 
-fn close(pick_id: &str) -> ClientEvent {
-    ClientEvent::PickClose(EndpointPickClose {
-        pick_id: pick_id.into(),
-    })
+/// The daemon's control asking for `open`, as the connection forwards it.
+fn opening(open: EndpointPickOpen) -> ClientEvent {
+    crate::fork::control(PICK_OPEN_KIND, &open)
 }
 
-/// Hands `event` to `connection` the way its reader does: the picker mailbox
+fn close(pick_id: &str) -> ClientEvent {
+    let close = EndpointPickClose {
+        pick_id: pick_id.into(),
+    };
+    crate::fork::control(PICK_CLOSE_KIND, &close)
+}
+
+/// Hands `event` to `connection` the way its reader does: the fork mailbox
 /// sees it before the live state, and keeps the picker controls.
 fn feed(connection: &ConnectionBridge, event: ClientEvent) {
-    let passed = connection.picks.lock().unwrap().apply(event);
+    let passed = connection.fork.lock().unwrap().apply(event);
     let mut state = connection.inbox.lock().unwrap();
     match passed {
         Some(event) => state.apply(event),
@@ -249,10 +258,7 @@ fn deliver(
 ) {
     cx.update(|window, cx| {
         view.update(cx, |view, cx| {
-            feed(
-                &view.endpoints[index].connection,
-                ClientEvent::PickOpen(open),
-            );
+            feed(&view.endpoints[index].connection, opening(open));
             view.poll_picker(window, cx);
         })
     });
@@ -295,7 +301,7 @@ fn redraw(cx: &mut VisualTestContext) {
 /// Asserts no picker is on screen and none is still owed an answer.
 fn assert_closed(view: &Entity<HerdrWindow>, cx: &mut VisualTestContext) {
     view.read_with(cx, |view, _| {
-        assert!(view.picker.is_none());
+        assert!(view.fork.picker.is_none());
         assert_ne!(view.menu.page, Some(Page::Picker));
     });
 }
@@ -324,7 +330,8 @@ fn rows(picker: &Picker) -> Vec<String> {
 }
 
 fn shown(view: &HerdrWindow) -> Option<&Picker> {
-    view.picker
+    view.fork
+        .picker
         .as_ref()
         .filter(|_| view.menu.page == Some(Page::Picker))
 }

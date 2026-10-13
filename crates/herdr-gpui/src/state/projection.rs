@@ -189,6 +189,11 @@ impl LiveState {
                 .or_else(|| self.previous_pane.take()),
             _ => None,
         };
+        let previous = self
+            .snapshot
+            .as_deref()
+            .filter(|old| old.boot_id == snapshot.boot_id);
+        self.agent_recency.observe(previous, &snapshot);
         self.snapshot = Some(snapshot);
     }
 }

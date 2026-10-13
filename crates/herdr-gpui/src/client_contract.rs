@@ -56,7 +56,7 @@ use std::{
 struct SentReport {
     /// The mailbox of the connection it went out on. A bridge replaces its
     /// mailbox when it reconnects, so this names one connection for its life.
-    connection: Weak<Mutex<Inbox>>,
+    connection: Weak<Mutex<crate::fork::Inbox>>,
     boot: String,
     fingerprint: Fingerprint,
     report: ClientReport,
@@ -144,7 +144,7 @@ impl HerdrWindow {
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         self.active.hash(&mut hash);
         self.selected_endpoint.hash(&mut hash);
-        self.agent_sort.hash(&mut hash);
+        std::mem::discriminant(&self.agent_sort).hash(&mut hash);
         let mut snapshots = Vec::with_capacity(self.endpoints.len());
         for (index, endpoint) in self.endpoints.iter().enumerate() {
             endpoint.id.hash(&mut hash);
@@ -167,14 +167,17 @@ impl HerdrWindow {
             .iter()
             .map(|endpoint| &endpoint.connection)
             .chain(self.parked_connections())
-            .chain(self.client_contract.jumps.retiring())
+            .chain(self.fork.client_contract.jumps.retiring())
     }
 
     /// The connection one of whose mailboxes is `mailbox`, while the window
     /// holds it. A bridge replaces its mailboxes when it reconnects, so a
     /// mailbox names one connection for its whole life, wherever the window
     /// keeps it meanwhile.
-    pub(crate) fn connection_of<T>(&self, mailbox: &Weak<Mutex<T>>) -> Option<&ConnectionBridge> {
+    pub(crate) fn connection_of(
+        &self,
+        mailbox: &Weak<Mutex<crate::fork::Inbox>>,
+    ) -> Option<&ConnectionBridge> {
         self.connections()
             .find(|connection| connection.owns(mailbox))
     }
@@ -189,7 +192,8 @@ impl HerdrWindow {
                 .as_ref()
                 .is_some_and(|handle| !handle.is_disconnected())
         };
-        self.client_contract
+        self.fork
+            .client_contract
             .sent
             .as_ref()
             .and_then(|sent| self.connection_of(&sent.connection))
@@ -205,17 +209,19 @@ impl HerdrWindow {
         let Some(handle) = connection.handle.clone() else {
             return;
         };
-        let clients = connection.clients.clone();
+        let fork = connection.fork.clone();
         // Never wait on the event reader: a busy mailbox is asked next tick.
-        let Ok(mut mailbox) = clients.try_lock() else {
+        let Ok(mut fork_inbox) = fork.try_lock() else {
             return;
         };
+        let mailbox = &mut fork_inbox.clients;
         // The request names the daemon's boot, which its first snapshot brings.
         let Some(boot) = mailbox.report_boot().map(str::to_owned) else {
             return;
         };
         let fingerprint = self.client_report_fingerprint();
         let held = self
+            .fork
             .client_contract
             .sent
             .as_ref()
@@ -249,8 +255,8 @@ impl HerdrWindow {
                 }
             }
         }
-        self.client_contract.sent = Some(SentReport {
-            connection: Arc::downgrade(&clients),
+        self.fork.client_contract.sent = Some(SentReport {
+            connection: Arc::downgrade(&fork),
             boot,
             fingerprint,
             report,

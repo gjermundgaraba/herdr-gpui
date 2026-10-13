@@ -6,6 +6,7 @@
 use super::navigator_fixture::*;
 use super::*;
 use crate::controls::Command;
+use crate::controls::ForkCommand;
 
 /// Local's next snapshot, changed by `change`, as the window's poll takes it.
 fn local(
@@ -22,7 +23,7 @@ fn a_lost_selection_selects_nothing_and_enter_opens_nothing(cx: &mut gpui::TestA
     let (mut first, mut second, view, cx) = window(cx);
     ready(&view, cx);
     sent(&mut first);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
     ready(&view, cx);
     cx.simulate_keystrokes("j");
     assert_eq!(selected(&view, cx), REVIEWER);
@@ -63,7 +64,7 @@ fn a_lost_selection_selects_nothing_and_enter_opens_nothing(cx: &mut gpui::TestA
 #[gpui::test]
 fn a_step_from_nothing_selected_starts_at_the_first_row(cx: &mut gpui::TestAppContext) {
     let (_first, _second, view, cx) = window(cx);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
     cx.simulate_keystrokes("j j");
     assert_eq!(selected(&view, cx), HELPER);
     local(

@@ -11,11 +11,7 @@ fn ready() -> Inbox {
 }
 
 fn opened(inbox: &mut Inbox, pick_id: &str) {
-    assert!(
-        inbox
-            .apply(ClientEvent::PickOpen(open(pick_id, false)))
-            .is_none()
-    );
+    assert!(inbox.apply(opening(open(pick_id, false))).is_none());
 }
 
 fn closed(inbox: &mut Inbox, pick_id: &str) {
@@ -199,4 +195,39 @@ fn every_other_event_passes_through_untouched() {
         );
     }
     assert_eq!(inbox.take(), Update::default());
+}
+
+#[test]
+fn a_picker_control_this_client_cannot_read_is_dropped() {
+    let mut inbox = ready();
+    let control = |kind: &str, data: &str| ClientEvent::Control {
+        kind: kind.into(),
+        data: data.into(),
+    };
+    for (kind, data) in [
+        (PICK_OPEN_KIND, "not json"),
+        (PICK_OPEN_KIND, ""),
+        (PICK_OPEN_KIND, r#"{"pick_id":"p","title":"t"}"#),
+        (
+            PICK_OPEN_KIND,
+            r#"{"pick_id":"p","title":"t","items":[{"id":"a"}]}"#,
+        ),
+        (PICK_CLOSE_KIND, "{}"),
+        (PICK_CLOSE_KIND, r#"{"pick_id":7}"#),
+    ] {
+        assert!(inbox.apply(control(kind, data)).is_none(), "{kind} {data}");
+    }
+    assert_eq!(inbox.take(), Update::default());
+    // Neighbouring controls are not the picker's: they are passed on.
+    let open = serde_json::to_string(&open("pick-1", false)).unwrap();
+    for kind in ["endpoint.pick.open.v2", "endpoint.agent-completions.v1"] {
+        assert!(matches!(
+            inbox.apply(control(kind, &open)),
+            Some(ClientEvent::Control { .. })
+        ));
+    }
+    assert_eq!(inbox.take(), Update::default());
+    // The next well-formed one is read as ever.
+    opened(&mut inbox, "pick-1");
+    assert_eq!(inbox.take().open, request("pick-1"));
 }

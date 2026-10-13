@@ -2,6 +2,7 @@
 //! they keep this machine's `[keys]`, as in the Herdr fork.
 
 use super::*;
+use crate::controls::ForkCommand;
 use crate::keymap::DaemonKeys;
 
 const HOST_KEYS: &str = "[keys]\nprefix = \"cmd+j\"\nagent_picker = \"alt+p\"\n\
@@ -27,19 +28,25 @@ fn a_devices_profile_leaves_the_clients_own_actions_on_local_keys(cx: &mut TestA
         // The host's keys apply: its prefix starts a chord.
         assert!(keymap.is_prefix(&key("cmd-j")));
         for (command, typed) in [
-            (Command::AgentPicker, "alt-a"),
+            (Command::Fork(ForkCommand::AgentPicker), "alt-a"),
             (Command::Back, "alt-o"),
             (Command::Forward, "alt-i"),
         ] {
             assert!(keymap.triggers(command, &key(typed), false), "{command:?}");
         }
-        assert_eq!(keymap.chord(&key("shift-l")), Some(Command::WorkspaceList));
-        assert_eq!(keymap.chord(&key("u")), Some(Command::MarkUnread));
+        assert_eq!(
+            keymap.chord(&key("shift-l")),
+            Some(Command::Fork(ForkCommand::WorkspaceList))
+        );
+        assert_eq!(
+            keymap.chord(&key("u")),
+            Some(Command::Fork(ForkCommand::MarkUnread))
+        );
         // What the host says of them is not read.
         for (command, typed) in [
-            (Command::AgentPicker, "alt-p"),
+            (Command::Fork(ForkCommand::AgentPicker), "alt-p"),
             (Command::Back, "alt-b"),
-            (Command::MarkUnread, "alt-m"),
+            (Command::Fork(ForkCommand::MarkUnread), "alt-m"),
         ] {
             assert!(!keymap.triggers(command, &key(typed), false), "{command:?}");
         }
@@ -59,7 +66,11 @@ fn a_devices_prefix_keeps_its_key_from_a_local_client_action(cx: &mut TestAppCon
         // The prefix is placed first: the key starts a chord, and the action
         // is left without it. The terminal client runs the action instead.
         assert!(keymap.is_prefix(&key("cmd-j")));
-        assert!(!keymap.triggers(Command::AgentPicker, &key("cmd-j"), false));
+        assert!(!keymap.triggers(
+            Command::Fork(ForkCommand::AgentPicker),
+            &key("cmd-j"),
+            false
+        ));
     });
 }
 

@@ -136,3 +136,36 @@ fn a_lost_connection_forgets_everything() {
     assert_eq!(inbox.report_boot(), None);
     assert!(!inbox.report_pending());
 }
+
+#[test]
+fn a_jump_is_kept_for_the_window_and_one_this_client_cannot_read_is_dropped() {
+    const JUMP: &str =
+        include_str!("../../../../herdr-protocol/tests/fixtures/endpoint-client-jump-v1.json");
+    let control = |kind: &str, data: &str| ClientEvent::Control {
+        kind: kind.into(),
+        data: data.into(),
+    };
+    let mut inbox = ready();
+    for data in [
+        "not json",
+        "",
+        "{}",
+        r#"{"jump_id":"j","endpoint_id":"local"}"#,
+        r#"{"jump_id":7,"endpoint_id":"local","boot_id":"b","pane_id":"p"}"#,
+    ] {
+        assert!(
+            inbox.apply(control(CLIENT_JUMP_KIND, data)).is_none(),
+            "{data}"
+        );
+    }
+    assert_eq!(inbox.take_jump(), None);
+    assert!(!inbox.owes_jump_answer());
+    // A neighbouring control is not the contract's: it is passed on.
+    assert!(matches!(
+        inbox.apply(control("endpoint.client-jump.v2", JUMP)),
+        Some(ClientEvent::Control { .. })
+    ));
+    assert_eq!(inbox.take_jump(), None);
+    assert!(inbox.apply(control(CLIENT_JUMP_KIND, JUMP)).is_none());
+    assert_eq!(inbox.take_jump(), Some(decode_jump(JUMP).unwrap()));
+}

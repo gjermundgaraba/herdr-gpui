@@ -1,7 +1,6 @@
 //! Command dispatch and focus changes. A focus change is fenced behind an
 //! ordered surface barrier so input cannot reach the previous pane while the
-//! navigation and its projection are still in flight. Mark Agent Unread
-//! mirrors the Herdr fork's `src/client/shell/endpoints.rs`.
+//! navigation and its projection are still in flight.
 
 use super::{Flash, HerdrWindow};
 use crate::{
@@ -503,18 +502,8 @@ impl HerdrWindow {
                 self.open_focused_workspace_dialog(action, window, cx);
                 return;
             }
-            Command::MarkUnread => {
-                self.mark_focused_agent_unread();
-                cx.notify();
-                return;
-            }
-            Command::AgentPicker | Command::WorkspaceList => {
-                let layout = if command == Command::AgentPicker {
-                    crate::picker::navigator::Layout::Agents
-                } else {
-                    crate::picker::navigator::Layout::Workspaces
-                };
-                self.open_navigator(layout, window, cx);
+            Command::Fork(command) => {
+                self.run_fork_command(command, window, cx);
                 return;
             }
             // As Herdr's binding does: the daemon rereads its file, and this
@@ -587,34 +576,6 @@ impl HerdrWindow {
         }
         window.focus(&self.focus, cx);
         cx.notify();
-    }
-
-    /// Asks the daemon to hold the focused agent's acknowledged completion
-    /// (`agent.mark_unread`), on the connection of the host that owns the
-    /// pane: the selected one, which is the client presenting it. The daemon
-    /// keeps the hold, so no record of it lives here. The badge returns with a
-    /// later snapshot's `agent_status`, and a refusal such as `agent_not_idle`
-    /// comes back as the request's error, shown like any other daemon error.
-    ///
-    /// Counterpart of `mark_focused_pane_unread` in the Herdr fork's
-    /// `src/client/shell/endpoints.rs`.
-    fn mark_focused_agent_unread(&mut self) {
-        let Some(snapshot) = self.live.snapshot.clone() else {
-            self.local_error =
-                Some("Mark Agent Unread: the host has not shown its panes yet.".into());
-            return;
-        };
-        let Some((method, params)) = controls::mark_unread(&snapshot) else {
-            self.local_error = Some("Mark Agent Unread: no pane is focused.".into());
-            return;
-        };
-        // Followed to the daemon's answer, which is all that confirms it. Only
-        // a failure is written: a queued request leaves any other error shown.
-        if let Err(error) =
-            self.follow_request(|handle| handle.request(&snapshot.boot_id, method, params))
-        {
-            self.local_error = Some(format!("Mark Agent Unread: {error}"));
-        }
     }
 
     /// Focuses the workspace or agent a sidebar step lands on, selecting its

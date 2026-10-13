@@ -2,9 +2,12 @@
 //! sends a longer one, so the handle refuses it and writes nothing.
 
 use super::*;
-use crate::protocol::{
-    clients::MAX_ENDPOINT_COMMAND_BYTES,
-    pick::{UiPickOutcome, UiPickResolveParams},
+use crate::{
+    method::ForkMethod,
+    protocol::{
+        clients::MAX_ENDPOINT_COMMAND_BYTES,
+        pick::{UiPickOutcome, UiPickResolveParams},
+    },
 };
 
 /// `ui.pick.resolve` for created text of `bytes` bytes.
@@ -31,9 +34,11 @@ fn a_request_longer_than_one_command_is_refused_and_nothing_is_written() {
     let (client, mut server, worker) = test_client();
     handshake_offering(&client, &mut server, &["ui.pick.resolve"]);
     let request = |bytes| {
-        client
-            .handle
-            .request("boot-v1", Method::UiPickResolve, created(bytes))
+        client.handle.request(
+            "boot-v1",
+            Method::Fork(ForkMethod::UiPickResolve),
+            created(bytes),
+        )
     };
     // What the request is besides its text: measured, not assumed.
     let first = request(0).unwrap();

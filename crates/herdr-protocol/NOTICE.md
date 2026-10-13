@@ -32,35 +32,25 @@ applies the same structural limits before touching any baseline. The
 `surface-*-v1.bin` fixtures in `tests/fixtures/` were produced by Herdr's own
 encoders at that commit.
 
-The `ui.pick` declarations in `src/pick.rs` adapt the two picker controls in
-`src/protocol/endpoint.rs` and the picker types in `src/api/schema/ui.rs` from
-the `gjermundgaraba/herdr` fork of Herdr, same license. Message kinds, JSON
-field names, optional fields, and the outcome tag are unchanged; the
-`schemars` derives and the server-side `ui.pick` and `ui.pick.close`
-parameters are not retained.
-`tests/fixtures/endpoint-pick-{open,close,resolve}-v1.json` are byte-identical
-to the files of the same names in that fork's `tests/fixtures/`, which its
-branch `custom-v3` has carried since the commit "feat: adopt the client
-contract in the tui and drop plugin menu entries". That branch is rebased, so
-its commits are named here by subject and not by hash.
-
-The client contract declarations adapt the same fork, branch `custom-v3`, at
-the commit "feat: add the client contract for reports, jumps, shared order,
-and an unread hold", same license: the agent's
-`priority_key` and `priority_mark` in `src/wire.rs` from its
-`src/protocol/wire.rs`, and `src/clients.rs` from its
-`src/api/schema/clients.rs` (the client report and the jump answer's
-parameters and outcome) and `src/protocol/endpoint.rs` (the
-`endpoint.client-jump.v1` control). JSON field names and order, optional
-fields, serde defaults, the outcome tag, and the report limits are unchanged,
-and `ClientReport::normalize` is that file's report validation, kept so a
-client holds its report to the limits before sending; the `schemars` derives
-are not retained. `MAX_ENDPOINT_COMMAND_BYTES` is the limit of the same name
-in its `src/server/client_commands.rs`.
-`tests/fixtures/endpoint-{snapshot-shared,client-report,client-jump,client-jump-resolve,agent-mark-unread}-v1.json`
-are verbatim copies of that fork's `tests/fixtures/` files. The snapshot
-fixture is the one from the commit "feat: adopt the client contract in the tui
-and drop plugin menu entries", which no longer carries `plugin_entries`.
+Fork additions adapt the `gjermundgaraba/herdr` fork of Herdr, branch
+`custom`, same license. That branch is rebased, so its commits are named
+by subject, not hash. From "feat: adopt the client contract in the tui and
+drop plugin menu entries": `src/pick.rs` adapts the picker controls in its
+`src/protocol/endpoint.rs` and the picker types in its `src/api/schema/ui.rs`.
+From "feat: add the client contract for reports, jumps, shared order, and an
+unread hold": the agent's `priority_key` and `priority_mark` in `src/wire.rs`
+adapt its `src/protocol/wire.rs`, and `src/clients.rs` adapts its
+`src/api/schema/clients.rs` (report, including `ClientReport::normalize`,
+and jump answer) and the `endpoint.client-jump.v1` control in its
+`src/protocol/endpoint.rs`; `MAX_ENDPOINT_COMMAND_BYTES` is the limit of that
+name in its `src/server/client_commands.rs`. Message kinds, JSON field names
+and order, optional fields, serde defaults, outcome tags, and report limits
+are unchanged; the `schemars` derives and the server-side `ui.pick` and
+`ui.pick.close` parameters are not retained.
+`tests/fixtures/endpoint-{pick-open,pick-close,pick-resolve,client-report,client-jump,client-jump-resolve,agent-mark-unread}-v1.json`
+are verbatim copies of that fork's `tests/fixtures/`, and
+`endpoint-snapshot-shared-v1.json` is its copy from the first commit above,
+without `plugin_entries`.
 
 The client discovery rules also adapt `src/server/socket_paths.rs`,
 `src/session.rs`, and `src/config/io.rs` from the same source/license.

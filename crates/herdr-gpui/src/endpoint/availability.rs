@@ -84,14 +84,22 @@ impl Endpoint {
         }
     }
 
+    /// As if this endpoint's connection had asked for its surface, for tests
+    /// outside this module that present a host without a handshake.
+    #[cfg(test)]
+    pub(crate) fn assume_surface_requested(&mut self) {
+        self.initial_surface = true;
+    }
+
     pub fn status(&self) -> &'static str {
         self.availability().label()
     }
 
     /// Whether the user can act on this host now: what it shows is current,
-    /// and a navigation to it can be shown. Ordering, stepping, the agent
-    /// picker, the client report, and jumps all ask this one question, as
-    /// the Herdr fork's terminal client asks its endpoint status.
+    /// and a navigation to it can be shown. Stepping, the agent picker, the
+    /// client report, and jumps all ask this one question, as the Herdr
+    /// fork's terminal client asks its endpoint status. The panel's order asks
+    /// upstream's: whether the host's connection is up.
     pub(crate) fn online(&self) -> bool {
         self.availability() == Availability::Online
     }

@@ -4,7 +4,10 @@ use herdr_client::{
 };
 use std::sync::Arc;
 
+mod agent_recency;
 mod projection;
+
+use agent_recency::AgentRecency;
 
 pub(crate) type DialogResponse = Result<serde_json::Value, Arc<crate::Error>>;
 
@@ -61,6 +64,9 @@ pub struct LiveState {
     pub snapshot: Option<Arc<ClientShellSnapshot>>,
     /// One newer metadata projection, waiting for its matching cells.
     pub(crate) pending_snapshot: Option<Arc<ClientShellSnapshot>>,
+    /// When each of `snapshot`'s agents last changed, on a clock shared with
+    /// every other connection, so the agents panel can merge hosts by recency.
+    pub(crate) agent_recency: AgentRecency,
     /// The pane focused before the current one, in any workspace or tab of
     /// this daemon boot, for Herdr's `last_pane`.
     pub(crate) previous_pane: Option<String>,
@@ -189,6 +195,7 @@ impl Default for LiveState {
             sound_connection_cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             snapshot: None,
             pending_snapshot: None,
+            agent_recency: AgentRecency::default(),
             previous_pane: None,
             surface: None,
             surface_images: Default::default(),
@@ -248,6 +255,8 @@ impl LiveState {
             sound_connection_cancel,
             snapshot,
             pending_snapshot: _,
+            // Changes only with `snapshot`, which is compared below.
+            agent_recency: _,
             previous_pane,
             surface: _,
             surface_images: _,
@@ -518,11 +527,9 @@ impl LiveState {
             ClientEvent::Snapshot(snapshot) => self.receive_snapshot(snapshot),
             ClientEvent::Surface(surface) => self.receive_surface(surface),
             ClientEvent::SurfaceImages(images) => self.receive_surface_images(images),
-            // Kept by the connection's picker mailbox before reaching this
-            // state; a picker changes nothing the window draws from here.
-            ClientEvent::PickOpen(_) | ClientEvent::PickClose(_) => return,
-            // Kept by the connection's contract mailbox the same way.
-            ClientEvent::ClientJump(_) => return,
+            // The fork's mailbox keeps the controls it reads; any other is
+            // optional, and ignored as Herdr's own client ignores it.
+            ClientEvent::Control { .. } => return,
             // The `Disconnected` that follows carries the reason text.
             ClientEvent::VersionMismatch(mismatch) => {
                 if let Some(version) = mismatch.server_version() {
@@ -543,6 +550,7 @@ impl LiveState {
                 self.snapshot = None;
                 self.pending_snapshot = None;
                 self.pending_surface_images = None;
+                self.agent_recency = AgentRecency::default();
                 self.surface = None;
                 self.announcement_dismissal = None;
                 self.surface_images = Default::default();
