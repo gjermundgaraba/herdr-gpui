@@ -9,7 +9,7 @@
 //! collects that on a later tick.
 //!
 //! The Herdr fork's terminal client sends `agent.mark_unread` in
-//! `src/client/shell/endpoints.rs`.
+//! `src/client/shell/mark_unread.rs`.
 
 use crate::HerdrWindow;
 use herdr_client::{ForkMethod, Method, SendError, protocol::ClientShellSnapshot};
@@ -38,7 +38,7 @@ impl HerdrWindow {
     /// comes back as the request's error, shown like any other daemon error.
     ///
     /// Counterpart of `mark_focused_pane_unread` in the Herdr fork's
-    /// `src/client/shell/endpoints.rs`.
+    /// `src/client/shell/mark_unread.rs`.
     pub(crate) fn mark_focused_agent_unread(&mut self) {
         let Some(snapshot) = self.live.snapshot.clone() else {
             self.local_error =
