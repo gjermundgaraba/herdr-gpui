@@ -1,7 +1,9 @@
 use herdr_client::{Method, protocol::ClientShellSnapshot};
 use serde_json::{Value, json};
 
+pub(crate) mod fork;
 mod shortcuts;
+pub use fork::ForkCommand;
 #[cfg(test)]
 pub(crate) use shortcuts::platform_default;
 
@@ -97,9 +99,8 @@ pub enum Command {
     NextAgent,
     AgentNumber(u8),
     ReloadConfig,
-    MarkUnread,
-    AgentPicker,
-    WorkspaceList,
+    /// The commands the gjermundgaraba/herdr fork adds.
+    Fork(ForkCommand),
 }
 
 pub struct CommandInfo {
@@ -466,17 +467,17 @@ pub const COMMANDS: &[CommandInfo] = &[
         label: "Next Agent",
     },
     CommandInfo {
-        command: Command::MarkUnread,
+        command: Command::Fork(ForkCommand::MarkUnread),
         name: "mark_unread",
         label: "Mark Agent Unread",
     },
     CommandInfo {
-        command: Command::AgentPicker,
+        command: Command::Fork(ForkCommand::AgentPicker),
         name: "agent_picker",
         label: "Agent Picker",
     },
     CommandInfo {
-        command: Command::WorkspaceList,
+        command: Command::Fork(ForkCommand::WorkspaceList),
         name: "workspace_list",
         label: "Workspace List",
     },
@@ -847,23 +848,9 @@ pub fn request(command: Command, snapshot: &ClientShellSnapshot) -> Option<(Meth
         | Command::NextAgent
         | Command::AgentNumber(_)
         | Command::ReloadConfig
-        // Not a focus change, so the window sends it without fencing input.
-        | Command::MarkUnread
-        // Client-side lists: nothing is asked of the daemon to open one.
-        | Command::AgentPicker
-        | Command::WorkspaceList => return None,
+        // Run in the window, and none changes focus, so none is fenced.
+        | Command::Fork(_) => return None,
     })
-}
-
-/// `agent.mark_unread` for the focused pane: the daemon holds that agent's
-/// acknowledged completion, so its badge comes back, for every client, once
-/// this one leaves the pane. `None` without a focused pane.
-///
-/// Whether the pane has an agent, and whether that agent is idle, is the
-/// daemon's to decide: it answers `agent_not_found` or `agent_not_idle`.
-pub fn mark_unread(snapshot: &ClientShellSnapshot) -> Option<(Method, Value)> {
-    let pane_id = snapshot.focused_pane_id.as_deref()?;
-    Some((Method::AgentMarkUnread, json!({"pane_id": pane_id})))
 }
 
 /// The pane direction a directional command names.

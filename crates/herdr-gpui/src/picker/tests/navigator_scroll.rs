@@ -5,6 +5,7 @@
 use super::navigator_fixture::*;
 use super::*;
 use crate::controls::Command;
+use crate::controls::ForkCommand;
 use gpui::{Context, Window};
 
 const DEPLOYER: &str = "Second · release: deployer";
@@ -45,7 +46,7 @@ fn next(
 #[gpui::test]
 fn a_host_change_scrolls_only_when_the_selected_row_moved(cx: &mut gpui::TestAppContext) {
     let (_first, _second, view, cx) = window(cx);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
     // The step itself brings its row into view.
     let asked = scrolled_by(&view, cx, |view, window, cx| {
         view.picker_key(&key("j"), window, cx);
@@ -94,7 +95,7 @@ fn a_host_change_scrolls_only_when_the_selected_row_moved(cx: &mut gpui::TestApp
 #[gpui::test]
 fn a_filter_the_user_sets_brings_the_selection_into_view(cx: &mut gpui::TestAppContext) {
     let (_first, _second, view, cx) = window(cx);
-    run(&view, Command::AgentPicker, cx);
+    run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
     assert_eq!(state(&view, cx).unwrap().selected, Some(0));
 
     // The filter selects its first row, which is row 0 as before. The list

@@ -57,6 +57,7 @@ mod find;
 mod font_picker;
 mod font_sizes;
 mod fonts;
+mod fork;
 mod git;
 mod github;
 mod group_menu;

@@ -3,6 +3,7 @@
 //! actions the client performs itself.
 
 use super::*;
+use crate::controls::ForkCommand;
 use crate::{Command, keymap::DaemonKeys};
 
 #[test]
@@ -34,6 +35,9 @@ fn the_local_keys_table_is_kept_for_a_devices_profile() -> anyhow::Result<()> {
     assert!(keymap.triggers(Command::Back, &key("alt-o")?, false));
     assert!(!keymap.triggers(Command::Back, &key("alt-b")?, false));
     assert!(keymap.is_prefix(&key("cmd-j")?));
-    assert_eq!(keymap.chord(&key("a")?), Some(Command::AgentPicker));
+    assert_eq!(
+        keymap.chord(&key("a")?),
+        Some(Command::Fork(ForkCommand::AgentPicker))
+    );
     Ok(())
 }

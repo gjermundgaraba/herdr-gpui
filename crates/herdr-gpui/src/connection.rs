@@ -9,7 +9,7 @@ use herdr_client::{
     protocol::{ClientHostAppearance, ClientHostColor, ClientPaneInputEvent},
 };
 use std::sync::{
-    Arc, Mutex, Weak,
+    Arc, Mutex,
     atomic::{AtomicBool, Ordering},
 };
 
@@ -22,60 +22,9 @@ pub(crate) struct ConnectionBridge {
     pub(crate) links: Arc<Mutex<crate::links::LinkInbox>>,
     /// Scrollback answers, fenced with the connection like the main inbox.
     pub scrollback: Arc<Mutex<crate::scrollback::Inbox>>,
-    /// The `ui.pick` picker the daemon asked this connection to show. Replaced
-    /// with the connection, which is also what names the connection to answer.
-    pub(crate) picks: Arc<Mutex<crate::picker::plugin::Inbox>>,
-    /// What the client contract needs of this connection: whether its daemon
-    /// takes reports, and the answers to the requests the contract sent.
-    /// Replaced with the connection, which is what names it.
-    pub(crate) clients: Arc<Mutex<crate::client_contract::Inbox>>,
+    /// The fork's mailbox, fenced with the connection like the main inbox.
+    pub(crate) fork: Arc<Mutex<crate::fork::Inbox>>,
     sound_cancel: Arc<AtomicBool>,
-}
-
-/// One connection's mailboxes, as its event reader holds them. An event goes
-/// through the ones that keep their own events before it reaches the live
-/// state, in this order.
-#[derive(Clone)]
-pub(crate) struct Mailboxes {
-    inbox: Arc<Mutex<LiveState>>,
-    integrations: Arc<Mutex<IntegrationInbox>>,
-    links: Arc<Mutex<crate::links::LinkInbox>>,
-    scrollback: Arc<Mutex<crate::scrollback::Inbox>>,
-    picks: Arc<Mutex<crate::picker::plugin::Inbox>>,
-    clients: Arc<Mutex<crate::client_contract::Inbox>>,
-}
-
-impl Mailboxes {
-    pub(crate) fn deliver(&self, event: ClientEvent) {
-        let event = match self.integrations.lock() {
-            Ok(mut integrations) => integrations.apply(event),
-            Err(_) => Some(event),
-        };
-        let event = event.and_then(|event| match self.scrollback.lock() {
-            Ok(mut scrollback) => scrollback.apply(event),
-            Err(_) => Some(event),
-        });
-        let event = event.and_then(|event| match self.links.lock() {
-            Ok(mut links) => links.apply(event),
-            Err(_) => Some(event),
-        });
-        let event = event.and_then(|event| match self.picks.lock() {
-            Ok(mut picks) => picks.apply(event),
-            Err(_) => Some(event),
-        });
-        let event = event.and_then(|event| match self.clients.lock() {
-            Ok(mut clients) => clients.apply(event),
-            Err(_) => Some(event),
-        });
-        if let Ok(mut state) = self.inbox.lock() {
-            match event {
-                Some(event) => state.apply(event),
-                // An answer a mailbox kept changes nothing the live state
-                // holds, but the window polls only when it is dirty.
-                None => state.dirty = true,
-            }
-        }
-    }
 }
 
 /// One integration operation, independent of the modal dialog response slot.
@@ -158,29 +107,7 @@ impl ConnectionBridge {
             integrations: Arc::default(),
             links: Arc::default(),
             scrollback: Arc::default(),
-            picks: Arc::default(),
-            clients: Arc::default(),
-        }
-    }
-
-    /// Whether `mailbox` is this connection's picker or client-contract
-    /// mailbox. Both are replaced with the connection, so one names the
-    /// connection that answers what arrived in it.
-    pub(crate) fn owns<T>(&self, mailbox: &Weak<Mutex<T>>) -> bool {
-        let mailbox = mailbox.as_ptr().cast::<()>();
-        std::ptr::eq(Arc::as_ptr(&self.clients).cast::<()>(), mailbox)
-            || std::ptr::eq(Arc::as_ptr(&self.picks).cast::<()>(), mailbox)
-    }
-
-    /// The mailboxes of the connection this bridge holds now.
-    pub(crate) fn mailboxes(&self) -> Mailboxes {
-        Mailboxes {
-            inbox: self.inbox.clone(),
-            integrations: self.integrations.clone(),
-            links: self.links.clone(),
-            scrollback: self.scrollback.clone(),
-            picks: self.picks.clone(),
-            clients: self.clients.clone(),
+            fork: Arc::default(),
         }
     }
 
@@ -204,8 +131,7 @@ impl ConnectionBridge {
         self.integrations = Arc::default();
         self.links = Arc::default();
         self.scrollback = Arc::default();
-        self.picks = Arc::default();
-        self.clients = Arc::default();
+        self.fork = Arc::default();
     }
 
     pub fn detach(&mut self, active: bool) {
@@ -289,8 +215,12 @@ impl ConnectionBridge {
             .map_err(crate::Error::from)
             .and_then(|client| {
                 self.handle = Some(client.handle);
+                let inbox = self.inbox.clone();
                 let drained = self.drained.clone();
-                let mailboxes = self.mailboxes();
+                let integrations = self.integrations.clone();
+                let links = self.links.clone();
+                let scrollback = self.scrollback.clone();
+                let fork = self.fork.clone();
                 // Drain ordered events even while GPUI is busy; retain only coherent state.
                 spawn(Box::new(move || {
                     while let Ok(event) = client.events.recv() {
@@ -299,7 +229,30 @@ impl ConnectionBridge {
                             ClientEvent::Disconnected { .. } => tracing::debug!(category = "transport_disconnected", "Connection bridge disconnected"),
                             _ => {}
                         }
-                        mailboxes.deliver(event);
+                        let event = match integrations.lock() {
+                            Ok(mut integrations) => integrations.apply(event),
+                            Err(_) => Some(event),
+                        };
+                        let event = event.and_then(|event| match scrollback.lock() {
+                            Ok(mut scrollback) => scrollback.apply(event),
+                            Err(_) => Some(event),
+                        });
+                        let event = event.and_then(|event| match links.lock() {
+                            Ok(mut links) => links.apply(event),
+                            Err(_) => Some(event),
+                        });
+                        let event = event.and_then(|event| match fork.lock() {
+                            Ok(mut fork) => fork.apply(event),
+                            Err(_) => Some(event),
+                        });
+                        if let Ok(mut state) = inbox.lock() {
+                            match event {
+                                Some(event) => state.apply(event),
+                                // A link answer changes nothing the live state
+                                // holds, but the window polls only when it is dirty.
+                                None => state.dirty = true,
+                            }
+                        }
                     }
                     drained.store(true, Ordering::Release);
                     tracing::debug!("Connection bridge event reader drained");

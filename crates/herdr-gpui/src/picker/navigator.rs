@@ -197,7 +197,7 @@ impl HerdrWindow {
         {
             return;
         }
-        if let Some(picker) = &self.picker {
+        if let Some(picker) = &self.fork.picker {
             picker
                 .search
                 .update(cx, |input, cx| input.set_placeholder("Search...", cx));
@@ -211,7 +211,7 @@ impl HerdrWindow {
     /// selection on the row it was on. Returns whether that row is now at
     /// another place in the list.
     fn relist_navigator(&mut self, cx: &mut Context<Self>) -> bool {
-        let Some(mut picker) = self.picker.take() else {
+        let Some(mut picker) = self.fork.picker.take() else {
             return false;
         };
         let before = picker.list.selected();
@@ -221,14 +221,14 @@ impl HerdrWindow {
             picker.list = navigator.list();
         }
         let moved = picker.list.selected() != before;
-        self.picker = Some(picker);
+        self.fork.picker = Some(picker);
         cx.notify();
         moved
     }
 
     /// Scrolls the list to its selected row.
     fn reveal_navigator_selection(&self) {
-        if let Some(picker) = &self.picker
+        if let Some(picker) = &self.fork.picker
             && let Some(row) = picker.list.selected()
         {
             picker.scroll.scroll_to_item(row, ScrollStrategy::Nearest);
@@ -247,7 +247,8 @@ impl HerdrWindow {
     /// host's snapshot gets here, so the list is scrolled only when the
     /// selected row moved; otherwise it stays where the user scrolled it.
     pub(super) fn refresh_navigator(&mut self, cx: &mut Context<Self>) {
-        let Some(Source::Navigator(navigator)) = self.picker.as_ref().map(|picker| &picker.source)
+        let Some(Source::Navigator(navigator)) =
+            self.fork.picker.as_ref().map(|picker| &picker.source)
         else {
             return;
         };
@@ -260,7 +261,7 @@ impl HerdrWindow {
     /// filters its own rows.
     pub(super) fn navigator_query(&mut self, query: &str, cx: &mut Context<Self>) -> bool {
         let Some(Source::Navigator(navigator)) =
-            self.picker.as_mut().map(|picker| &mut picker.source)
+            self.fork.picker.as_mut().map(|picker| &mut picker.source)
         else {
             return false;
         };
@@ -282,7 +283,7 @@ impl HerdrWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(picker) = &mut self.picker else {
+        let Some(picker) = &mut self.fork.picker else {
             return;
         };
         let Source::Navigator(navigator) = &mut picker.source else {
@@ -296,7 +297,7 @@ impl HerdrWindow {
 
     /// Opens the selected row: its host, and on it the workspace or pane.
     fn accept_navigator(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(picker) = &mut self.picker else {
+        let Some(picker) = &mut self.fork.picker else {
             return;
         };
         let Source::Navigator(navigator) = &mut picker.source else {
@@ -354,7 +355,7 @@ impl HerdrWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(picker) = &self.picker else {
+        let Some(picker) = &self.fork.picker else {
             return;
         };
         if picker.search.read(cx).is_composing() {
@@ -406,7 +407,7 @@ impl HerdrWindow {
     }
 
     fn navigator_act(&mut self, act: Act, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(picker) = &mut self.picker else {
+        let Some(picker) = &mut self.fork.picker else {
             return;
         };
         let Source::Navigator(navigator) = &mut picker.source else {

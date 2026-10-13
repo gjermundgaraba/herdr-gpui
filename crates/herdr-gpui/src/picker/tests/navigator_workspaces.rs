@@ -3,6 +3,7 @@
 
 use super::navigator_fixture::*;
 use super::*;
+use crate::controls::ForkCommand;
 use crate::{controls::Command, navigation::NavigationTarget};
 use herdr_client::protocol::AgentStatus;
 
@@ -16,7 +17,7 @@ fn it_lists_workspaces_alone_with_the_search_focused(cx: &mut gpui::TestAppConte
     let (_first, _second, view, cx) = window(cx);
     let local = local_label(&view, cx);
 
-    run(&view, Command::WorkspaceList, cx);
+    run(&view, Command::Fork(ForkCommand::WorkspaceList), cx);
 
     assert_eq!(
         state(&view, cx),
@@ -47,7 +48,7 @@ fn it_lists_workspaces_alone_with_the_search_focused(cx: &mut gpui::TestAppConte
 fn typing_searches_and_matching_panes_appear_under_their_workspaces(cx: &mut gpui::TestAppContext) {
     let (mut first, _second, view, cx) = window(cx);
     let local = local_label(&view, cx);
-    run(&view, Command::WorkspaceList, cx);
+    run(&view, Command::Fork(ForkCommand::WorkspaceList), cx);
 
     cx.simulate_input("helper");
 
@@ -81,7 +82,7 @@ fn typing_searches_and_matching_panes_appear_under_their_workspaces(cx: &mut gpu
 #[gpui::test]
 fn escape_leaves_the_search_and_then_closes(cx: &mut gpui::TestAppContext) {
     let (_first, _second, view, cx) = window(cx);
-    run(&view, Command::WorkspaceList, cx);
+    run(&view, Command::Fork(ForkCommand::WorkspaceList), cx);
     // Both spaces are on `main`, so the search lists every pane.
     cx.simulate_input("main");
     assert!(state(&view, cx).unwrap().searching);
@@ -117,7 +118,7 @@ fn enter_opens_the_selected_workspace_or_pane(cx: &mut gpui::TestAppContext) {
     let (mut first, _second, view, cx) = window(cx);
     ready(&view, cx);
     sent(&mut first);
-    run(&view, Command::WorkspaceList, cx);
+    run(&view, Command::Fork(ForkCommand::WorkspaceList), cx);
     ready(&view, cx);
 
     cx.simulate_keystrokes("enter");
@@ -132,7 +133,7 @@ fn enter_opens_the_selected_workspace_or_pane(cx: &mut gpui::TestAppContext) {
     let (mut first, _second, view, cx) = window(cx);
     ready(&view, cx);
     sent(&mut first);
-    run(&view, Command::WorkspaceList, cx);
+    run(&view, Command::Fork(ForkCommand::WorkspaceList), cx);
     cx.simulate_input("helper");
     ready(&view, cx);
     cx.simulate_keystrokes("enter");
@@ -147,7 +148,7 @@ fn enter_opens_the_selected_workspace_or_pane(cx: &mut gpui::TestAppContext) {
 #[gpui::test]
 fn enter_on_a_host_or_its_workspace_presents_that_host(cx: &mut gpui::TestAppContext) {
     let (_first, _second, view, cx) = window(cx);
-    run(&view, Command::WorkspaceList, cx);
+    run(&view, Command::Fork(ForkCommand::WorkspaceList), cx);
 
     // Second's row: the host itself, with nothing to focus on it.
     cx.simulate_keystrokes("down enter");
@@ -158,7 +159,7 @@ fn enter_on_a_host_or_its_workspace_presents_that_host(cx: &mut gpui::TestAppCon
     });
 
     // Back from Second, to a workspace on Local.
-    run(&view, Command::WorkspaceList, cx);
+    run(&view, Command::Fork(ForkCommand::WorkspaceList), cx);
     assert_eq!(selected(&view, cx), "release");
     cx.simulate_keystrokes("up up enter");
     assert_closed(&view, cx);

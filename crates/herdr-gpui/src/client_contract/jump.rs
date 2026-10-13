@@ -45,11 +45,12 @@
 //! connection is kept, out of every group, while it still owes a jump its
 //! answer.
 
-use super::{Inbox, report::Host};
+use super::report::Host;
+use crate::fork::Inbox;
 use crate::{HerdrWindow, connection::ConnectionBridge, navigation::NavigationTarget};
 use gpui::Context;
 use herdr_client::{
-    Method,
+    ForkMethod, Method,
     protocol::clients::{
         ClientEndpointStatus, ClientJumpOutcome, ClientJumpResolveParams, EndpointClientJump,
     },
@@ -155,9 +156,9 @@ impl Jumps {
                 .iter()
                 .any(|resolved| connection.owns(&resolved.origin))
             || connection
-                .clients
+                .fork
                 .try_lock()
-                .map_or(true, |mailbox| mailbox.owes_jump_answer())
+                .map_or(true, |fork| fork.clients.owes_jump_answer())
     }
 
     /// Takes `jump` in place of the one still open, which is dropped without
@@ -217,7 +218,7 @@ impl HerdrWindow {
     /// the daemon has stopped waiting; dropping it would disconnect the
     /// client the daemon is waiting on.
     pub(crate) fn retire_connection(&mut self, connection: ConnectionBridge, now: Instant) {
-        let jumps = &mut self.client_contract.jumps;
+        let jumps = &mut self.fork.client_contract.jumps;
         if jumps.owed_on(&connection) {
             jumps.retiring.push(Retiring {
                 connection,
@@ -228,7 +229,7 @@ impl HerdrWindow {
 
     /// Lets go of every retired connection that owes nothing any more.
     fn release_retired(&mut self, now: Instant) {
-        let jumps = &mut self.client_contract.jumps;
+        let jumps = &mut self.fork.client_contract.jumps;
         let retiring = std::mem::take(&mut jumps.retiring);
         jumps.retiring = retiring
             .into_iter()
@@ -241,7 +242,7 @@ impl HerdrWindow {
     /// is ready. Called once per window tick.
     pub(crate) fn settle_client_jumps(&mut self, now: Instant, cx: &mut Context<Self>) {
         self.receive_client_jumps(now);
-        if let Some(mut pending) = self.client_contract.jumps.pending.take() {
+        if let Some(mut pending) = self.fork.client_contract.jumps.pending.take() {
             let target = jump_target(&self.contract_hosts(), &pending.jump);
             let outcome = match target {
                 Err(outcome) => Some(outcome),
@@ -268,7 +269,7 @@ impl HerdrWindow {
                     None
                 }
             };
-            let jumps = &mut self.client_contract.jumps;
+            let jumps = &mut self.fork.client_contract.jumps;
             match outcome {
                 Some(outcome) => jumps.resolve(pending, outcome),
                 None => jumps.pending = Some(pending),
@@ -287,12 +288,12 @@ impl HerdrWindow {
         let arrived: Vec<_> = self
             .connections()
             .filter_map(|connection| {
-                let jump = connection.clients.try_lock().ok()?.take_jump()?;
-                Some((Arc::downgrade(&connection.clients), jump))
+                let jump = connection.fork.try_lock().ok()?.clients.take_jump()?;
+                Some((Arc::downgrade(&connection.fork), jump))
             })
             .collect();
         for (origin, jump) in arrived {
-            self.client_contract.jumps.receive(origin, jump, now);
+            self.fork.client_contract.jumps.receive(origin, jump, now);
         }
     }
 
@@ -301,17 +302,18 @@ impl HerdrWindow {
     /// daemon behind the new one never asked.
     fn answer_client_jumps(&mut self) {
         let mut owed = Vec::new();
-        for resolved in std::mem::take(&mut self.client_contract.jumps.resolved) {
+        for resolved in std::mem::take(&mut self.fork.client_contract.jumps.resolved) {
             let Some(connection) = self.connection_of(&resolved.origin) else {
                 continue;
             };
             let Some(handle) = &connection.handle else {
                 continue;
             };
-            let Ok(mut mailbox) = connection.clients.try_lock() else {
+            let Ok(mut fork) = connection.fork.try_lock() else {
                 owed.push(resolved);
                 continue;
             };
+            let mailbox = &mut fork.clients;
             let Some(boot) = mailbox.resolve_boot().map(str::to_owned) else {
                 continue;
             };
@@ -321,12 +323,15 @@ impl HerdrWindow {
             };
             let queued = serde_json::to_value(params)
                 .map_err(crate::Error::from)
-                .and_then(|params| Ok(handle.request(&boot, Method::ClientJumpResolve, params)?));
+                .and_then(|params| {
+                    let method = Method::Fork(ForkMethod::ClientJumpResolve);
+                    Ok(handle.request(&boot, method, params)?)
+                });
             match queued {
                 Ok(request) => mailbox.resolution_sent(request),
                 // A full queue drains; the answer is still owed.
                 Err(crate::Error::Client(herdr_client::Error::Full)) => {
-                    drop(mailbox);
+                    drop(fork);
                     owed.push(resolved);
                 }
                 Err(error) => {
@@ -334,6 +339,6 @@ impl HerdrWindow {
                 }
             }
         }
-        self.client_contract.jumps.resolved = owed;
+        self.fork.client_contract.jumps.resolved = owed;
     }
 }

@@ -44,42 +44,6 @@ Reconstruction is fenced on boot ID, base projection/surface revision, and the
 next surface revision; the result still goes through `FrameData::validate`.
 Failures are typed (`ScrollBounds`, `DeltaSpan`, `SurfaceBaseline`, ...).
 
-## Pickers
-
-`pick` holds the JSON shapes of a plugin's `ui.pick`, from the
-`gjermundgaraba/herdr` fork: the `PICK_OPEN_KIND` and `PICK_CLOSE_KIND`
-controls (`EndpointPickOpen`, `EndpointPickClose`), an item, the create row,
-and the outcome and parameters of the `ui.pick.resolve` answer. `decode_open`
-and `decode_close` return `Error::PickPayload` with the `serde_json` source.
-Unknown fields are ignored and the optional ones default, as generation 1
-grows by optional fields.
-
-## Client Contract
-
-The `gjermundgaraba/herdr` fork computes what its clients must agree on and
-lets tools read and steer them. Its JSON shapes are copied here, each with the
-fork's fixture in `tests/fixtures/`:
-
-- Snapshot additions, all optional: each agent's `priority_key` and
-  `priority_mark`. A daemon without them decodes as an empty key and no mark.
-  Keys are opaque: order agents by comparing them as bytes, with an empty key
-  after every other one.
-- `clients` holds what a client sends and receives: `ClientReport` with its
-  endpoints and agent rows (the `client.report` parameters), the daemon's
-  `MAX_CLIENT_REPORT_*` limits and `MAX_ENDPOINT_COMMAND_BYTES`, the
-  `CLIENT_JUMP_KIND` control (`EndpointClientJump`), and
-  `ClientJumpResolveParams` with `ClientJumpOutcome`, the answer a client
-  sends as `client.jump.resolve`. `decode_jump` returns
-  `Error::ClientJumpPayload` with the `serde_json` source. The socket API
-  shapes tools read (`client.list`, `client.changed`, `client.jump`) are a
-  tool's, not a client's: they are neither declared nor copied here.
-
-`ClientReport::normalize` is the daemon's own check of a report, repeated
-here: it rejects a report the daemon would reject, with a typed
-`ClientReportError`, and cuts display text to the daemon's limits, so a
-client can send a report the daemon keeps as sent. It does not bound the
-encoded request; `herdr-client` measures that before sending.
-
 ## Clipboard Images
 
 `encode_clipboard_image(target: ClientClipboardImageTarget, extension: &str,

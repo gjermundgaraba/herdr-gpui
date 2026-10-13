@@ -169,13 +169,6 @@ impl Endpoint {
         self.initial_surface
     }
 
-    /// As if this endpoint's connection had asked for its surface, for tests
-    /// outside this module that present a host without a handshake.
-    #[cfg(test)]
-    pub(crate) fn assume_surface_requested(&mut self) {
-        self.initial_surface = true;
-    }
-
     /// Trades this endpoint's connection, and its projection, for another
     /// client of the same daemon that said hello with an active surface, as
     /// an editor group's own connection does. The caller keeps the one this

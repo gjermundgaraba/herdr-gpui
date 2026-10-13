@@ -1,70 +1,38 @@
 //! The order the sidebar lists workspaces and agents in, which the previous,
 //! next, and numbered shortcuts step through, as Herdr's TUI steps through
-//! its own sidebar: every listed host's rows, top to bottom. The agent rows
-//! mirror the Herdr fork's `src/client/shell/aggregate_navigation.rs`.
+//! its own sidebar: every listed host's rows, top to bottom.
 
 use super::{agents::panel_agents, space_groups::workspace_rows};
 use crate::{HerdrWindow, controls::Command, state::LiveState};
 use herdr_client::protocol::{ClientShellAgent, ClientShellSnapshot};
-use std::collections::HashSet;
 
 /// A listed row: its host, by endpoint index, and the workspace or agent
 /// pane it shows.
 pub(crate) type Row<'a> = (usize, &'a str);
 
-impl HerdrWindow {
-    /// The live state the window draws host `index` from: its own copy for
-    /// the selected host, which carries what the window stamped since the
-    /// last poll, and the endpoint's for every other.
-    pub(crate) fn host_live(&self, index: usize) -> &LiveState {
-        if index == self.selected_endpoint {
-            &self.live
-        } else {
-            &self.endpoints[index].live
-        }
-    }
+mod fork;
 
-    /// Each enabled host, with whether it is online and the live state it
-    /// draws from, whatever the device filter shows.
-    fn enabled_lives(&self) -> impl Iterator<Item = (usize, bool, &LiveState)> {
+impl HerdrWindow {
+    /// Each host the sidebar lists, with the live state it draws from.
+    fn listed_lives(&self) -> impl Iterator<Item = (usize, &LiveState)> {
         self.endpoints
             .iter()
             .enumerate()
-            .filter(|(_, endpoint)| endpoint.enabled)
-            .map(|(index, endpoint)| (index, endpoint.online(), self.host_live(index)))
-    }
-
-    /// Each host the sidebar lists: the enabled ones the device filter shows.
-    fn listed_lives(&self) -> impl Iterator<Item = (usize, bool, &LiveState)> {
-        self.enabled_lives()
-            .filter(|(index, _, _)| self.device_visible(&self.endpoints[*index].id))
+            .filter(|(_, endpoint)| endpoint.enabled && self.device_visible(&endpoint.id))
+            .map(|(index, endpoint)| {
+                let live = if index == self.selected_endpoint {
+                    &self.live
+                } else {
+                    &endpoint.live
+                };
+                (index, live)
+            })
     }
 
     /// Each host the sidebar lists, with the snapshot it draws from.
     fn listed_hosts(&self) -> impl Iterator<Item = (usize, &ClientShellSnapshot)> {
-        self.listed_lives().filter_map(|(index, _, live)| {
-            live.snapshot.as_deref().map(|snapshot| (index, snapshot))
-        })
-    }
-
-    /// What a host has folded away: its collapsed worktree repositories and
-    /// space groups, each under its own kind of key.
-    /// The local host, always the first, keeps its set on the window.
-    pub(super) fn collapsed_for(&self, endpoint: usize) -> &HashSet<String> {
-        if endpoint == 0 {
-            &self.collapsed_repos
-        } else {
-            &self.endpoints[endpoint].collapsed_repos
-        }
-    }
-
-    /// [`Self::collapsed_for`], to change.
-    pub(super) fn collapsed_for_mut(&mut self, endpoint: usize) -> &mut HashSet<String> {
-        if endpoint == 0 {
-            &mut self.collapsed_repos
-        } else {
-            &mut self.endpoints[endpoint].collapsed_repos
-        }
+        self.listed_lives()
+            .filter_map(|(index, live)| live.snapshot.as_deref().map(|snapshot| (index, snapshot)))
     }
 
     /// The workspace rows the sidebar shows: a folded group or host hides
@@ -85,36 +53,6 @@ impl HerdrWindow {
     /// and stepping both read it, so a shortcut lands on the row below.
     pub(crate) fn panel_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
         panel_agents(self.listed_lives(), self.agent_sort)
-    }
-
-    /// Every enabled host's agents in the panel's order under its current
-    /// sort, as the panel would paint them with the device filter at All
-    /// Devices. The client report lists these: the filter is a view of this
-    /// window, and does not narrow what tools read. The report leaves out the
-    /// rows it cannot describe (see [`crate::client_contract::report`]).
-    pub(crate) fn reported_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
-        panel_agents(self.enabled_lives(), self.agent_sort)
-    }
-
-    /// Every enabled host's agents in the panel's priority order, whatever
-    /// the panel's own sort and the device filter show. The agent picker
-    /// lists these.
-    pub(crate) fn fleet_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
-        panel_agents(
-            self.enabled_lives(),
-            crate::preferences::AgentSort::Priority,
-        )
-    }
-
-    /// The rows the next, previous, and numbered agent keys step through:
-    /// the panel's, without the agents of a host that is not online. Those
-    /// are what the host last sent, and a key must not land on a pane that
-    /// cannot be shown. As the Herdr fork's `online_agent_rows`.
-    pub(crate) fn stepped_agents(&self) -> Vec<Row<'_>> {
-        self.sidebar_agents()
-            .into_iter()
-            .filter(|(host, _)| self.endpoints[*host].online())
-            .collect()
     }
 
     /// The agent panel's rows, whether or not the panel is shown, as Herdr
