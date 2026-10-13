@@ -72,7 +72,7 @@ const DAEMON_JUMP_TIMEOUT: Duration = Duration::from_secs(20);
 /// performed. The pane id is only meaningful under the boot it was read from,
 /// so a boot the retained snapshot no longer has is checked before anything
 /// else about the host.
-pub(crate) fn jump_target(
+pub(super) fn jump_target(
     hosts: &[Host<'_>],
     jump: &EndpointClientJump,
 ) -> Result<usize, ClientJumpOutcome> {
@@ -131,7 +131,7 @@ struct Retiring {
 
 /// The jump this window is performing, and answers not yet sent.
 #[derive(Default)]
-pub(crate) struct Jumps {
+pub(super) struct Jumps {
     /// One at a time: a newer jump replaces it.
     pending: Option<Pending>,
     resolved: Vec<Resolved>,
@@ -240,7 +240,7 @@ impl HerdrWindow {
     /// Takes the jumps every connection's daemon forwarded, settles the open
     /// one against what the window now presents, and sends each answer that
     /// is ready. Called once per window tick.
-    pub(crate) fn settle_client_jumps(&mut self, now: Instant, cx: &mut Context<Self>) {
+    pub(super) fn settle_client_jumps(&mut self, now: Instant, cx: &mut Context<Self>) {
         self.receive_client_jumps(now);
         if let Some(mut pending) = self.fork.client_contract.jumps.pending.take() {
             let target = jump_target(&self.contract_hosts(), &pending.jump);

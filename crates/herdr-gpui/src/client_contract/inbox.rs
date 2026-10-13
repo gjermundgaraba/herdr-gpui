@@ -168,18 +168,18 @@ impl Inbox {
 
     /// The boot a report on this connection names, once its daemon has said
     /// it takes reports and has sent a snapshot.
-    pub(crate) fn report_boot(&self) -> Option<&str> {
+    pub(super) fn report_boot(&self) -> Option<&str> {
         self.boot.as_deref().filter(|_| self.reports)
     }
 
     /// Whether the daemon still owes an answer to this connection's report.
-    pub(crate) fn report_pending(&self) -> bool {
+    pub(super) fn report_pending(&self) -> bool {
         self.report.is_some()
     }
 
     /// Records the report just queued. Called under the same lock as the
     /// queueing, so even an immediate rejection finds it.
-    pub(crate) fn report_sent(&mut self, request: String) {
+    pub(super) fn report_sent(&mut self, request: String) {
         self.report = Some(request);
     }
 
@@ -191,30 +191,30 @@ impl Inbox {
 
     /// Whether a jump the daemon forwarded here is not taken yet, or its
     /// answer not acknowledged yet.
-    pub(crate) fn owes_jump_answer(&self) -> bool {
+    pub(super) fn owes_jump_answer(&self) -> bool {
         self.jump.is_some() || !self.resolutions.is_empty()
     }
 
     /// The boot a jump's answer on this connection names, when its daemon
     /// takes answers.
-    pub(crate) fn resolve_boot(&self) -> Option<&str> {
+    pub(super) fn resolve_boot(&self) -> Option<&str> {
         self.boot.as_deref().filter(|_| self.resolves)
     }
 
     /// Records the jump answer just queued, under the lock it was queued
     /// under, so the daemon's acknowledgement stays out of the live state.
-    pub(crate) fn resolution_sent(&mut self, request: String) {
+    pub(super) fn resolution_sent(&mut self, request: String) {
         self.resolutions.push(request);
     }
 
     /// Follows `request` to its answer. Called under the same lock as the
     /// queueing, so even an immediate rejection finds it.
-    pub(crate) fn follow(&mut self, request: String) {
+    pub(super) fn follow(&mut self, request: String) {
         self.followed.push(request);
     }
 
     /// Whether the daemon accepted a followed request since the last call.
-    pub(crate) fn take_accepted(&mut self) -> bool {
+    pub(super) fn take_accepted(&mut self) -> bool {
         std::mem::take(&mut self.accepted)
     }
 }

@@ -39,12 +39,12 @@ pub(super) enum Error {
 }
 
 /// One host this window is attached to, as the report describes it.
-pub(crate) struct Host<'a> {
-    pub(crate) id: &'a str,
-    pub(crate) label: &'a str,
-    pub(crate) status: ClientEndpointStatus,
+pub(super) struct Host<'a> {
+    pub(super) id: &'a str,
+    pub(super) label: &'a str,
+    pub(super) status: ClientEndpointStatus,
     /// The snapshot the window draws the host from, if it has one.
-    pub(crate) snapshot: Option<&'a ClientShellSnapshot>,
+    pub(super) snapshot: Option<&'a ClientShellSnapshot>,
 }
 
 /// Whether the daemon accepts `id` in a report: it rejects the whole report
@@ -61,7 +61,7 @@ fn within_id_limit(id: &str) -> bool {
 /// the order the panel shows them. `active` is the host the window presents;
 /// its focused agent is the one focused row. `focused` is whether the window
 /// is the active OS window, which this client always knows.
-pub(crate) fn build<'a>(
+pub(super) fn build<'a>(
     hosts: &[Host<'a>],
     active: usize,
     focused: bool,
