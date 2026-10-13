@@ -69,7 +69,7 @@ fn agent(pane_id: &str, status: AgentStatus, stamp: u64) -> ClientShellAgent {
     }
 }
 
-/// An agent in a space that carries a priority token.
+/// An agent in a space that carries a `space_priority` token.
 fn lifted_agent(pane_id: &str, status: AgentStatus, stamp: u64) -> ClientShellAgent {
     ClientShellAgent {
         priority_key: priority_key(true, status, stamp),

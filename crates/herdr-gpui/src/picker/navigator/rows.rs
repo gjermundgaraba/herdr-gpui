@@ -83,8 +83,8 @@ pub(crate) struct Row {
     pub(crate) status: Option<AgentStatus>,
     /// The host is not online: the row shows what it last sent.
     pub(crate) stale: bool,
-    /// The agent priority token value of the agent's space, shown before
-    /// the label.
+    /// The `space_priority` token of the agent's space, shown before the
+    /// label.
     pub(crate) mark: Option<String>,
     pub(crate) target: Target,
 }
