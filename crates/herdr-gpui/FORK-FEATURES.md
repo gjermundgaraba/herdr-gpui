@@ -255,7 +255,9 @@ read is ignored.
 - `ClientReport::normalize` repeats the daemon's own check of a report: it
   rejects a report the daemon would reject, with a typed
   `ClientReportError`, and cuts display text to the daemon's limits. It does
-  not bound the encoded request; `herdr-client` measures that before sending.
+  not bound the encoded request: Herdr GPUI measures the request a report
+  becomes, and trims its rows to fit, before queuing it (see `herdr-client`
+  below).
 
 Unknown fields are ignored and optional ones default, as generation 1 grows
 by optional fields. Each shape is checked against the fork's own fixture in

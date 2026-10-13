@@ -3,7 +3,7 @@
 //! "create" row, and the choice Enter makes.
 //!
 //! The rules are Herdr's TUI picker's (`ClientPickOverlay::rows` in its
-//! `src/client/shell/state.rs`), so a plugin's picker answers the same way in
+//! `src/client/shell/picks.rs`), so a plugin's picker answers the same way in
 //! either client: a query keeps the items whose label or detail contains it,
 //! ignoring case, in the order they were given; the create row follows them
 //! when the query names no item.

@@ -1,7 +1,7 @@
 //! `mark_unread` over a real connection: the one request it sends, on the
 //! host that owns the focused pane, where the daemon's refusal shows, and the
 //! `Marked unread` it says once the daemon accepted, as the Herdr fork's
-//! terminal client does (`src/client/shell/actions.rs`), and what a press
+//! terminal client does (`src/client/shell/mark_unread.rs`), and what a press
 //! that cannot be sent says.
 
 use super::*;
