@@ -39,8 +39,7 @@ pub(crate) mod report;
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests;
 
-pub(crate) use follow::{PendingNavigation, Purpose};
-pub(crate) use inbox::{Answer, Inbox, Refusal};
+pub(crate) use inbox::Inbox;
 
 use crate::{HerdrWindow, connection::ConnectionBridge};
 use herdr_client::protocol::{
@@ -95,7 +94,7 @@ impl PartialEq for Fingerprint {
 #[derive(Default)]
 pub(crate) struct ClientContract {
     sent: Option<SentReport>,
-    pub(crate) follows: follow::Follows,
+    follows: follow::Follows,
     jumps: jump::Jumps,
 }
 
@@ -104,28 +103,11 @@ impl HerdrWindow {
     /// requests the window follows, the jumps they forwarded, then the
     /// report, which so reflects where a jump led.
     pub(crate) fn tick_client_contract(&mut self, now: Instant, cx: &mut gpui::Context<Self>) {
-        for (purpose, answer) in self.take_followed_answers() {
-            match (purpose, answer) {
-                (Purpose::Jump(key), Err(refusal)) => {
-                    self.client_contract.jumps.refused(key, refusal);
-                }
-                // An accepted focus request proves nothing yet: the jump is
-                // answered by the snapshot that shows its pane focused.
-                (Purpose::Jump(_), Ok(())) => {}
-                (Purpose::History(step), Err(refusal)) => {
-                    self.history_step_failed(&step, refusal == Refusal::PaneNotFound);
-                }
-                // The step is confirmed by the snapshot too. Should that
-                // snapshot never be observed, the pane still had the focus.
-                (Purpose::History(step), Ok(())) => self.history_step_accepted(&step),
-                // Nothing on screen changes until the user leaves the pane,
-                // so the daemon's acceptance is said. A refusal is the
-                // status bar's, like any other.
-                (Purpose::MarkUnread, Ok(())) => {
-                    self.show_flash(crate::window::Flash::success("Marked unread"), cx);
-                }
-                (Purpose::MarkUnread, Err(_)) => {}
-            }
+        // Nothing on screen changes until the user leaves the pane, so the
+        // daemon's acceptance of `agent.mark_unread` is said. A refusal is
+        // the status bar's, like any other.
+        if self.take_accepted_requests() {
+            self.show_flash(crate::window::Flash::success("Marked unread"), cx);
         }
         self.settle_client_jumps(now, cx);
         self.sync_client_contract();

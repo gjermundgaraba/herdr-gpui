@@ -1333,13 +1333,12 @@ under the traffic lights.
 
 Back and Forward follow the sidebar toggle, in the header or in the expanded
 sidebar's first row; a sidebar dragged too narrow for them, or collapsed,
-hands them to the leftmost strip with the toggle. They walk the panes this window has
-visited, on any host, the way a browser walks its pages: going somewhere new
-drops what was ahead, and a pane its host no longer lists is forgotten. This
-is the fork's history, described with the daemon's `history_back` and
-`history_forward` keys below, which step through it too. `back` (Cmd-[) and
-`forward` (Cmd-]) do the same from the keyboard, and so do a mouse's side
-buttons anywhere in the window. Each platform draws the pair its
+hands them to the leftmost strip with the toggle. They walk the panes this connection has
+focused, across tabs and workspaces, the way a browser walks its pages: going
+somewhere new drops what was ahead, closed panes are stepped over, and the
+trail (at most 100 panes) starts over when the daemon restarts. `back`
+(Cmd-[) and `forward` (Cmd-]) do the same from the keyboard, and so do a
+mouse's side buttons anywhere in the window. Each platform draws the pair its
 own way: macOS joins two chevrons in one segmented bezel as Finder and Xcode
 do, Windows uses Fluent's subtle arrow buttons as File Explorer does, and
 Linux uses GNOME's flat rounded header bar buttons. A header narrower than
@@ -3020,25 +3019,20 @@ Ctrl+Shift+U is left unbound for
   which a daemon forwards to the client it names. The window navigates the way
   a click on the agent's row does, switching host when the pane is on another
   one, and answers `client.jump.resolve` on the connection the jump arrived
-  on, whichever editor group holds it meanwhile. Before navigating it answers
-  `not_found` for a host it does not list, `unavailable` for one without a
-  snapshot, `stale_boot` when the host now runs another boot than the jump
-  names, `unavailable` for one that is not online, and `not_found` for a pane
-  the snapshot does not list. `focused` is sent only once the window presents
-  that host with the pane focused: its surface active and drawn from the
-  snapshot that shows the pane focused, not when the request was accepted or
-  the host merely selected with the snapshot it last sent; a jump
-  that has not got there after 12 seconds is answered `timeout`, before the
-  daemon's own 20. A host that refuses the focus request ends the jump at
-  once (`not_found`, `stale_boot`, or `failed` with its message);
-  that refusal belongs to the tool, so the status bar does not show it and
-  input is not left waiting for the focus. A focus request that never
-  reached the host, because the connection could not take it or the host's
-  daemon does not offer the method, ends the jump `unavailable`, as does a
-  host that goes away while the request is on its way. The window does not
-  take a request back: if you select another host before the pane shows,
-  the jump stays open until the pane shows after all or the 12 seconds are
-  up, where the terminal client answers `unavailable`. A jump never closes a menu or
+  on, whichever editor group holds it meanwhile. The answer comes from what
+  the window holds, checked when the jump arrives and again on every tick
+  while it waits: `not_found` for a host it does not list, `unavailable` for
+  one without a snapshot, `stale_boot` when the host now runs another boot
+  than the jump names, `unavailable` for one that is not online, and
+  `not_found` for a pane the snapshot does not list. `focused` is sent only
+  once the window presents that host with the pane focused: its surface
+  active and drawn from the snapshot that shows the pane focused, not when
+  the request was accepted or the host merely selected with the snapshot it
+  last sent; a jump that has not got there after 12 seconds is answered
+  `timeout`, before the daemon's own 20. Nothing follows the navigation's own
+  request: a host that refuses it shows that in the status bar as it would
+  for a click, and the jump times out, as it does when you select another
+  host before the pane shows. A jump never closes a menu or
   dialog: it waits for the window, and times out if the menu stays open. The
   newest jump wins: one that arrives while another is still open replaces it,
   and the replaced jump is never answered: the daemon told its caller
@@ -3626,37 +3620,10 @@ Ctrl+Shift+U is left unbound for
   the navigator's tree layout (the fork's `prefix+g` list) is not offered:
   Go To covers it. `history_back` and `history_forward`, the fork's too and
   unset by default, run **Back** and **Forward**: like the title bar's
-  buttons, they step through the panes this window visited, on any host. On
-  macOS Option-Left and Option-Right are pane keys by default and a pane key
-  wins over a daemon binding, so bind other keys or clear those two under
-  `[pane_keys]`. A visit is recorded when the presented host's
-  snapshot shows another pane focused than the last visit, however that came
-  about, so focus changes that never reached the window are not visits. The
-  history is per window and in memory, holds at most 100 visits, forgets a
-  host that is removed, switched off, detached, or restarted and a pane its
-  host no longer lists, and steps over a host that is not online. A step
-  focuses the pane with the same cross-host navigation as a click, and the
-  snapshot that shows it focused confirms the step without becoming a new
-  visit; a new visit from the middle drops what lay ahead. Until that
-  snapshot, nothing else the host shows is a visit, so the pane another host
-  last had focused, which a step there shows first, does not drop what lay
-  ahead. Nor does a pane confirm a step before the step's own focus request
-  is out: a history can hold the same pane twice, and until then the pane on
-  screen is the one the step leaves, so a second step made before the first
-  one shows is not taken for arrived. If you go somewhere else before the
-  pane shows, or the step's navigation ends without it, the step is taken
-  back, as in the terminal client, and what the window shows is a visit from
-  where the step began; only when the host had already accepted the focus
-  request does the step stay made, and what shows is a visit after its pane.
-  A step
-  past either
-  end says `No earlier pane in history` or `No later pane in history` over
-  the terminal. When the host refuses the focus request the step is taken
-  back, a pane that no longer exists is forgotten, and the refusal is shown
-  in the status bar like any other. A step is also taken back when its
-  request could not be sent, or when the host it leads to never shows its
-  terminal and the window gives up on it. Both are in the palette as **Back** and
-  **Forward** and can be bound under `[keybindings]`. The daemon's
+  buttons, they step along the presented host's trail and never cross to
+  another host. On macOS Option-Left and Option-Right are pane keys by
+  default and a pane key wins over a daemon binding, so bind other keys or
+  clear those two under `[pane_keys]`. The daemon's
   `[[keys.command]]` shortcuts, prefix chords or direct keys, run their
   command through `command.invoke` on the focused pane, and the palette lists
   them with these keys; like Herdr, a keystroke one of its actions already

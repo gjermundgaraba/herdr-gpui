@@ -419,7 +419,7 @@ impl HerdrWindow {
             if self.input_ready() && self.menu.page.is_none() {
                 self.navigate(NavigationTarget::Tab(&tab), cx);
             } else {
-                self.pending_navigation = Some(NavigationTarget::Tab(tab).into());
+                self.pending_navigation = Some(NavigationTarget::Tab(tab));
             }
         }
     }

@@ -69,9 +69,9 @@ mod tests;
 #[cfg(feature = "integration-test")]
 use crate::smoke;
 use crate::{
-    avatars,
-    client_contract::PendingNavigation,
-    config, endpoint, git, menu, preferences,
+    avatars, config, endpoint, git, menu,
+    navigation::OwnedNavigationTarget,
+    preferences,
     presentation::Presentation,
     sessions, sidebar,
     state::LiveState,
@@ -121,8 +121,6 @@ pub(crate) struct HerdrWindow {
     pub(crate) cell_width: f32,
     /// Snapshots of checkouts taken at agent turns, and the dialog listing them.
     pub(crate) checkpoints: crate::checkpoint::Checkpoints,
-    /// What this window last told its local daemon about itself.
-    pub(crate) client_contract: crate::client_contract::ClientContract,
     /// Cloud machines being added; see `cloud::Jobs`.
     #[cfg(feature = "cloud")]
     pub(crate) cloud_jobs: crate::cloud::Jobs,
@@ -179,12 +177,11 @@ pub(crate) struct HerdrWindow {
     /// The brief message over the terminal, and when it stops showing.
     pub(crate) flash: Option<(Flash, std::time::Instant)>,
     pub(crate) focus: FocusHandle,
+    pub(crate) fork: crate::fork::ForkState,
     pub(crate) git: git::Git,
     /// Unknown keys in the GUI config, ignored but reported; follows `config`.
     pub(crate) gui_config_diagnostic: crate::config_diagnostic::ConfigDiagnostic,
     pub(crate) held_keys: crate::terminal::HeldKeys,
-    /// Back/Forward history of the panes this window visited.
-    pub(crate) history: crate::history::Tracker,
     /// The sidebar row the pointer is resting on, waiting to open its menu.
     pub(crate) hover: Option<sidebar::HoverRest>,
     /// The menu that resting opened, which the pointer closes by leaving it.
@@ -230,12 +227,10 @@ pub(crate) struct HerdrWindow {
     pub(crate) pane_carry: Option<crate::pane_menu::carry::Carry>,
     pub(crate) pending_images: Vec<images::PendingImage>,
     pub(crate) pending_input: pending_input::PendingInput,
-    pub(crate) pending_navigation: Option<PendingNavigation>,
+    pub(crate) pending_navigation: Option<OwnedNavigationTarget>,
     pub(crate) pending_releases: Vec<endpoint::Release>,
     pub(crate) pending_resize: Option<(ConnectOptions, std::time::Instant)>,
     pub(crate) pending_toast: Option<u64>,
-    /// The picker on the menu's picker page, and whoever waits on its answer.
-    pub(crate) picker: Option<crate::picker::Picker>,
     /// Remote ports forwarded to this machine; they end with the window.
     pub(crate) port_forwards: crate::port_forward::PortForwards,
     /// Comment, merge, and review reads for the focused branch's open PR.
@@ -530,14 +525,7 @@ impl HerdrWindow {
             self.redraw_terminal(cx);
         }
         self.reconcile_group_terminals(cx);
-        // After every connection was polled and settled into its slot: a
-        // picker is answered on the connection that asked for it.
-        self.poll_picker(window, cx);
-        // After the same settling: the report goes out on one connection, and
-        // says what every host shows after this tick's updates.
-        self.sync_history();
-        self.sync_history();
-        self.tick_client_contract(std::time::Instant::now(), cx);
+        self.tick_fork(window, cx);
         // After polling: a connection that just got its first snapshot, or a
         // reconnect, is told the theme without waiting for it to change.
         self.sync_host_theme();
