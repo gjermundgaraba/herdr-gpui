@@ -19,8 +19,6 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
-mod report;
-
 pub struct Client {
     pub handle: ClientHandle,
     pub events: Receiver<ClientEvent>,
@@ -254,23 +252,11 @@ impl ClientHandle {
     /// Serialize the API envelope, generate an ID, and queue on the ordered writer.
     /// Only methods advertised in Connected are sent. Responses retain API errors.
     pub fn request(&self, boot_id: &str, method: Method, params: Value) -> Result<String> {
-        let id = self.next_request_id();
-        let request = json!({"id": id, "method": method.as_str(), "params": params}).to_string();
-        self.queue_request(boot_id, id, method, request)
-    }
-    fn next_request_id(&self) -> String {
-        format!(
+        let id = format!(
             "gpui-{}",
             self.inner.next_request.fetch_add(1, Ordering::Relaxed)
-        )
-    }
-    fn queue_request(
-        &self,
-        boot_id: &str,
-        id: String,
-        method: Method,
-        request: String,
-    ) -> Result<String> {
+        );
+        let request = json!({"id": id, "method": method.as_str(), "params": params}).to_string();
         self.enqueue(
             boot_id,
             ClientMessage::ClientShellEndpointRequest {

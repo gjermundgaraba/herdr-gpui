@@ -15,7 +15,8 @@ use crate::{
     HerdrWindow, client_contract, connection::ConnectionBridge, controls::ForkCommand, picker,
 };
 use gpui::{Context, Window};
-use herdr_client::ClientEvent;
+use herdr_client::{ClientEvent, ForkMethod, Method};
+use serde_json::{Value, json};
 use std::{
     sync::{Arc, Mutex, Weak},
     time::Instant,
@@ -102,6 +103,22 @@ impl HerdrWindow {
             }
         }
     }
+}
+
+/// The length of the lane request `ClientHandle::request` writes for the
+/// fork's `method` with `params`, measured under the longest request id the
+/// handle gives, so a request that fits here fits under whatever id it is
+/// sent with. The daemon closes a connection that sends a lane request longer
+/// than `MAX_ENDPOINT_COMMAND_BYTES`, and `request` writes what it is given,
+/// so each fork request that can grow is measured here before it is queued.
+pub(crate) fn lane_request_len(method: ForkMethod, params: &Value) -> usize {
+    json!({
+        "id": format!("gpui-{}", u64::MAX),
+        "method": Method::Fork(method).as_str(),
+        "params": params,
+    })
+    .to_string()
+    .len()
 }
 
 /// A connection's mailboxes as its event reader passes an event through

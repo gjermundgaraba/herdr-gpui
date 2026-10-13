@@ -7,23 +7,36 @@
 //! filter narrows what the window shows, never what tools read. A row needs
 //! its space's label and number, so an agent whose space the snapshot no
 //! longer lists is left out, although the panel still paints it; every other
-//! row is reported. Nothing here draws or sends; the connection measures and sends
-//! the request. This is mirrored client logic: the counterpart is
-//! `src/client/shell/client_report.rs` in the Herdr fork, and its cases are
-//! ported in `tests/report_rows.rs`.
+//! row is reported. Nothing here draws or sends: [`one_command`] measures the
+//! request a report becomes, and the window sends it. This is mirrored client
+//! logic: the counterpart is `src/client/shell/client_report.rs` in the Herdr
+//! fork, and its cases are ported in `tests/report_rows.rs`.
 //!
 //! Every row's `agent` is the snapshot's record verbatim, in either client:
 //! the status a tool reads is the daemon's, and no client keeps a record of
 //! completions of its own.
 
-use herdr_client::protocol::{
-    ClientShellAgent, ClientShellSnapshot,
-    clients::{
-        ClientEndpointStatus, ClientReport, ClientReportAgent, ClientReportEndpoint,
-        ClientReportError, MAX_CLIENT_REPORT_AGENTS, MAX_CLIENT_REPORT_ENDPOINTS,
-        MAX_CLIENT_REPORT_ID_BYTES,
+use herdr_client::{
+    ForkMethod,
+    protocol::{
+        ClientShellAgent, ClientShellSnapshot,
+        clients::{
+            ClientEndpointStatus, ClientReport, ClientReportAgent, ClientReportEndpoint,
+            ClientReportError, MAX_CLIENT_REPORT_AGENTS, MAX_CLIENT_REPORT_ENDPOINTS,
+            MAX_CLIENT_REPORT_ID_BYTES, MAX_ENDPOINT_COMMAND_BYTES,
+        },
     },
 };
+use serde_json::Value;
+
+/// Why a report is not sent.
+#[derive(Debug, thiserror::Error)]
+pub(super) enum Error {
+    #[error("the client report does not fit one daemon command")]
+    TooLarge,
+    #[error("could not encode the client report")]
+    Encode(#[from] serde_json::Error),
+}
 
 /// One host this window is attached to, as the report describes it.
 pub(crate) struct Host<'a> {
@@ -126,4 +139,33 @@ pub(crate) fn build<'a>(
     };
     report.normalize()?;
     Ok(report)
+}
+
+/// `report` as the params of one `client.report` the daemon reads. The daemon
+/// closes a connection that sends a lane request longer than
+/// [`MAX_ENDPOINT_COMMAND_BYTES`], and a report within its row and text
+/// limits can still be, so the request is measured as it will be written. One
+/// that does not fit loses rows from the end of the list, in proportion to
+/// how far over it is, until it does; one that does not fit without rows is
+/// [`Error::TooLarge`].
+pub(super) fn one_command(mut report: ClientReport) -> Result<Value, Error> {
+    loop {
+        let params = serde_json::to_value(&report)?;
+        let length = crate::fork::lane_request_len(ForkMethod::ClientReport, &params);
+        if length <= MAX_ENDPOINT_COMMAND_BYTES {
+            return Ok(params);
+        }
+        let rows = report.agents.len();
+        if rows == 0 {
+            return Err(Error::TooLarge);
+        }
+        let keep = (rows * MAX_ENDPOINT_COMMAND_BYTES / length).min(rows - 1);
+        tracing::warn!(
+            category = "client_report",
+            rows,
+            keep,
+            "report exceeds the lane command size; dropping trailing rows"
+        );
+        report.agents.truncate(keep);
+    }
 }
