@@ -29,20 +29,7 @@ fn request_len(params: &Value) -> usize {
 fn a_report_too_long_for_one_command_loses_its_last_rows() {
     // Every row at the daemon's text limits: the row and text limits alone
     // do not bound a report to one command.
-    let mut full = fixture();
-    let template = full.agents[0].clone();
-    let token = "t".repeat(MAX_CLIENT_REPORT_TEXT_BYTES);
-    full.agents = (0..MAX_CLIENT_REPORT_AGENTS)
-        .map(|index| {
-            let mut row = template.clone();
-            row.focused = false;
-            row.agent.pane_id = format!("w1:p{index}");
-            row.agent.tokens = (0..8)
-                .map(|key| (format!("k{key}"), token.clone()))
-                .collect();
-            row
-        })
-        .collect();
+    let mut full = with_rows(MAX_CLIENT_REPORT_AGENTS, MAX_CLIENT_REPORT_AGENTS);
     assert_eq!(full.normalize(), Ok(()));
     assert!(serde_json::to_string(&full).unwrap().len() > MAX_ENDPOINT_COMMAND_BYTES);
 
@@ -56,6 +43,66 @@ fn a_report_too_long_for_one_command_loses_its_last_rows() {
     assert_eq!(sent.endpoints, full.endpoints);
     assert_eq!(sent.focused, full.focused);
     assert_eq!(sent.active_endpoint_id, full.active_endpoint_id);
+}
+
+/// The fixture with `rows` rows, the first `large` of them at the daemon's
+/// text limits.
+fn with_rows(rows: usize, large: usize) -> ClientReport {
+    let mut report = fixture();
+    let template = report.agents[0].clone();
+    let token = "t".repeat(MAX_CLIENT_REPORT_TEXT_BYTES);
+    report.agents = (0..rows)
+        .map(|index| {
+            let mut row = template.clone();
+            row.focused = false;
+            row.agent.pane_id = format!("w1:p{index}");
+            if index < large {
+                row.agent.tokens = (0..8)
+                    .map(|key| (format!("k{key}"), token.clone()))
+                    .collect();
+            }
+            row
+        })
+        .collect();
+    report
+}
+
+/// Whether `report` with only its first `keep` rows fits one command.
+fn fits(report: &ClientReport, keep: usize) -> bool {
+    let mut head = report.clone();
+    head.agents.truncate(keep);
+    request_len(&serde_json::to_value(head).unwrap()) <= MAX_ENDPOINT_COMMAND_BYTES
+}
+
+#[test]
+fn a_report_with_large_leading_rows_keeps_the_longest_head_that_fits() {
+    // Large rows first and small ones after: dropping the small tail barely
+    // shortens the request, so only the longest fitting head is right.
+    let mut full = with_rows(MAX_CLIENT_REPORT_AGENTS, 300);
+    assert_eq!(full.normalize(), Ok(()));
+    assert!(!fits(&full, 300), "the large rows alone are too long");
+
+    let sent: ClientReport = serde_json::from_value(one_command(full.clone()).unwrap()).unwrap();
+
+    let kept = sent.agents.len();
+    assert!(kept > 0 && kept < 300);
+    assert_eq!(sent.agents[..], full.agents[..kept]);
+    assert!(fits(&full, kept) && !fits(&full, kept + 1), "kept {kept}");
+}
+
+#[test]
+fn a_report_that_fits_only_without_rows_is_sent_without_them() {
+    let mut empty = fixture();
+    empty.agents.clear();
+    empty.endpoints[0].label.clear();
+    let room = MAX_ENDPOINT_COMMAND_BYTES - request_len(&serde_json::to_value(&empty).unwrap());
+    let mut report = fixture();
+    report.endpoints[0].label = "x".repeat(room);
+    assert!(fits(&report, 0) && !fits(&report, 1));
+
+    let sent: ClientReport = serde_json::from_value(one_command(report).unwrap()).unwrap();
+
+    assert!(sent.agents.is_empty());
 }
 
 #[test]
