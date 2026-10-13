@@ -22,6 +22,7 @@ fn jumping(jump: &EndpointClientJump) -> ClientEvent {
 mod followed;
 mod jump_presentation;
 mod jump_replacement;
+mod jump_switch;
 mod jump_target;
 mod jumps;
 mod mailbox;
