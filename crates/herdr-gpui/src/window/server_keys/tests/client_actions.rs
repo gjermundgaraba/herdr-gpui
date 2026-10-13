@@ -89,3 +89,23 @@ fn a_reloaded_local_table_rebuilds_the_devices_keymap(cx: &mut TestAppContext) {
         assert!(view.keymap().is_prefix(&key("cmd-j")));
     });
 }
+
+#[gpui::test]
+fn a_local_table_change_with_an_unusable_profile_unbinds_the_stale_keymap(cx: &mut TestAppContext) {
+    let (view, cx) = window(cx);
+    view.update(cx, |view, cx| {
+        view.active = true;
+        opt_in(view, KeybindingSource::Server);
+        select(view, 1, Some(HOST_KEYS), cx);
+    });
+    assert!(active_global(cx).is_some_and(|keymap| keymap.is_prefix(&key("cmd-j"))));
+
+    view.update(cx, |view, cx| {
+        // This machine's table changes in the same tick the host's profile
+        // becomes unusable, so the rebuild fails.
+        view.config.daemon_keys = local_keys("[keys]\nhistory_back = 'alt+o'\n");
+        select(view, 1, Some("[keys"), cx);
+        assert!(view.keymap().is_prefix(&key("ctrl-b")));
+    });
+    assert_eq!(active_global(cx), None, "the stale host keymap stays bound");
+}
