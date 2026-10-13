@@ -1,5 +1,6 @@
 //! The actions the client performs itself stay on the local table under a
-//! host's profile, as in the Herdr fork's `src/config/keybinds.rs`.
+//! host's profile, as in the Herdr fork's
+//! `src/config/keybinds/client_actions.rs`.
 
 use super::{DaemonKeys, Target, Trigger};
 use crate::controls::{Command, ForkCommand};
@@ -13,22 +14,19 @@ pub(super) const WORKSPACE_LIST: Target =
 /// The actions this client performs itself, which never reach a daemon: the
 /// two navigators, Back and Forward, and the request for the unread hold.
 /// The Herdr fork reads them from the local config even while a host's
-/// keybinding profile is in effect (`Keybinds::copy_client_actions` in its
-/// `src/config/keybinds.rs`), and so does this client.
+/// keybinding profile is in effect (`Keybinds::copy_client_actions`), and so
+/// does this client, through [`DaemonKeys::with_client_actions`].
 ///
-/// Here a keystroke the local config gives one of them is that action's
-/// over any command the profile binds to it. Their bindings come first in
-/// the keymap built from the profile ([`DaemonKeys::with_client_actions`]),
-/// so the profile's command for the same keystroke is not bound. Of the
-/// profile's keystrokes, its prefix key is the one they do not take: a
-/// keymap places its prefixes before any binding, so a direct key of a
-/// client action that equals the profile's prefix arms the prefix, and the
-/// action is left without that key. The profile's
-/// `navigate_workspace_up` and `_down` are not commands: they move the Go To
-/// palette's selection, from its key handler, which a bound keystroke never
-/// reaches. So in Go To a direct key of a client action does not move the
-/// selection, and it does not run either, because no command runs while a
-/// menu page is open; a prefix chord closes the page and runs.
+/// A keystroke the local config gives one of them is that action's over the
+/// profile's command for it, except the profile's prefix key: a keymap
+/// places its prefixes before any binding, so a direct key of a client
+/// action that equals the profile's prefix arms the prefix, and the action
+/// is left without that key. The profile's `navigate_workspace_up` and
+/// `_down` are not commands: they move the Go To palette's selection, from
+/// its key handler, which a bound keystroke never reaches. So in Go To a
+/// direct key of a client action does not move the selection, and it does
+/// not run either, because no command runs while a menu page is open; a
+/// prefix chord closes the page and runs.
 ///
 /// The terminal client gives the local action the keystroke in the same
 /// way, with three differences. In its Navigate mode, which this client
