@@ -33,7 +33,7 @@ impl HerdrWindow {
     /// sort, as the panel would paint them with the device filter at All
     /// Devices. The client report lists these: the filter is a view of this
     /// window, and does not narrow what tools read. The report leaves out the
-    /// rows it cannot describe (see [`crate::client_contract::report`]).
+    /// rows it cannot describe (see `client_contract::report`).
     pub(crate) fn reported_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
         panel_agents(self.enabled_lives(), self.agent_sort)
     }
