@@ -3,7 +3,7 @@
 //! `src/client/shell/aggregate_navigation.rs`.
 //!
 //! The fork's daemon sends each agent's place in its queue as `priority_key`,
-//! with the priority-token lift applied, and keys from different daemons
+//! with the `space_priority` lift applied, and keys from different daemons
 //! compare the same way. The panel compares them as plain byte strings,
 //! smallest first, and never reads one. Equal keys tie, so the stable sort
 //! keeps them in host order, then in their snapshot's order, as the terminal
