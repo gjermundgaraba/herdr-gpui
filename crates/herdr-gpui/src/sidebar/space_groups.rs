@@ -96,13 +96,6 @@ pub(super) struct Group<'a> {
     pub(super) collapsed: bool,
 }
 
-impl Group<'_> {
-    /// The key this header's collapse state is kept under.
-    pub(super) fn key(&self) -> String {
-        collapse_key(self.name)
-    }
-}
-
 /// Starts a run: a group header, or with `group: None` the divider before
 /// ungrouped spaces that follow a group.
 #[derive(Debug, Clone, PartialEq, Eq)]
