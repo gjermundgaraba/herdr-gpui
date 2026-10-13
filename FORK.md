@@ -90,7 +90,8 @@ Describe each local change here, with pointers to its code, when it is added.
   `crates/herdr-gpui/src/picker/navigator/rows.rs`)
 - Client-side keys stay local: `agent_picker`, `workspace_list`,
   `history_back`, `history_forward`, and `mark_unread` are read from the local
-  Herdr config even under a host's key profile
+  Herdr config even under a host's key profile. The daemon `[keys]` actions
+  `history_back` and `history_forward` run upstream's Back and Forward
   (`crates/herdr-gpui/src/keymap/daemon.rs`)
 - Agent order: the agents panel sorts by the daemon's `priority_key`,
   connected hosts first, with no client-side recency, and upstream's Devices
@@ -142,7 +143,7 @@ changing anything of the first two kinds below.
 | Client report | `src/client/shell/client_report.rs`, `src/client/client_contract.rs` | `crates/herdr-gpui/src/client_contract.rs`, `crates/herdr-gpui/src/client_contract/report.rs` | yes, except Herdr GPUI sends a report, and a jump or picker answer, only after the request its connection holds is answered |
 | Client jump | `src/client/shell/client_jump.rs` | `crates/herdr-gpui/src/client_contract/jump.rs` | yes, except under an open menu (Herdr GPUI leaves it open, so the jump waits for it and can time out) |
 | Agent and workspace pickers | `src/client/shell/aggregate_navigation.rs`, `src/client/shell/overlay_input.rs` | `crates/herdr-gpui/src/picker/navigator.rs`, `crates/herdr-gpui/src/picker/navigator/rows.rs` | no: Herdr GPUI lacks the Tree layout, the second detail line, and the current marker, and under a plugin agent view its agent picker lists each host's own view where the TUI applies the active host's view across hosts |
-| Back/Forward history | `src/client/shell/history.rs` | `crates/herdr-gpui/src/endpoint/history.rs` (upstream's, no fork code) | yes: the TUI ports upstream's per-host trail |
+| Back/Forward history | `src/client/shell/history.rs` | `crates/herdr-gpui/src/endpoint/history.rs` (upstream's), `crates/herdr-gpui/src/keymap/daemon.rs` (the fork's `history_back` and `history_forward` keys) | yes: the TUI ports upstream's per-host trail |
 | Client-side keys stay local | `src/config/keybinds.rs` | `crates/herdr-gpui/src/keymap/daemon.rs` | yes, except a direct key equal to the host profile's prefix key (the TUI runs the action, Herdr GPUI arms the prefix) and a local config that does not parse (the TUI keeps the previous five bindings, Herdr GPUI unbinds them) |
 
 Add a row, in both `FORK.md` files, when a mirrored feature lands in either

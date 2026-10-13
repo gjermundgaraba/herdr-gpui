@@ -3,25 +3,18 @@
 //!
 //! It keeps what the contract needs of a connection without the live state
 //! having to know: the boot a lane request must name, what the daemon takes,
-//! the jump it forwarded last, and the answers to the requests the window follows
-//! or sent for the contract. The answer to a report or to a jump's answer
-//! never reaches the live state, so a rejected one is logged and does not
-//! appear in the window as a failed command. The answer to a followed request
-//! reaches it too, so a refusal shows like any other.
+//! the jump it forwarded last, the answers to the requests it sent for the
+//! contract, and whether the daemon accepted a request the window follows.
+//! The answer to a report or to a jump's answer never reaches the live state,
+//! so a rejected one is logged and does not appear in the window as a failed
+//! command. The answer to a followed request reaches it too, so a refusal
+//! shows like any other.
 
 use herdr_client::{ClientEvent, Method, protocol::clients::EndpointClientJump};
 use serde_json::Value;
 
 /// Characters of a daemon's error code that are logged.
 const CODE_CHARS: usize = 64;
-
-#[derive(Debug)]
-struct Followed {
-    request: String,
-    /// Whether the daemon accepted it, once it has answered or the
-    /// connection worker would not send it.
-    accepted: Option<bool>,
-}
 
 #[derive(Debug, Default)]
 pub(crate) struct Inbox {
@@ -48,11 +41,13 @@ pub(crate) struct Inbox {
     /// queue holds 8 replies not filed yet, and it ends when the one in
     /// flight is not answered in time.
     resolutions: Vec<String>,
-    /// The requests the window follows, each until the window collects its
-    /// answer or the connection goes. The connection bounds the unanswered
-    /// ones as it does `resolutions`, and the window holds one entry of its
-    /// own for each, which it settles against this list on every tick.
-    followed: Vec<Followed>,
+    /// The requests the window follows, each until its answer or its
+    /// rejection is filed here, or the connection goes. The connection bounds
+    /// them as it does `resolutions`.
+    followed: Vec<String>,
+    /// Whether the daemon accepted one of `followed` since the window last
+    /// asked.
+    accepted: bool,
 }
 
 /// The error an endpoint response carries, when it carries one.
@@ -158,15 +153,12 @@ impl Inbox {
         true
     }
 
-    /// Keeps whether the daemon accepted `request` for the window, when it
-    /// follows that request.
+    /// Ends the following of `request`, when the window follows it, and
+    /// keeps for the window whether the daemon accepted it.
     fn record(&mut self, request: &str, accepted: bool) {
-        if let Some(followed) = self
-            .followed
-            .iter_mut()
-            .find(|followed| followed.request == request)
-        {
-            followed.accepted = Some(accepted);
+        if let Some(index) = self.followed.iter().position(|id| id == request) {
+            self.followed.remove(index);
+            self.accepted |= accepted;
         }
     }
 
@@ -214,27 +206,11 @@ impl Inbox {
     /// Follows `request` to its answer. Called under the same lock as the
     /// queueing, so even an immediate rejection finds it.
     pub(crate) fn follow(&mut self, request: String) {
-        self.followed.push(Followed {
-            request,
-            accepted: None,
-        });
+        self.followed.push(request);
     }
 
-    /// Whether `request` is still followed: not yet collected, and not lost
-    /// with its connection.
-    pub(crate) fn follows(&self, request: &str) -> bool {
-        self.followed
-            .iter()
-            .any(|followed| followed.request == request)
-    }
-
-    /// Whether the daemon accepted `request`, once it has answered, which
-    /// ends the following.
-    pub(crate) fn take_answer(&mut self, request: &str) -> Option<bool> {
-        let index = self
-            .followed
-            .iter()
-            .position(|followed| followed.request == request && followed.accepted.is_some())?;
-        self.followed.remove(index).accepted
+    /// Whether the daemon accepted a followed request since the last call.
+    pub(crate) fn take_accepted(&mut self) -> bool {
+        std::mem::take(&mut self.accepted)
     }
 }
