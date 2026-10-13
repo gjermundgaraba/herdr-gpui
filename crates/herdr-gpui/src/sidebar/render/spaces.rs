@@ -1,8 +1,7 @@
 //! The spaces list: per listed host its header, then the rows
-//! `space_groups::sidebar_rows` names: pinned sections with their mirrors,
-//! group headers and dividers, and each space's own row. Painting, the drop
-//! preview, and the reveal all read child positions counted here, so a row is
-//! hit where it was painted.
+//! `space_groups::sidebar_rows` names: group headers and dividers, and each
+//! space's row. Painting, the drop preview, and the reveal all read child
+//! positions counted here, so a row is hit where it was painted.
 
 use crate::{
     HerdrWindow, NavigationTarget,
@@ -34,7 +33,6 @@ pub(super) struct SpaceList {
     /// the header pinned over it.
     pub(super) host_rows: Vec<(usize, usize)>,
     /// Child position of the selected host's focused space, for the reveal.
-    /// Its own row, never a pinned section's mirror of it.
     pub(super) focused: Option<usize>,
     /// A lifted workspace row: each drop unit's rows in the list, and the
     /// move every gap makes, for the pointer handler.
@@ -67,8 +65,6 @@ struct Placed<'a> {
     tree: RowTree,
     /// The repository this row folds.
     fold: Option<String>,
-    /// The pinned section this row mirrors the space for.
-    mirror: Option<usize>,
     lift: RowLift,
     shift: Pixels,
     gap: f32,
@@ -204,7 +200,7 @@ impl HerdrWindow {
                 SidebarRow::Workspace(entry) => {
                     plan.as_ref().and_then(|plan| plan.unit_of(entry.index))
                 }
-                SidebarRow::Marker(_) | SidebarRow::Mirror { .. } => None,
+                SidebarRow::Marker(_) => None,
             };
             // Each row's shift for the drop in preview, from the heights the
             // last frame laid out: shifting moves rows, never resizes them.
@@ -240,7 +236,7 @@ impl HerdrWindow {
                 let to = shifts.get(position).copied().unwrap_or(0.);
                 let child = children;
                 children += 1;
-                let (entry_index, indented, fold, mirror) = match row {
+                let (entry_index, indented, fold) = match row {
                     SidebarRow::Marker(marker) => {
                         // A header or divider between passed rows slides with them.
                         let shift = match drag {
@@ -260,13 +256,12 @@ impl HerdrWindow {
                         continue;
                     }
                     SidebarRow::Workspace(entry) => {
-                        (entry.index, entry.indented, entry.fold.clone(), None)
+                        (entry.index, entry.indented, entry.fold.clone())
                     }
-                    SidebarRow::Mirror { index, section } => (*index, false, None, Some(*section)),
                 };
                 let workspace = &snapshot.workspaces[entry_index];
                 let unit = unit_of(row);
-                if mirror.is_none() && selected && workspace.focused {
+                if selected && workspace.focused {
                     built.focused = Some(child);
                 }
                 // The lifted row and the rows it carries, such as its group's
@@ -303,7 +298,6 @@ impl HerdrWindow {
                             (true, false) => RowTree::LastChild,
                         },
                         fold,
-                        mirror,
                         lift: match (carried, floating) {
                             (true, _) => RowLift::Lifted,
                             (false, true) => RowLift::Passed,
@@ -327,9 +321,7 @@ impl HerdrWindow {
         built
     }
 
-    /// One space's row: its own, or with `placed.mirror` a pinned section's
-    /// copy of it. A mirror focuses the space and opens its menu like the row
-    /// it copies, but is flat, folds nothing, and never lifts for a reorder.
+    /// One space's row.
     fn space_row(
         &self,
         host: &Host<'_>,
@@ -342,7 +334,6 @@ impl HerdrWindow {
             index,
             tree,
             fold,
-            mirror,
             lift,
             shift,
             gap,
@@ -361,12 +352,7 @@ impl HerdrWindow {
         let indented = tree != RowTree::None;
         let endpoint_id = endpoint.id.clone();
         let id = workspace.workspace_id.clone();
-        // A space two sections pin has a copy in each, so the section tells
-        // their element state apart.
-        let key = match mirror {
-            Some(section) => format!("mirror-{endpoint_id}-{section}-{id}"),
-            None => format!("workspace-{endpoint_id}-{id}"),
-        };
+        let key = format!("workspace-{endpoint_id}-{id}");
         let press_id = id.clone();
         let context_id = id.clone();
         let hover_id = id.clone();
@@ -384,8 +370,7 @@ impl HerdrWindow {
             })),
         });
         let label = workspace_label(workspace, indented);
-        // A mirror is one space's copy, so it never stands in for a folded group.
-        let shown_status = if self.config.usage.inline && mirror.is_none() {
+        let shown_status = if self.config.usage.inline {
             displayed_workspace_status(&snapshot.workspaces, workspace, collapsed)
         } else {
             workspace.agent_status
@@ -431,9 +416,7 @@ impl HerdrWindow {
             &endpoint.id,
         )
         .map(SharedString::from);
-        // The note's line and the listening ports ride under the space's own
-        // row only; a mirror still shows the note's mark in its badge.
-        let note_line = note.clone().filter(|_| mirror.is_none()).map(|note| {
+        let note_line = note.clone().map(|note| {
             let endpoint = endpoint_id.clone();
             let workspace = id.clone();
             crate::sidebar::note_line::element(
@@ -448,7 +431,7 @@ impl HerdrWindow {
                 this.edit_worktree_note(&endpoint, &workspace, event.position(), window, cx);
             }))
         });
-        let ports = (self.config.show_listening_ports && !removing_row && mirror.is_none())
+        let ports = (self.config.show_listening_ports && !removing_row)
             .then_some(host.daemon.as_ref())
             .flatten()
             .and_then(|daemon| self.listening_ports.get(daemon, &workspace.workspace_id))
@@ -570,11 +553,7 @@ impl HerdrWindow {
             },
         )
         .id(SharedString::from(key.clone()))
-        // A mirror answers to its own name, so the layout's `row-` selector
-        // always names the space's own row.
-        .when(multi || mirror.is_some(), |row| {
-            row.debug_selector(|| key.clone())
-        })
+        .when(multi, |row| row.debug_selector(|| key.clone()))
         .on_click(cx.listener(move |this, _, window, cx| {
             this.navigate_endpoint(&navigate_endpoint, NavigationTarget::Workspace(&id), cx);
             window.focus(&this.focus, cx);
@@ -589,9 +568,8 @@ impl HerdrWindow {
             }))
         })
         // Holding a press lifts the row for reordering. Another
-        // endpoint's rows would have to select it first, and a mirror
-        // is a copy with no place of its own to move.
-        .when(selected && mirror.is_none(), |row| {
+        // endpoint's rows would have to select it first.
+        .when(selected, |row| {
             row.on_mouse_down(
                 MouseButton::Left,
                 cx.listener(move |this, event: &MouseDownEvent, _, cx| {

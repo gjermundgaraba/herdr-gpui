@@ -12,7 +12,7 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct PreviewRow {
     /// The drag's unit this row belongs to; `None` for a row the drag does
-    /// not reorder, such as a marker or a pinned mirror.
+    /// not reorder, such as a marker.
     pub(super) unit: Option<usize>,
     /// A group header or a divider.
     pub(super) marker: bool,

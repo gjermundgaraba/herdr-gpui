@@ -47,8 +47,8 @@ impl HerdrWindow {
         })
     }
 
-    /// What a host has folded away: its collapsed worktree repositories,
-    /// space groups, and pinned sections, each under its own kind of key.
+    /// What a host has folded away: its collapsed worktree repositories and
+    /// space groups, each under its own kind of key.
     /// The local host, always the first, keeps its set on the window.
     pub(super) fn collapsed_for(&self, endpoint: usize) -> &HashSet<String> {
         if endpoint == 0 {
@@ -68,8 +68,7 @@ impl HerdrWindow {
     }
 
     /// The workspace rows the sidebar shows: a folded group or host hides
-    /// its rows here too, and a pinned section's mirrors are left out, so
-    /// each space is stepped to once.
+    /// its rows here too.
     pub(crate) fn sidebar_workspaces(&self) -> Vec<Row<'_>> {
         let multi = self.endpoints.len() > 1;
         self.listed_hosts()
