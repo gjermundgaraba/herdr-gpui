@@ -133,7 +133,7 @@ impl HerdrWindow {
     }
 
     pub(crate) fn render_picker(&self, cx: &mut Context<Self>) -> Div {
-        let Some(picker) = &self.picker else {
+        let Some(picker) = &self.fork.picker else {
             return div();
         };
         let theme = &self.theme;
@@ -175,7 +175,7 @@ impl HerdrWindow {
                         "picker-rows",
                         rows,
                         cx.processor(|this, range: std::ops::Range<usize>, _, cx| {
-                            let Some(picker) = &this.picker else {
+                            let Some(picker) = &this.fork.picker else {
                                 return Vec::new();
                             };
                             range

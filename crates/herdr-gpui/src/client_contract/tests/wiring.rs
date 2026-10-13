@@ -425,9 +425,10 @@ fn a_restarted_local_daemon_is_reported_to_under_its_new_boot(cx: &mut gpui::Tes
     view.read_with(cx, |view, _| {
         view.endpoints[0]
             .connection
-            .clients
+            .fork
             .lock()
             .unwrap()
+            .clients
             .apply(snapshot("boot-2"));
     });
     turn(&view, cx);
@@ -490,8 +491,8 @@ fn a_full_command_queue_leaves_the_report_owed(cx: &mut gpui::TestAppContext) {
 
     turn(&view, cx);
     view.read_with(cx, |view, _| {
-        let mailbox = view.endpoints[0].connection.clients.lock().unwrap();
-        assert!(!mailbox.report_pending(), "nothing was queued");
+        let fork = view.endpoints[0].connection.fork.lock().unwrap();
+        assert!(!fork.clients.report_pending(), "nothing was queued");
     });
 
     // The queue drains: every held request is answered in turn, and the

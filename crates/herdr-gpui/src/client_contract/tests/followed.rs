@@ -23,11 +23,7 @@ fn refused(id: &str, error: serde_json::Value) -> ClientEvent {
 #[test]
 fn a_forwarded_jump_waits_for_the_window_and_a_newer_one_replaces_it() {
     let mut inbox = Inbox::default();
-    assert!(
-        inbox
-            .apply(ClientEvent::ClientJump(jump("jump-1")))
-            .is_none()
-    );
+    assert!(inbox.apply(jumping(&jump("jump-1"))).is_none());
     assert!(inbox.owes_jump_answer());
     assert_eq!(inbox.take_jump(), Some(jump("jump-1")));
     assert_eq!(inbox.take_jump(), None, "taken once");
@@ -35,7 +31,7 @@ fn a_forwarded_jump_waits_for_the_window_and_a_newer_one_replaces_it() {
 
     // The daemon gave up on the older jump when it forwarded the newer.
     for index in 2..100 {
-        inbox.apply(ClientEvent::ClientJump(jump(&format!("jump-{index}"))));
+        inbox.apply(jumping(&jump(&format!("jump-{index}"))));
     }
     assert_eq!(inbox.take_jump(), Some(jump("jump-99")));
     assert_eq!(inbox.take_jump(), None);
@@ -176,7 +172,7 @@ fn a_lost_connection_takes_its_jumps_and_followed_requests_with_it() {
     let mut inbox = Inbox::default();
     inbox.apply(welcome(&["client.jump.resolve"]));
     inbox.apply(snapshot("boot-1"));
-    inbox.apply(ClientEvent::ClientJump(jump("jump-1")));
+    inbox.apply(jumping(&jump("jump-1")));
     inbox.follow("gpui-3".into());
     inbox.apply(response(
         "gpui-3",

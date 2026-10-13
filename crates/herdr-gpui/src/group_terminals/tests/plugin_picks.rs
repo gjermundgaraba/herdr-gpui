@@ -5,12 +5,12 @@
 use super::*;
 use herdr_client::{
     ClientEvent,
-    protocol::pick::{EndpointPickOpen, UiPickItem},
+    protocol::pick::{EndpointPickOpen, PICK_OPEN_KIND, UiPickItem},
 };
 use serde_json::json;
 
 fn pick(pick_id: &str) -> ClientEvent {
-    ClientEvent::PickOpen(EndpointPickOpen {
+    let open = EndpointPickOpen {
         pick_id: pick_id.into(),
         title: "Move pane to".into(),
         items: vec![UiPickItem {
@@ -21,7 +21,8 @@ fn pick(pick_id: &str) -> ClientEvent {
         }],
         selected: None,
         create: None,
-    })
+    };
+    crate::fork::control(PICK_OPEN_KIND, &open)
 }
 
 fn press(keystroke: &str) -> KeyDownEvent {
@@ -60,7 +61,7 @@ fn a_parked_connections_picker_is_shown_and_answered_on_that_connection(cx: &mut
     });
     let mut peer = MockPeer::advertising(&["ui.pick.resolve"]);
     let shown = |view: &HerdrWindow| {
-        view.picker.is_some() && view.menu.page == Some(crate::menu::Page::Picker)
+        view.fork.picker.is_some() && view.menu.page == Some(crate::menu::Page::Picker)
     };
     cx.update(|window, cx| {
         view.update(cx, |view, cx| {
@@ -74,17 +75,17 @@ fn a_parked_connections_picker_is_shown_and_answered_on_that_connection(cx: &mut
             if let Ok(mut inbox) = parked.connection.inbox.lock() {
                 *inbox = parked.live.clone();
             }
-            // As the connection's reader does: the picker mailbox learns the
+            // As the connection's reader does: the fork mailbox learns the
             // peer's boot from its snapshot, then keeps the picker control.
-            if let Ok(mut picks) = parked.connection.picks.lock() {
-                picks.apply(ClientEvent::Snapshot(Arc::new(fixture_snapshot())));
-                assert!(picks.apply(pick("pick-1")).is_none());
+            if let Ok(mut fork) = parked.connection.fork.lock() {
+                fork.apply(ClientEvent::Snapshot(Arc::new(fixture_snapshot())));
+                assert!(fork.apply(pick("pick-1")).is_none());
             }
             view.browser.terminals.parked.push(parked);
             view.poll_picker(window, cx);
             assert!(shown(view));
             view.picker_key(&press("enter"), window, cx);
-            assert!(view.picker.is_none() && view.menu.page.is_none());
+            assert!(view.fork.picker.is_none() && view.menu.page.is_none());
         })
     });
     answered(&mut peer, "pick-1", json!({"type": "picked", "id": "t2"}));
@@ -96,7 +97,7 @@ fn a_parked_connections_picker_is_shown_and_answered_on_that_connection(cx: &mut
             assert!(
                 parked
                     .connection
-                    .picks
+                    .fork
                     .lock()
                     .unwrap()
                     .apply(pick("gone"))
@@ -106,7 +107,7 @@ fn a_parked_connections_picker_is_shown_and_answered_on_that_connection(cx: &mut
             assert!(shown(view));
             let parked = view.browser.terminals.parked.pop().unwrap();
             view.poll_picker(window, cx);
-            assert!(view.picker.is_none() && view.menu.page.is_none());
+            assert!(view.fork.picker.is_none() && view.menu.page.is_none());
             view.browser.terminals.parked.push(parked);
         })
     });
@@ -119,7 +120,7 @@ fn a_parked_connections_picker_is_shown_and_answered_on_that_connection(cx: &mut
             assert!(
                 parked
                     .connection
-                    .picks
+                    .fork
                     .lock()
                     .unwrap()
                     .apply(pick("pick-2"))
@@ -138,7 +139,7 @@ fn a_parked_connections_picker_is_shown_and_answered_on_that_connection(cx: &mut
             view.poll_picker(window, cx);
             assert!(shown(view));
             view.picker_key(&press("escape"), window, cx);
-            assert!(view.picker.is_none() && view.menu.page.is_none());
+            assert!(view.fork.picker.is_none() && view.menu.page.is_none());
         })
     });
     // The first thing the peer hears after its first answer is this one:

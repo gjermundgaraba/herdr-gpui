@@ -272,9 +272,6 @@ Surface(Arc<PaneSurfaceFrame>)
 SurfaceImages(Arc<SurfaceImages>)
 Response { request_id: String, response: serde_json::Value }
 CommandRejected { request_id: Option<String>, reason: Error }
-PickOpen(EndpointPickOpen)
-PickClose(EndpointPickClose)
-ClientJump(EndpointClientJump)
 Message(ServerMessage)
 VersionMismatch(VersionMismatch)
 Disconnected { reason: String }
@@ -290,38 +287,6 @@ capability, or, over SSH or WSL, has no installed Herdr able to serve this clien
 version, stripped of controls and capped at 64 characters, when it gave one.
 `Error::version_mismatch` applies the same classification to an error. Other
 failures, including an SSH host with no Herdr at all, are not mismatches.
-
-`PickOpen` and `PickClose` are the `endpoint.pick.open.v1` and
-`endpoint.pick.close.v1` controls of a daemon that offers `ui.pick` to plugins.
-The daemon holds the plugin's request open until the connection that received
-`PickOpen` answers with `Method::UiPickResolve`
-(`protocol::pick::UiPickResolveParams`), the picker is closed, or the
-connection ends. An answer that reaches the daemon after its plugin closed the
-picker is answered `pick_not_found`, which a client expects. A picker payload
-this client cannot decode is ignored like an
-unknown control, not treated as a protocol failure.
-
-`ClientJump` is the `endpoint.client-jump.v1` control of the same fork's client
-contract: a tool's `client.jump`, forwarded to the client that should show the
-pane. The connection that received it answers with `Method::ClientJumpResolve`
-(`protocol::clients::ClientJumpResolveParams`). A newer jump replaces one the
-client has not answered: the daemon ends the older itself and answers a late
-answer to it `jump_not_found`. A payload this client cannot decode is ignored, like a
-picker's.
-
-`Method` also names the three client-lane methods of that fork's client
-contract: `ClientReport` (`protocol::clients::ClientReport`),
-`ClientJumpResolve` (`protocol::clients::ClientJumpResolveParams`), and
-`AgentMarkUnread` (`{"pane_id"}`). A daemon that does not advertise one
-rejects it before it is sent, like any other unadvertised method.
-`ClientHandle::report` queues a `ClientReport`: the daemon closes a connection
-whose lane request is longer than `MAX_ENDPOINT_COMMAND_BYTES` (1 MiB), so the
-request is measured as it will be written, and a report too long loses rows
-from the end of its list until it fits. One that does not fit without rows is
-refused with `Error::ClientReportTooLarge` and nothing is sent. The limit is
-the daemon's for every request, so `ClientHandle::request` refuses one longer
-than it with `Error::RequestTooLarge` before anything is written; a picker's
-answer with long created text is the request that can be.
 
 The receiver is `crossbeam_channel::Receiver`, re-exported as `Receiver`.
 Responses preserve either the endpoint's `{id,result}` or `{id,error}` object;

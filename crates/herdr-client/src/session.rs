@@ -511,32 +511,12 @@ impl Session {
                 let next = reuse.reconstruct(base)?;
                 accept_surface(next, snapshot.as_deref(), surface, images, &mut emit)?;
             }
-            // A picker is optional UI the hello never negotiated. A payload
-            // this client cannot read is dropped like an unknown control, as
-            // Herdr's own client drops it, instead of ending the connection.
-            // The serde error may quote the payload, so it is not logged.
-            ServerMessage::EndpointControl { kind, data } if kind == pick::PICK_OPEN_KIND => {
-                match pick::decode_open(&data) {
-                    Ok(open) => emit(ClientEvent::PickOpen(open))?,
-                    Err(_) => tracing::warn!(category = "pick_open", "malformed control ignored"),
-                }
+            // A pong only shows the link is alive, which any message does.
+            ServerMessage::EndpointControl { kind, .. } if kind == "endpoint.health.pong.v1" => {}
+            // Other optional named controls are the owner's to use or ignore.
+            ServerMessage::EndpointControl { kind, data } => {
+                emit(ClientEvent::Control { kind, data })?;
             }
-            ServerMessage::EndpointControl { kind, data } if kind == pick::PICK_CLOSE_KIND => {
-                match pick::decode_close(&data) {
-                    Ok(close) => emit(ClientEvent::PickClose(close))?,
-                    Err(_) => tracing::warn!(category = "pick_close", "malformed control ignored"),
-                }
-            }
-            // A jump is optional too, and its payload is a tool's: one this
-            // client cannot read is dropped the same way. The daemon stops
-            // waiting for its answer on its own.
-            ServerMessage::EndpointControl { kind, data } if kind == clients::CLIENT_JUMP_KIND => {
-                match clients::decode_jump(&data) {
-                    Ok(jump) => emit(ClientEvent::ClientJump(jump))?,
-                    Err(_) => tracing::warn!(category = "client_jump", "malformed control ignored"),
-                }
-            }
-            ServerMessage::EndpointControl { .. } => {} // Unknown optional named controls are ignored.
             ServerMessage::PaneSurface(next) => {
                 accept_surface(next, snapshot.as_deref(), surface, images, &mut emit)?;
             }

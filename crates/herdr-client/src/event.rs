@@ -4,12 +4,7 @@
 use crate::{
     Error, Result, VersionMismatch,
     limits::POLL,
-    protocol::{
-        clients::EndpointClientJump,
-        endpoint::EndpointServerWelcome,
-        pick::{EndpointPickClose, EndpointPickOpen},
-        *,
-    },
+    protocol::{endpoint::EndpointServerWelcome, *},
     surface_images::SurfaceImages,
 };
 use crossbeam_channel::{SendTimeoutError, Sender};
@@ -38,18 +33,13 @@ pub enum ClientEvent {
         request_id: Option<String>,
         reason: Error,
     },
-    /// The daemon asks this client to show a `ui.pick` picker. It holds the
-    /// plugin's request open until this connection answers with
-    /// `ui.pick.resolve`, the picker is closed, or the connection ends.
-    PickOpen(EndpointPickOpen),
-    /// The picker with this id ended without this client's answer; nothing
-    /// is owed for it any more.
-    PickClose(EndpointPickClose),
-    /// The daemon forwards a tool's `client.jump`: show this pane, switching
-    /// endpoint when that takes it. The daemon waits until this connection
-    /// answers with `client.jump.resolve` or ends. A newer jump replaces
-    /// one not answered yet, which the daemon then ends itself.
-    ClientJump(EndpointClientJump),
+    /// A named endpoint control this client does not handle itself, as the
+    /// daemon sent it after the handshake. Optional: an owner that has no
+    /// use for `kind` ignores it, as Herdr's own client does.
+    Control {
+        kind: String,
+        data: String,
+    },
     /// Notifications, clipboard, title, bell, and other non-surface wire events.
     Message(ServerMessage),
     /// The handshake was refused because one side must be updated. Sent

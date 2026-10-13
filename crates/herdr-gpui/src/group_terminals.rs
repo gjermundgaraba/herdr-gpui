@@ -11,12 +11,8 @@
 //! moves it. Using a parked group swaps its connection with the window's.
 //!
 //! Parked connections belong to the focused workspace of the selected
-//! endpoint. Leaving either, or closing the group, retires them: dropping a
+//! endpoint. Leaving either, or closing the group, drops them; dropping a
 //! bridge only asks its worker to stop, so the UI thread never waits on it.
-//! A daemon may have forwarded a tool's jump to one of them, and the
-//! navigation to that jump's pane is often what leaves the workspace, so one
-//! that still owes a jump its answer is kept by the client contract until it
-//! has answered.
 
 use crate::{
     HerdrWindow,
@@ -184,16 +180,6 @@ impl HerdrWindow {
             .any(|parked| parked.group == group)
     }
 
-    /// The parked connections, each a client of its own: anything the daemon
-    /// addresses to one client may arrive on any of them.
-    pub(crate) fn parked_connections(&self) -> impl Iterator<Item = &ConnectionBridge> {
-        self.browser
-            .terminals
-            .parked
-            .iter()
-            .map(|parked| &parked.connection)
-    }
-
     /// Parked connections are clients of their own, each told the theme.
     pub(crate) fn sync_group_host_theme(&self, theme: &herdr_client::HostTheme) {
         for parked in &self.browser.terminals.parked {
@@ -280,15 +266,9 @@ impl HerdrWindow {
             .filter(|(group, tab)| Some(*group) != primary && Some(tab) != focused.as_ref())
             .collect();
         let now = Instant::now();
-        let (kept, left): (Vec<_>, Vec<_>) = std::mem::take(&mut self.browser.terminals.parked)
-            .into_iter()
-            .partition(|parked| {
-                parked.workspace == key && needed.iter().any(|(group, _)| *group == parked.group)
-            });
-        self.browser.terminals.parked = kept;
-        for parked in left {
-            self.retire_connection(parked.connection, now);
-        }
+        self.retain_parked(now, |parked| {
+            parked.workspace == key && needed.iter().any(|(group, _)| *group == parked.group)
+        });
         let terminals = &mut self.browser.terminals;
         terminals.retry.retain(|(_, at)| now < *at);
         let target = self.endpoints[self.selected_endpoint]
@@ -407,9 +387,9 @@ impl HerdrWindow {
     }
 
     /// Gives the window's connection to `group`, parking the one it held
-    /// under the group that had it, or retiring it when that group has
-    /// closed. Everything a gesture, an IME composition, or held input aimed
-    /// at the old connection is dropped, as a switch of endpoint drops it.
+    /// under the group that had it. Everything a gesture, an IME
+    /// composition, or held input aimed at the old connection is dropped,
+    /// as a switch of endpoint drops it.
     fn swap_primary(&mut self, group: GroupId, key: &(Scope, String), cx: &mut Context<Self>) {
         let Some(index) = self
             .browser
@@ -432,17 +412,14 @@ impl HerdrWindow {
         );
         std::mem::swap(&mut self.pending_resize, &mut parked.pending_resize);
         std::mem::swap(&mut self.bounds, &mut parked.bounds);
-        match old {
-            Some(old) => {
-                parked.group = old;
-                parked.workspace = key.clone();
-                parked.unfocused = false;
-                parked.asked = None;
-                self.browser.terminals.parked.push(parked);
-            }
-            // The group that held it closed, so no group shows it. It may
-            // carry the window's report and a jump not answered yet.
-            None => self.retire_connection(parked.connection, Instant::now()),
+        if let Some(old) = old {
+            parked.group = old;
+            parked.workspace = key.clone();
+            parked.unfocused = false;
+            parked.asked = None;
+            self.browser.terminals.parked.push(parked);
+        } else {
+            self.retire_connection(parked.connection, Instant::now());
         }
         self.live = self.endpoints[self.selected_endpoint].live.clone();
         if let Some(transfer) = &self.file_transfer {
@@ -683,26 +660,17 @@ impl HerdrWindow {
             .into_any_element()
     }
 
-    /// Retires every parked connection: the window left their workspace or
+    /// Drops every parked connection: the window left their workspace or
     /// endpoint.
     pub(crate) fn drop_group_terminals(&mut self) {
-        let now = Instant::now();
-        for parked in std::mem::take(&mut self.browser.terminals.parked) {
-            self.retire_connection(parked.connection, now);
-        }
-        self.browser.terminals.primary = None;
+        self.retain_parked(Instant::now(), |_| false);
+        let terminals = &mut self.browser.terminals;
+        terminals.primary = None;
     }
 
-    /// Retires `group`'s parked connection; the group closed.
+    /// Forgets `group`'s parked connection; the group closed.
     pub(crate) fn forget_group_terminal(&mut self, group: GroupId) {
-        let (closed, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.browser.terminals.parked)
-            .into_iter()
-            .partition(|parked| parked.group == group);
-        self.browser.terminals.parked = kept;
-        let now = Instant::now();
-        for parked in closed {
-            self.retire_connection(parked.connection, now);
-        }
+        self.retain_parked(Instant::now(), |parked| parked.group != group);
         let terminals = &mut self.browser.terminals;
         terminals.retry.retain(|(waiting, _)| *waiting != group);
         if terminals.primary == Some(group) {
@@ -711,6 +679,7 @@ impl HerdrWindow {
     }
 }
 
+mod fork;
 #[cfg(test)]
 pub(crate) mod tests;
 

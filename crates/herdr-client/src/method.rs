@@ -6,6 +6,10 @@
 //! name reaches the wire through `as_str` in exactly one place, and a typo is a
 //! compile error instead of an `UnsupportedMethod` rejection at runtime.
 
+mod fork;
+
+pub use fork::ForkMethod;
+
 /// Declares each method once, with its wire spelling, so the enum, `as_str`,
 /// and the test list of every variant cannot drift apart.
 macro_rules! methods {
@@ -15,6 +19,8 @@ macro_rules! methods {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub enum Method {
             $($variant,)+
+            /// The client-lane methods the gjermundgaraba/herdr fork adds.
+            Fork(ForkMethod),
         }
 
         impl Method {
@@ -25,6 +31,7 @@ macro_rules! methods {
             pub const fn as_str(self) -> &'static str {
                 match self {
                     $(Self::$variant => $name,)+
+                    Self::Fork(method) => method.as_str(),
                 }
             }
         }
@@ -33,9 +40,6 @@ macro_rules! methods {
 
 methods! {
     // keep-sorted start
-    AgentMarkUnread => "agent.mark_unread",
-    ClientJumpResolve => "client.jump.resolve",
-    ClientReport => "client.report",
     ClientShellSurfaceSet => "client_shell.surface.set",
     CommandInvoke => "command.invoke",
     IntegrationInstall => "integration.install",
@@ -66,7 +70,6 @@ methods! {
     TabFocus => "tab.focus",
     TabMove => "tab.move",
     TabRename => "tab.rename",
-    UiPickResolve => "ui.pick.resolve",
     WorkspaceClose => "workspace.close",
     WorkspaceCreate => "workspace.create",
     WorkspaceFocus => "workspace.focus",

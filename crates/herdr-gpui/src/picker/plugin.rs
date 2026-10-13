@@ -31,8 +31,11 @@ use super::{
 use crate::{HerdrWindow, connection::ConnectionBridge};
 use gpui::{Context, Window};
 use herdr_client::{
-    ClientEvent, ClientHandle, Method,
-    protocol::pick::{EndpointPickOpen, UiPickOutcome, UiPickResolveParams},
+    ClientEvent, ClientHandle, ForkMethod, Method,
+    protocol::pick::{
+        EndpointPickOpen, PICK_CLOSE_KIND, PICK_OPEN_KIND, UiPickOutcome, UiPickResolveParams,
+        decode_close, decode_open,
+    },
 };
 use std::sync::{Arc, Mutex, Weak};
 
@@ -97,15 +100,24 @@ impl Answer {
     fn queue(&self, handle: Option<&ClientHandle>) -> crate::Result<String> {
         let handle = handle.ok_or(crate::Error::NotConnected)?;
         let params = serde_json::to_value(&self.params)?;
-        Ok(handle.request(&self.boot, Method::UiPickResolve, params)?)
+        let method = Method::Fork(ForkMethod::UiPickResolve);
+        Ok(handle.request(&self.boot, method, params)?)
     }
 }
 
 impl Inbox {
-    /// Keeps the picker controls and passes every other event on.
+    /// Keeps the picker controls and passes every other event on. A picker is
+    /// optional UI the hello never negotiated, so a control this client
+    /// cannot read is dropped like an unknown one, as Herdr's own client drops
+    /// it, instead of ending the connection. The serde error may quote the
+    /// payload, so it is not logged.
     pub(crate) fn apply(&mut self, event: ClientEvent) -> Option<ClientEvent> {
         match event {
-            ClientEvent::PickOpen(open) => {
+            ClientEvent::Control { kind, data } if kind == PICK_OPEN_KIND => {
+                let Ok(open) = decode_open(&data) else {
+                    tracing::warn!(category = "pick_open", "malformed control ignored");
+                    return None;
+                };
                 match &self.boot {
                     Some(boot) => {
                         self.open = Some(Request {
@@ -118,7 +130,11 @@ impl Inbox {
                 }
                 None
             }
-            ClientEvent::PickClose(close) => {
+            ClientEvent::Control { kind, data } if kind == PICK_CLOSE_KIND => {
+                let Ok(close) = decode_close(&data) else {
+                    tracing::warn!(category = "pick_close", "malformed control ignored");
+                    return None;
+                };
                 if self
                     .open
                     .as_ref()
@@ -237,7 +253,7 @@ pub(crate) struct PluginPick {
     /// The mailbox of the connection that asked. A bridge replaces its
     /// mailbox when it reconnects, so this names one connection for its
     /// whole life, wherever the window keeps that connection meanwhile.
-    connection: Weak<Mutex<Inbox>>,
+    connection: Weak<Mutex<crate::fork::Inbox>>,
     boot: String,
     pick_id: String,
 }
@@ -248,7 +264,7 @@ impl PluginPick {
         &self.pick_id
     }
 
-    fn is(&self, connection: &Weak<Mutex<Inbox>>, pick_id: &str) -> bool {
+    fn is(&self, connection: &Weak<Mutex<crate::fork::Inbox>>, pick_id: &str) -> bool {
         self.connection.ptr_eq(connection) && self.pick_id == pick_id
     }
 }
@@ -271,10 +287,10 @@ impl HerdrWindow {
         let updates: Vec<_> = self
             .connections()
             .filter_map(|connection| {
-                let mut picks = connection.picks.try_lock().ok()?;
-                picks.send_owed(connection.handle.as_ref());
-                let update = picks.take();
-                (update != Update::default()).then(|| (Arc::downgrade(&connection.picks), update))
+                let mut fork = connection.fork.try_lock().ok()?;
+                fork.picks.send_owed(connection.handle.as_ref());
+                let update = fork.picks.take();
+                (update != Update::default()).then(|| (Arc::downgrade(&connection.fork), update))
             })
             .collect();
         for (connection, update) in updates {
@@ -306,14 +322,15 @@ impl HerdrWindow {
     /// Whether `connection` is one to the host the window presents: its own
     /// connection to that host, or one an editor group has parked, which
     /// shows another tab of the same host.
-    fn presents(&self, connection: &Weak<Mutex<Inbox>>) -> bool {
+    fn presents(&self, connection: &Weak<Mutex<crate::fork::Inbox>>) -> bool {
         std::iter::once(&self.endpoints[self.selected_endpoint].connection)
             .chain(self.parked_connections())
             .any(|presented| presented.owns(connection))
     }
 
     fn plugin_pick(&self) -> Option<&PluginPick> {
-        self.picker
+        self.fork
+            .picker
             .as_ref()
             .and_then(|picker| match &picker.source {
                 Source::Plugin(pick) => Some(pick),
@@ -329,7 +346,7 @@ impl HerdrWindow {
     /// than the one on screen.
     fn show_plugin_pick(
         &mut self,
-        connection: Weak<Mutex<Inbox>>,
+        connection: Weak<Mutex<crate::fork::Inbox>>,
         request: Request,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -388,9 +405,9 @@ impl HerdrWindow {
         // poisoned belongs to a connection that is over.
         let sent = self
             .pick_connection(&pick)
-            .and_then(|connection| Some((connection.picks.lock().ok()?, &connection.handle)))
+            .and_then(|connection| Some((connection.fork.lock().ok()?, &connection.handle)))
             .ok_or(crate::Error::NotConnected)
-            .and_then(|(mut picks, handle)| picks.send(answer, handle.as_ref()));
+            .and_then(|(mut fork, handle)| fork.picks.send(answer, handle.as_ref()));
         match sent {
             Ok(()) => {}
             Err(

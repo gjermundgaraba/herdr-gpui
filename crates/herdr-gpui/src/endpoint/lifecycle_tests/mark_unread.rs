@@ -5,6 +5,7 @@
 //! that cannot be sent says.
 
 use super::*;
+use crate::controls::ForkCommand;
 
 const REFUSAL: &str = "only an acknowledged completion, shown as idle, can be marked unread";
 
@@ -40,7 +41,7 @@ fn mark_unread_asks_the_selected_host_about_its_focused_pane(cx: &mut gpui::Test
             // A queued mark is no news yet, so an unrelated error stays shown.
             view.local_error = Some("Input not sent: earlier".into());
             let before = view.live.snapshot.clone().unwrap();
-            view.command(Command::MarkUnread, window, cx);
+            view.command(Command::Fork(ForkCommand::MarkUnread), window, cx);
             assert_eq!(view.local_error.as_deref(), Some("Input not sent: earlier"));
             view.local_error = None;
             // It is no focus change: input is not fenced, and nothing about
@@ -84,7 +85,9 @@ fn mark_unread_asks_the_selected_host_about_its_focused_pane(cx: &mut gpui::Test
 
     // A second press is a second request, not a client-side toggle.
     cx.update(|window, cx| {
-        view.update(cx, |view, cx| view.command(Command::MarkUnread, window, cx))
+        view.update(cx, |view, cx| {
+            view.command(Command::Fork(ForkCommand::MarkUnread), window, cx)
+        })
     });
     let ClientMessage::ClientShellEndpointRequest {
         request: second, ..
@@ -134,14 +137,14 @@ fn mark_unread_without_a_connection_or_under_a_menu_sends_nothing(cx: &mut gpui:
         view.update(cx, |view, cx| {
             assert!(view.endpoints[0].connection.handle.is_none());
             Arc::make_mut(view.live.snapshot.as_mut().unwrap()).focused_pane_id = Some("p0".into());
-            view.command(Command::MarkUnread, window, cx);
+            view.command(Command::Fork(ForkCommand::MarkUnread), window, cx);
             assert_eq!(
                 view.local_error.take().as_deref(),
                 Some("Mark Agent Unread: client is disconnected")
             );
             // Without a snapshot there is no pane to name yet.
             let snapshot = view.live.snapshot.take();
-            view.command(Command::MarkUnread, window, cx);
+            view.command(Command::Fork(ForkCommand::MarkUnread), window, cx);
             assert_eq!(
                 view.local_error.take().as_deref(),
                 Some("Mark Agent Unread: the host has not shown its panes yet.")
@@ -158,7 +161,7 @@ fn mark_unread_without_a_connection_or_under_a_menu_sends_nothing(cx: &mut gpui:
                 let snapshot = Arc::make_mut(view.live.snapshot.as_mut().unwrap());
                 snapshot.focused_pane_id.take()
             };
-            view.command(Command::MarkUnread, window, cx);
+            view.command(Command::Fork(ForkCommand::MarkUnread), window, cx);
             assert_eq!(
                 view.local_error.take().as_deref(),
                 Some("Mark Agent Unread: no pane is focused.")
@@ -166,7 +169,7 @@ fn mark_unread_without_a_connection_or_under_a_menu_sends_nothing(cx: &mut gpui:
             Arc::make_mut(view.live.snapshot.as_mut().unwrap()).focused_pane_id = focused;
             // An open menu owns the keyboard, as for every command.
             view.menu.page = Some(crate::menu::Page::Workspace);
-            view.command(Command::MarkUnread, window, cx);
+            view.command(Command::Fork(ForkCommand::MarkUnread), window, cx);
             view.menu.page = None;
             view.send(ClientPaneInputEvent::TextCommit("only".into()), cx);
         })

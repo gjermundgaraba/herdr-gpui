@@ -60,7 +60,7 @@ pub use forward::{ForwardEvent, PortForward, preferred_local_port};
 pub use handle::{Client, ClientHandle};
 pub use host_theme::HostTheme;
 pub use local_network::{LocalNetworkAccess, local_network_access, wait_for_local_network};
-pub use method::Method;
+pub use method::{ForkMethod, Method};
 pub use options::ConnectOptions;
 pub use remote_host::RemoteHost;
 pub use script::{ScriptHost, ScriptLimits, run_script, run_script_command, shell_quote};

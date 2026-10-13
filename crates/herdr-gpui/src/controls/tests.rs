@@ -85,9 +85,9 @@ fn catalog_has_all_native_commands_and_gpui_shortcuts() {
         (TabNumber(9), &["cmd-9"]),
         (PreviousAgent, &[]),
         (NextAgent, &[]),
-        (MarkUnread, &[]),
-        (AgentPicker, &[]),
-        (WorkspaceList, &[]),
+        (Fork(ForkCommand::MarkUnread), &[]),
+        (Fork(ForkCommand::AgentPicker), &[]),
+        (Fork(ForkCommand::WorkspaceList), &[]),
         (AgentNumber(1), &[]),
         (AgentNumber(2), &[]),
         (AgentNumber(3), &[]),
@@ -150,6 +150,7 @@ fn catalog_has_all_native_commands_and_gpui_shortcuts() {
             TabNumber(number) => json!({"TabNumber": number}),
             WorkspaceNumber(number) => json!({"WorkspaceNumber": number}),
             AgentNumber(number) => json!({"AgentNumber": number}),
+            Fork(command) => json!({"Fork": format!("{command:?}")}),
             _ => json!(format!("{command:?}")),
         };
         assert_eq!(serde_json::from_value::<Command>(value).unwrap(), command);
