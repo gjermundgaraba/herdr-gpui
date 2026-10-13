@@ -92,7 +92,7 @@ fn headers<'a>(
                 group: Some(group),
                 members,
             }) => Some((
-                group.key(),
+                collapse_key(group.name),
                 members.iter().map(|&index| id(snapshot, index)).collect(),
             )),
             _ => None,
@@ -117,7 +117,7 @@ fn drawn(snapshot: &ClientShellSnapshot, collapsed: &HashSet<String>) -> Vec<Str
                 } else {
                     '\u{25be}'
                 },
-                group.key()
+                collapse_key(group.name)
             ),
             SidebarRow::Workspace(Entry {
                 index, indented, ..
