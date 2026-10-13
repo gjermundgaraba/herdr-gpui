@@ -33,11 +33,18 @@
 //! replaces nothing is answered `focused` without navigating. The terminal
 //! client keeps the same rule.
 //!
-//! One thing differs from the terminal client: a jump that arrives while a
+//! Two things differ from the terminal client. A jump that arrives while a
 //! menu or dialog is open waits for it to close instead of taking the window
 //! from under the user, and times out like any jump that never showed its
-//! pane. A host that goes away while the jump waits is no longer online,
-//! which answers it `unavailable` on the next tick.
+//! pane. And a host switch the user started selects the new host at the
+//! click, so a jump to the host the window is leaving no longer finds its
+//! pane presented, even the pane it was showing: it navigates back, and is
+//! answered `focused` once that host's surface is active again. The terminal
+//! client changes host only when the switch completes, so there the switch
+//! finishes and a jump to the pane it was showing answers `timeout`.
+//!
+//! A host that goes away while a jump waits is no longer online, which
+//! answers it `unavailable` on the next tick.
 //!
 //! The navigation can itself retire the connection the jump arrived on: an
 //! editor group's parked connection belongs to the workspace it was parked
