@@ -87,6 +87,14 @@ another host's connection, or while this window shows a menu, a dialog, or a
 picker of its own, is answered `cancelled` and never shown; the terminal
 client closes the overlay it has open and shows the picker instead.
 
+## Plugin keys that open a popup
+
+The fork's daemon advertises a plugin key whose entrypoint opens a popup as a
+popup command, so input waits for the popup to show. Such a key still gets
+the text selected in the pane it targets, as a plugin action does; upstream
+sends the selection with plugin actions only. The terminal client sends it
+too, and Herdr ignores it on a popup command that is not a plugin's.
+
 ## Daemon `[keys]` actions
 
 The fork's daemon config has five more `[keys]` actions, each unset by
