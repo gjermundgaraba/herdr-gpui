@@ -1,7 +1,8 @@
-//! Daemon `[ui.sidebar]` layouts and token rules. A token's
-//! `separator_before` is the Herdr fork's, from its `src/config/sidebar.rs`.
+//! Daemon `[ui.sidebar]` layouts and token rules.
 use serde::Deserialize;
-use std::{collections::BTreeMap, str::FromStr, sync::Arc};
+use std::{collections::BTreeMap, str::FromStr};
+
+mod separator;
 
 pub(crate) const MAX_ROWS: usize = 16;
 const MAX_TOKENS_PER_ROW: usize = 16;
@@ -202,10 +203,8 @@ pub struct ConfiguredToken<T> {
     pub token: T,
     pub style: TokenStyle,
     pub rules: Vec<TokenRule>,
-    /// Replaces the separator drawn before this token when an earlier token
-    /// of its row is visible. `Some("")` joins the two directly; `None` keeps
-    /// the default separator. Control characters are dropped on load.
-    pub separator_before: Option<Arc<str>>,
+    /// The fork's `separator_before`, see `separator`; `Some("")` joins.
+    pub separator_before: Option<std::sync::Arc<str>>,
 }
 
 impl<T> ConfiguredToken<T> {
@@ -276,15 +275,7 @@ where
                     dim,
                 },
                 rules,
-                // Display text from a config file: as Herdr does, keep what
-                // was written except the characters a line cannot show.
-                separator_before.map(|separator| {
-                    separator
-                        .chars()
-                        .filter(|ch| !ch.is_control())
-                        .collect::<String>()
-                        .into()
-                }),
+                separator::sanitize(separator_before),
             ),
         };
         if rules.len() > MAX_RULES {

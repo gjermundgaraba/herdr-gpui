@@ -1,5 +1,4 @@
-//! Resolve sidebar tokens, omitting missing values and empty rows. A token's
-//! `separator_before` joins as in the Herdr fork's `src/ui/sidebar/tokens.rs`.
+//! Resolve sidebar tokens, omitting missing values and empty rows.
 
 use super::{
     agents::{agent_names, agent_place, state_label, status_text},
@@ -8,7 +7,7 @@ use super::{
 use crate::config::{AgentLayout, AgentToken, Rows, SpaceLayout, SpaceToken, TokenStyle};
 use gpui::SharedString;
 use herdr_client::protocol::{AgentStatus, ClientShellAgent, ClientShellSnapshot};
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -16,7 +15,7 @@ pub(super) struct ResolvedToken {
     pub(super) kind: TokenKind,
     pub(super) style: TokenStyle,
     /// The configured token's `separator_before`; see [`separator`].
-    pub(super) separator_before: Option<Arc<str>>,
+    pub(super) separator_before: Option<std::sync::Arc<str>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -186,11 +185,10 @@ pub(super) fn space_rows(
     rows
 }
 
-/// What joins `current` to the visible token before it. A token's own
-/// `separator_before` wins. Otherwise upstream joins tokens with a middle dot,
-/// except after the state icon and before the git counters, which sit a single
-/// space apart. Only ever asked about two tokens that are both shown, so an
-/// override never leaks from a token that is missing, hidden, or first.
+/// Upstream joins tokens with a middle dot, except after the state icon and
+/// before the git counters, which sit a single space apart.
+/// A token's own `separator_before` wins, as in the Herdr fork's
+/// `src/ui/sidebar/tokens.rs`; only two shown tokens are ever asked about.
 pub(super) fn separator<'a>(previous: &ResolvedToken, current: &'a ResolvedToken) -> &'a str {
     if let Some(separator) = current.separator_before.as_deref() {
         separator
@@ -257,35 +255,6 @@ pub(super) fn budgets(
     let budgets = segment_budgets(&lengths, available.saturating_sub(reserved));
     (0..row.len())
         .map(|index| active[index].then_some(budgets[index].max(fixed[index])))
-        .collect()
-}
-
-/// One token of a row as it is drawn.
-pub(super) struct Placed<'a> {
-    pub(super) token: &'a ResolvedToken,
-    /// What joins it to the token drawn before it; empty for the first.
-    pub(super) gap: &'a str,
-    /// The glyphs it may take; see [`budgets`].
-    pub(super) budget: usize,
-}
-
-/// The tokens of `row` that fit `available` glyphs, in order, each with the
-/// separator drawn before it. A separator belongs to a pair of drawn tokens,
-/// so dropping a token for width also drops the separator it would have had.
-pub(super) fn place(
-    row: &[ResolvedToken],
-    fixed_width: impl Fn(&TokenKind) -> usize,
-    available: usize,
-) -> Vec<Placed<'_>> {
-    let mut previous = None;
-    row.iter()
-        .zip(budgets(row, fixed_width, available))
-        .filter_map(|(token, budget)| {
-            let budget = budget?;
-            let gap = previous.map_or("", |previous| separator(previous, token));
-            previous = Some(token);
-            Some(Placed { token, gap, budget })
-        })
         .collect()
 }
 
