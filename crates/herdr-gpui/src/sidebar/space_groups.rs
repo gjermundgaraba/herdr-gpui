@@ -35,20 +35,20 @@ mod group_row;
 mod tests;
 
 /// Workspace metadata key that names a space's group.
-pub(super) const GROUP_TOKEN: &str = "space_group";
+const GROUP_TOKEN: &str = "space_group";
 
 /// Collapse state key of a group, namespaced apart from worktree repo keys.
-pub(super) fn collapse_key(name: &str) -> String {
+fn collapse_key(name: &str) -> String {
     format!("group:{name}")
 }
 
 /// What grouping needs to know about one space.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct Space<'a> {
+struct Space<'a> {
     /// Repo key and whether the space is a linked worktree.
-    pub(super) worktree: Option<(&'a str, bool)>,
+    worktree: Option<(&'a str, bool)>,
     /// The space's own `space_group` token.
-    pub(super) group: Option<&'a str>,
+    group: Option<&'a str>,
 }
 
 impl<'a> Space<'a> {
@@ -69,7 +69,7 @@ impl<'a> Space<'a> {
 
 /// The index of the space whose group `index` shares: the first non-linked
 /// checkout of a repo with at least two open spaces, or `index` itself.
-pub(super) fn anchor(spaces: &[Space<'_>], index: usize) -> usize {
+fn anchor(spaces: &[Space<'_>], index: usize) -> usize {
     let Some((key, _)) = spaces[index].worktree else {
         return index;
     };
@@ -94,7 +94,7 @@ pub(super) fn anchor(spaces: &[Space<'_>], index: usize) -> usize {
 }
 
 /// The group of the family `index` belongs to.
-pub(super) fn group<'a>(spaces: &[Space<'a>], index: usize) -> Option<&'a str> {
+fn group<'a>(spaces: &[Space<'a>], index: usize) -> Option<&'a str> {
     spaces[anchor(spaces, index)]
         .group
         .filter(|group| !group.is_empty())
@@ -103,24 +103,24 @@ pub(super) fn group<'a>(spaces: &[Space<'a>], index: usize) -> Option<&'a str> {
 /// A group header.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Group<'a> {
-    pub(super) name: &'a str,
-    pub(super) collapsed: bool,
+    name: &'a str,
+    collapsed: bool,
 }
 
 /// Starts a run: a group header, or with `group: None` the divider before
 /// ungrouped spaces that follow a group.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Marker<'a> {
-    pub(super) group: Option<Group<'a>>,
+    group: Option<Group<'a>>,
     /// Every member's workspace index in expanded order, including members
     /// hidden by a collapsed group or worktree family.
-    pub(super) members: Vec<usize>,
+    members: Vec<usize>,
 }
 
 impl Marker<'_> {
     /// The one status a collapsed header shows for its members: the most
     /// urgent of theirs.
-    pub(super) fn status(&self, workspaces: &[ClientShellWorkspace]) -> AgentStatus {
+    fn status(&self, workspaces: &[ClientShellWorkspace]) -> AgentStatus {
         self.members
             .iter()
             .map(|&index| workspaces[index].agent_status)
@@ -155,8 +155,10 @@ impl SidebarRow<'_> {
 
     /// Whether the configured row gap separates `self` from `previous`, the
     /// row before it: a marker stays attached to the space below it, and a
-    /// worktree child to its parent.
-    pub(super) fn gap_after(&self, previous: &Self) -> bool {
+    /// worktree child to its parent. This is the drop preview's statement of
+    /// the rule; `render.rs` paints the gap through its spaces loop's
+    /// `previous_indented` instead, so the two change together.
+    fn gap_after(&self, previous: &Self) -> bool {
         match (previous, self) {
             (Self::Marker(_), _) => false,
             (_, Self::Workspace(entry)) if entry.indented => false,

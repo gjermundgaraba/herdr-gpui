@@ -16,8 +16,10 @@ fn fixed(kind: &TokenKind) -> usize {
 }
 
 /// A row as its line reads at `width` glyphs: each drawn token cut to its
-/// budget, joined by the separators the line places between them, as
-/// `row/configured.rs` draws it.
+/// budget, joined by the separators the line places between them. This
+/// copies the join in `token_line` (`row/configured.rs`), so these tests
+/// check `budgets` and `separator`; the layout test
+/// `layout_tests/token_separators.rs` checks what `token_line` paints.
 fn line(row: &[ResolvedToken], width: usize) -> String {
     let visible: Vec<_> = row
         .iter()
