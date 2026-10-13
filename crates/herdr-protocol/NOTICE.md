@@ -46,8 +46,7 @@ its commits are named here by subject and not by hash.
 
 The client contract declarations adapt the same fork, branch `custom-v3`, at
 the commit "feat: add the client contract for reports, jumps, shared order,
-and an unread hold", same license: `pinned_sections`,
-`ClientShellPinnedSection`, and the agent's
+and an unread hold", same license: the agent's
 `priority_key` and `priority_mark` in `src/wire.rs` from its
 `src/protocol/wire.rs`, and `src/clients.rs` from its
 `src/api/schema/clients.rs` (the client report and the jump answer's

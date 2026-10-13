@@ -60,12 +60,10 @@ The `gjermundgaraba/herdr` fork computes what its clients must agree on and
 lets tools read and steer them. Its JSON shapes are copied here, each with the
 fork's fixture in `tests/fixtures/`:
 
-- Snapshot additions, all optional: `ClientShellSnapshot::pinned_sections`
-  (`ClientShellPinnedSection`: a title, an optional `#rrggbb` color, and the
-  member workspace ids, already resolved) and each agent's `priority_key` and
-  `priority_mark`. A daemon without them decodes as no sections, an empty key,
-  and no mark. Keys are opaque: order agents by comparing them as bytes, with
-  an empty key after every other one.
+- Snapshot additions, all optional: each agent's `priority_key` and
+  `priority_mark`. A daemon without them decodes as an empty key and no mark.
+  Keys are opaque: order agents by comparing them as bytes, with an empty key
+  after every other one.
 - `clients` holds what a client sends and receives: `ClientReport` with its
   endpoints and agent rows (the `client.report` parameters), the daemon's
   `MAX_CLIENT_REPORT_*` limits and `MAX_ENDPOINT_COMMAND_BYTES`, the

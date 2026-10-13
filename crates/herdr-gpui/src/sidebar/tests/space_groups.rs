@@ -1,4 +1,4 @@
-//! Space groups and pinned sections as rows. The cases follow the Herdr
+//! Space groups as rows. The cases follow the Herdr
 //! fork's `src/client/shell/tests/space_groups.rs` and the `anchor` and
 //! `group` cases of its `src/space_order.rs`. Where the fork's tests click and
 //! compose a frame, these read the rows the frame would be built from; the
@@ -7,9 +7,9 @@
 use super::*;
 use crate::sidebar::space_groups::{
     Entry, GROUP_TOKEN, Group, Marker, SidebarRow, Space, anchor, collapse_key, group,
-    pinned_collapse_key, sidebar_rows, workspace_rows,
+    sidebar_rows, workspace_rows,
 };
-use herdr_client::protocol::{ClientShellPinnedSection, ClientShellWorktree};
+use herdr_client::protocol::ClientShellWorktree;
 use std::collections::HashSet;
 
 /// Spaces `ws_1..`, each with its tokens, the first one focused.
@@ -64,18 +64,6 @@ fn family(snapshot: &mut ClientShellSnapshot, parent: usize, linked: &[usize]) {
     }
 }
 
-/// What the daemon sends for `[[ui.sidebar.spaces.pinned]]` sections.
-fn pin(snapshot: &mut ClientShellSnapshot, sections: &[(&str, Option<&str>, &[&str])]) {
-    snapshot.pinned_sections = sections
-        .iter()
-        .map(|&(title, fg, members)| ClientShellPinnedSection {
-            title: title.into(),
-            fg: fg.map(Into::into),
-            workspace_ids: members.iter().map(|&id| id.into()).collect(),
-        })
-        .collect();
-}
-
 fn collapsed(keys: &[String]) -> HashSet<String> {
     keys.iter().cloned().collect()
 }
@@ -114,7 +102,7 @@ fn headers<'a>(
 
 /// The rows in order, spelled so a list reads at a glance: `▾ key` or
 /// `▸ key` for a header, `---` for the divider, a space's id for its own row
-/// (`  id` when indented), and `=id` for a mirror.
+/// (`  id` when indented).
 fn drawn(snapshot: &ClientShellSnapshot, collapsed: &HashSet<String>) -> Vec<String> {
     sidebar_rows(snapshot, collapsed)
         .into_iter()
@@ -138,7 +126,6 @@ fn drawn(snapshot: &ClientShellSnapshot, collapsed: &HashSet<String>) -> Vec<Str
                 if indented { "  " } else { "" },
                 id(snapshot, index)
             ),
-            SidebarRow::Mirror { index, .. } => format!("={}", id(snapshot, index)),
         })
         .collect()
 }
@@ -295,8 +282,6 @@ fn a_collapsed_group_keeps_its_focused_member_and_shows_its_most_urgent_status()
         Some(Group {
             name: "work",
             collapsed: true,
-            pinned: false,
-            fg: None,
         })
     );
 
@@ -357,240 +342,20 @@ fn a_collapsed_group_shows_a_focused_worktree_child_as_a_top_level_row() {
     );
 }
 
-/// Server order: ws_1 is in review, ws_3 is both prioritized and in review,
-/// ws_4 is prioritized, ws_2 and ws_5 are in no section. The daemon has
-/// already matched tokens against the sections; only its lists are read.
-fn mixed_pinned() -> ClientShellSnapshot {
-    let mut snapshot = spaces(&[
-        &[("stage", "review")],
-        &[],
-        &[("prio", "1"), ("stage", "review")],
-        &[("prio", "2")],
-        &[("stage", "draft"), ("prio", "")],
-    ]);
-    pin(
-        &mut snapshot,
-        &[
-            ("Priority", Some("#e5c07b"), &["ws_3", "ws_4"]),
-            ("Review", None, &["ws_1", "ws_3"]),
-        ],
-    );
-    snapshot
-}
-
 #[test]
-fn pinned_sections_without_members_are_not_shown() {
-    let mut snapshot = spaces(&[&[], &[("prio", "")], &[("stage", "draft")]]);
-    let none = HashSet::new();
-    // The daemon leaves a section no space matches out of the snapshot.
-    assert_eq!(drawn(&snapshot, &none), ["ws_1", "ws_2", "ws_3"]);
-    // A section naming only spaces this snapshot does not list shows nothing
-    // either, and no divider follows it.
-    pin(
-        &mut snapshot,
-        &[("Gone", None, &["ws_9"]), ("Empty", None, &[])],
-    );
-    assert_eq!(drawn(&snapshot, &none), ["ws_1", "ws_2", "ws_3"]);
-    // Tokens alone pin nothing: matching them is the daemon's.
-    let snapshot = spaces(&[&[("prio", "1")]]);
-    assert_eq!(drawn(&snapshot, &none), ["ws_1"]);
-}
-
-#[test]
-fn pinned_sections_mirror_their_members_in_the_daemon_s_order_above_the_list() {
-    let snapshot = mixed_pinned();
-    let none = HashSet::new();
-    assert_eq!(
-        drawn(&snapshot, &none),
-        [
-            "\u{25be} pinned:Priority",
-            "=ws_3",
-            "=ws_4",
-            "\u{25be} pinned:Review",
-            "=ws_1",
-            "=ws_3",
-            // The regular list follows behind a divider, unchanged.
-            "---",
-            "ws_1",
-            "ws_2",
-            "ws_3",
-            "ws_4",
-            "ws_5",
-        ]
-    );
-    assert_eq!(
-        headers(&snapshot, &none),
-        [
-            ("pinned:Priority".to_owned(), vec!["ws_3", "ws_4"]),
-            ("pinned:Review".to_owned(), vec!["ws_1", "ws_3"]),
-        ]
-    );
-    let rows = sidebar_rows(&snapshot, &none);
-    let SidebarRow::Marker(priority) = &rows[0] else {
-        panic!("the first section leads the list");
-    };
-    assert_eq!(
-        priority.group,
-        Some(Group {
-            name: "Priority",
-            collapsed: false,
-            pinned: true,
-            fg: Some("#e5c07b"),
-        })
-    );
-    // Each copy names its section, which keeps the two of ws_3 apart.
-    assert_eq!(
-        rows[1],
-        SidebarRow::Mirror {
-            index: 2,
-            section: 0
-        }
-    );
-    assert_eq!(
-        rows[5],
-        SidebarRow::Mirror {
-            index: 2,
-            section: 1
-        }
-    );
-    // Navigation visits every space once, in server order.
-    assert_eq!(
-        navigation(&snapshot, &none),
-        ["ws_1", "ws_2", "ws_3", "ws_4", "ws_5"]
-    );
-}
-
-#[test]
-fn a_member_the_snapshot_does_not_list_is_skipped() {
-    let mut snapshot = spaces(&[&[], &[]]);
-    pin(&mut snapshot, &[("Priority", None, &["ws_9", "ws_2"])]);
-    assert_eq!(
-        drawn(&snapshot, &HashSet::new()),
-        ["\u{25be} pinned:Priority", "=ws_2", "---", "ws_1", "ws_2"]
-    );
-    assert_eq!(
-        headers(&snapshot, &HashSet::new()),
-        [("pinned:Priority".to_owned(), vec!["ws_2"])]
-    );
-}
-
-#[test]
-fn pinned_sections_precede_groups_and_keep_group_headers() {
-    let mut snapshot = spaces(&[
-        &[(GROUP_TOKEN, "work"), ("prio", "1")],
-        &[(GROUP_TOKEN, "work")],
-        &[],
-    ]);
-    pin(&mut snapshot, &[("Priority", None, &["ws_1"])]);
-    let none = HashSet::new();
-    // A grouped first run starts with its own header, not a divider.
-    assert_eq!(
-        drawn(&snapshot, &none),
-        [
-            "\u{25be} pinned:Priority",
-            "=ws_1",
-            "\u{25be} group:work",
-            "ws_1",
-            "ws_2",
-            "---",
-            "ws_3",
-        ]
-    );
-    assert_eq!(navigation(&snapshot, &none), ["ws_1", "ws_2", "ws_3"]);
-}
-
-#[test]
-fn linked_worktree_mirrors_render_flat() {
-    let mut snapshot = spaces(&[&[], &[], &[("prio", "1")]]);
-    family(&mut snapshot, 1, &[3]);
-    pin(&mut snapshot, &[("Priority", None, &["ws_3"])]);
-    let none = HashSet::new();
-    assert_eq!(
-        drawn(&snapshot, &none),
-        [
-            "\u{25be} pinned:Priority",
-            "=ws_3",
-            "---",
-            "ws_1",
-            "  ws_3",
-            "ws_2",
-        ]
-    );
-    assert_eq!(navigation(&snapshot, &none), ["ws_1", "ws_3", "ws_2"]);
-    // Folding the repository hides the space's own row, not its mirror.
+fn a_group_and_a_repository_with_one_name_collapse_separately() {
+    let mut snapshot = grouped(&[Some("repo"), Some("repo"), None]);
+    family(&mut snapshot, 1, &[2]);
+    // The repository's key folds its worktree child, not the group.
     assert_eq!(
         drawn(&snapshot, &collapsed(&["repo".to_owned()])),
-        ["\u{25be} pinned:Priority", "=ws_3", "---", "ws_1", "ws_2"]
+        ["\u{25be} group:repo", "ws_1", "---", "ws_3"]
     );
-}
-
-#[test]
-fn collapsing_a_pinned_section_hides_only_its_mirrors() {
-    let mut snapshot = mixed_pinned();
-    snapshot.workspaces[3].agent_status = AgentStatus::Blocked;
-    snapshot.workspaces[2].focused = true;
-    snapshot.workspaces[0].focused = false;
-    let priority = collapsed(&[pinned_collapse_key("Priority")]);
-    // Even the focused space's mirror hides; the Review section is untouched,
-    // and so is the regular list.
+    // The group's key folds the group, not the repository.
+    assert_ne!(collapse_key("repo"), "repo");
     assert_eq!(
-        drawn(&snapshot, &priority),
-        [
-            "\u{25b8} pinned:Priority",
-            "\u{25be} pinned:Review",
-            "=ws_1",
-            "=ws_3",
-            "---",
-            "ws_1",
-            "ws_2",
-            "ws_3",
-            "ws_4",
-            "ws_5",
-        ]
-    );
-    assert_eq!(
-        navigation(&snapshot, &priority),
-        ["ws_1", "ws_2", "ws_3", "ws_4", "ws_5"]
-    );
-    let rows = sidebar_rows(&snapshot, &priority);
-    let SidebarRow::Marker(header) = &rows[0] else {
-        panic!("the collapsed section keeps its header");
-    };
-    assert_eq!(header.members, [2, 3]);
-    assert_eq!(header.status(&snapshot.workspaces), AgentStatus::Blocked);
-}
-
-#[test]
-fn a_group_and_a_pinned_section_with_one_name_collapse_separately() {
-    let mut snapshot = spaces(&[&[(GROUP_TOKEN, "Priority"), ("prio", "1")], &[]]);
-    pin(&mut snapshot, &[("Priority", None, &["ws_1"])]);
-    assert_ne!(collapse_key("Priority"), pinned_collapse_key("Priority"));
-    assert_eq!(
-        drawn(&snapshot, &collapsed(&[collapse_key("Priority")])),
-        [
-            "\u{25be} pinned:Priority",
-            "=ws_1",
-            "\u{25b8} group:Priority",
-            "ws_1",
-            "---",
-            "ws_2",
-        ]
-    );
-    assert_eq!(
-        drawn(&snapshot, &collapsed(&[pinned_collapse_key("Priority")])),
-        [
-            "\u{25b8} pinned:Priority",
-            "\u{25be} group:Priority",
-            "ws_1",
-            "---",
-            "ws_2",
-        ]
-    );
-    // Neither key folds a worktree repository of the same name, nor the
-    // other way around.
-    assert_eq!(
-        drawn(&snapshot, &collapsed(&["Priority".to_owned()])).len(),
-        6
+        drawn(&snapshot, &collapsed(&[collapse_key("repo")])),
+        ["\u{25b8} group:repo", "ws_1", "---", "ws_3"]
     );
 }
 
@@ -598,24 +363,19 @@ fn a_group_and_a_pinned_section_with_one_name_collapse_separately() {
 fn gaps_attach_a_marker_to_the_row_below_and_a_child_to_its_parent() {
     let mut snapshot = grouped(&[Some("work"), Some("work"), None]);
     family(&mut snapshot, 1, &[2]);
-    pin(&mut snapshot, &[("Priority", None, &["ws_1", "ws_3"])]);
     let rows = sidebar_rows(&snapshot, &HashSet::new());
     let gaps: Vec<_> = rows
         .windows(2)
         .map(|pair| pair[1].gap_after(&pair[0]))
         .collect();
-    // header, =ws_1, =ws_3, header work, ws_1, child ws_2, divider, ws_3
+    // header work, ws_1, child ws_2, divider, ws_3
     assert_eq!(
         gaps,
         [
-            // A header's first row hugs it.
-            false, // A mirror clears the mirror above it.
-            true,  // The next header clears the last mirror.
-            true,  // Its first row hugs it again.
+            false, // A header's first row hugs it.
             false, // A worktree child hugs its parent.
-            false, // The divider clears the group's last row.
-            true,  // The ungrouped space hugs the divider.
-            false,
+            true,  // The divider clears the group's last row.
+            false, // The ungrouped space hugs the divider.
         ]
     );
 }

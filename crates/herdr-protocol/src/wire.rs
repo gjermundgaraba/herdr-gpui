@@ -333,21 +333,6 @@ pub struct ClientShellSnapshot {
     pub panes: Vec<ClientShellPane>,
     pub agents: Vec<ClientShellAgent>,
     pub commands: Vec<ClientShellCommand>,
-    /// From the `gjermundgaraba/herdr` fork: the endpoint's
-    /// `[[ui.sidebar.spaces.pinned]]` sections with their member spaces
-    /// already resolved, in config order. A section no space matches is left
-    /// out.
-    #[serde(default)]
-    pub pinned_sections: Vec<ClientShellPinnedSection>,
-}
-/// From the `gjermundgaraba/herdr` fork's `src/protocol/wire.rs`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClientShellPinnedSection {
-    pub title: String,
-    /// Title color as `#rrggbb`; `null` for the client's default.
-    pub fg: Option<String>,
-    /// Member spaces in the endpoint's space order; never empty.
-    pub workspace_ids: Vec<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientShellProductAnnouncement {

@@ -16,7 +16,7 @@ const MARKER: PreviewRow = PreviewRow {
     height: 10.,
 };
 
-/// A row the drag leaves alone, such as a pinned mirror.
+/// A row the drag leaves alone, such as the parent of the children dragged.
 const OTHER: PreviewRow = PreviewRow {
     unit: None,
     marker: false,
@@ -92,9 +92,6 @@ fn going_up_within_its_own_run_stays_below_the_header() {
     // header A | [a0] | divider | [u1] [u2]
     let rows = [MARKER, unit(0), MARKER, unit(1), unit(2)];
     assert_eq!(row_shifts(&rows, 2, 1), [0., 0., 0., 20., -20.]);
-    // The first run's own marker, after pinned mirrors, is not passed either.
-    let pinned = [MARKER, OTHER, MARKER, unit(0), unit(1)];
-    assert_eq!(row_shifts(&pinned, 1, 0), [0., 0., 0., 20., -20.]);
 }
 
 #[test]
