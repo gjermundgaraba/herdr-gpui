@@ -279,8 +279,7 @@ fn place_line<'a>(
     let mut x = 0.;
     for (separator, advance, cell) in parts {
         if !separator.is_empty() {
-            // A configured separator is any text, so its cells are counted
-            // by display width, as the row's budget counted them.
+            // A configured separator is any text: count its display width.
             let gap = separator.width() as f32 * glyph_width(font);
             line = line.child(
                 div()

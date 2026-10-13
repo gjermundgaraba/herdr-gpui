@@ -1,12 +1,11 @@
 //! The fork's views of the hosts' agents beside the panel's own: every
 //! enabled host's, whatever the device filter shows, for the client report
 //! and the agent picker, and only the online hosts' for the agent keys. And
-//! the per-host lookups the window draws a host from.
+//! the live state the window draws a host from.
 
 use super::Row;
 use crate::{HerdrWindow, sidebar::agents::panel_agents, state::LiveState};
 use herdr_client::protocol::ClientShellAgent;
-use std::collections::HashSet;
 
 impl HerdrWindow {
     /// The live state the window draws host `index` from: its own copy for
@@ -28,29 +27,6 @@ impl HerdrWindow {
             .enumerate()
             .filter(|(_, endpoint)| endpoint.enabled)
             .map(|(index, _)| (index, self.host_live(index)))
-    }
-
-    /// What a host has folded away: its collapsed worktree repositories and
-    /// space groups, each under its own kind of key.
-    /// The local host, always the first, keeps its set on the window.
-    pub(in crate::sidebar) fn collapsed_for(&self, endpoint: usize) -> &HashSet<String> {
-        if endpoint == 0 {
-            &self.collapsed_repos
-        } else {
-            &self.endpoints[endpoint].collapsed_repos
-        }
-    }
-
-    /// [`Self::collapsed_for`], to change.
-    pub(in crate::sidebar) fn collapsed_for_mut(
-        &mut self,
-        endpoint: usize,
-    ) -> &mut HashSet<String> {
-        if endpoint == 0 {
-            &mut self.collapsed_repos
-        } else {
-            &mut self.endpoints[endpoint].collapsed_repos
-        }
     }
 
     /// Every enabled host's agents in the panel's order under its current

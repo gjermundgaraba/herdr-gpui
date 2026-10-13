@@ -1,22 +1,26 @@
 //! Space group headers and dividers as the spaces list paints and hit-tests
 //! them, in every layout and with several hosts. Which rows there are is
-//! `tests/space_groups.rs`; this is where they land and what a click on each
-//! does.
+//! `rows.rs`; this is where they land and what a click on each does.
 
-use super::*;
+use crate::sidebar::layout_tests::*;
 use crate::{
+    HerdrWindow,
     config::LayoutMode,
     controls::Command,
     sidebar::space_groups::{SidebarRow, sidebar_rows},
     state::ConnectionStatus,
 };
-use gpui::{Modifiers, MouseButton, VisualTestContext, point};
-use std::collections::HashSet;
+use gpui::{
+    AppContext as _, Bounds, Entity, Modifiers, MouseButton, Pixels, Point, VisualTestContext,
+    point, px, size,
+};
+use herdr_client::{ConnectTarget, protocol::*};
+use std::{collections::HashSet, sync::Arc};
 
 const REMOTE: &str = "ssh:test";
 
-/// `count` spaces `{prefix}1..`, flat, in the given groups. The first is
-/// focused.
+/// One space `{prefix}1..` per entry of `groups`, flat, in that group. The
+/// first is focused.
 fn listing(prefix: &str, groups: &[Option<&str>]) -> ClientShellSnapshot {
     let mut listing = snapshot(groups.len());
     for (index, (workspace, group)) in listing.workspaces.iter_mut().zip(groups).enumerate() {
@@ -102,14 +106,14 @@ fn redraw(cx: &mut VisualTestContext) {
 fn selectors(view: &HerdrWindow, host: usize) -> Vec<String> {
     let multi = view.endpoints.len() > 1;
     let endpoint = &view.endpoints[host];
-    let live = if host == view.selected_endpoint {
-        &view.live
-    } else {
-        &endpoint.live
-    };
-    let snapshot = live.snapshot.as_deref().unwrap();
+    let snapshot = view.host_live(host).snapshot.as_deref().unwrap();
     let id = &endpoint.id;
-    sidebar_rows(snapshot, view.collapsed_for(host))
+    let collapsed = if host == 0 {
+        &view.collapsed_repos
+    } else {
+        &endpoint.collapsed_repos
+    };
+    sidebar_rows(&snapshot.workspaces, collapsed)
         .iter()
         .enumerate()
         .map(|(position, row)| match row {
@@ -143,9 +147,9 @@ fn click(cx: &mut VisualTestContext, selector: &str) {
     redraw(cx);
 }
 
-/// Every layout name, each alone and under host headers.
-/// Every layout that lists spaces. The Devices layout lists each host's
-/// agents instead, so it has no groups to draw.
+/// Every layout that lists spaces, each alone and under host headers. The
+/// Devices layout lists each host's agents instead, so it has no groups to
+/// draw.
 fn every_layout() -> impl Iterator<Item = (LayoutMode, bool)> {
     LayoutMode::ALL
         .into_iter()
@@ -158,7 +162,7 @@ fn headers_dividers_and_rows_stack_in_list_order_in_every_layout(cx: &mut gpui::
     for (mode, multi) in every_layout() {
         let (view, cx) = grouped_window(cx, mode, multi);
         let what = format!("{mode} multi={multi}");
-        let look = super::super::layout::for_mode(mode);
+        let look = crate::sidebar::layout::for_mode(mode);
         let font = view.read_with(cx, |view, _| view.config.sidebar.clone());
         let sidebar = bounds(cx, "sidebar");
         let hosts = if multi { 2 } else { 1 };
@@ -214,7 +218,7 @@ fn headers_dividers_and_rows_stack_in_list_order_in_every_layout(cx: &mut gpui::
             if selector.starts_with("space-group-") {
                 assert_eq!(
                     row.size.height,
-                    px(super::super::line_height(&font) + look.chrome_height()),
+                    px(crate::sidebar::line_height(&font) + look.chrome_height()),
                     "{what}: {selector}"
                 );
                 // Arrow, name, and count share the header's line: the arrow
@@ -250,7 +254,7 @@ fn headers_dividers_and_rows_stack_in_list_order_in_every_layout(cx: &mut gpui::
             }
             if selector.starts_with("space-divider-") {
                 assert!(
-                    row.size.height < px(super::super::line_height(&font)),
+                    row.size.height < px(crate::sidebar::line_height(&font)),
                     "{what}"
                 );
             }
@@ -443,6 +447,17 @@ fn carry(cx: &mut VisualTestContext, row: Bounds<Pixels>, y: Pixels) {
     }
 }
 
+/// Lets go of a carried row at `at`. Without a daemon nothing is sent, so
+/// the drag just ends.
+fn release(view: &Entity<HerdrWindow>, cx: &mut VisualTestContext, at: Point<Pixels>, what: &str) {
+    cx.simulate_mouse_up(at, MouseButton::Left, Modifiers::default());
+    redraw(cx);
+    view.update(cx, |view, _| {
+        assert!(view.workspace_drag.is_none(), "{what}");
+        view.pending_navigation = None;
+    });
+}
+
 fn drop_target(view: &Entity<HerdrWindow>, cx: &mut VisualTestContext) -> serde_json::Value {
     view.read_with(cx, |view, _| {
         let drag = view.workspace_drag.as_ref().unwrap();
@@ -503,16 +518,12 @@ fn a_row_dragged_past_a_header_moves_the_header_with_the_rows(cx: &mut gpui::Tes
             assert_eq!(at(cx, position), rest[position], "{what}: row {position}");
         }
         // Nothing was sent without a daemon, so every row is back in place.
-        cx.simulate_mouse_up(
+        release(
+            &view,
+            cx,
             point(rest[1].center().x, rest[4].bottom() - px(2.)),
-            MouseButton::Left,
-            Modifiers::default(),
+            &what,
         );
-        redraw(cx);
-        view.update(cx, |view, _| {
-            assert!(view.workspace_drag.is_none(), "{what}");
-            view.pending_navigation = None;
-        });
         for (position, row) in rest.iter().enumerate() {
             assert_eq!(at(cx, position), *row, "{what}: row {position}");
         }
@@ -536,16 +547,12 @@ fn a_row_dragged_past_a_header_moves_the_header_with_the_rows(cx: &mut gpui::Tes
         assert_eq!(at(cx, 7), rest[7], "{what}");
 
         // Up inside its own run, it stays below the run's divider.
-        cx.simulate_mouse_up(
+        release(
+            &view,
+            cx,
             point(rest[6].center().x, rest[0].top() + px(2.)),
-            MouseButton::Left,
-            Modifiers::default(),
+            &what,
         );
-        redraw(cx);
-        view.update(cx, |view, _| {
-            assert!(view.workspace_drag.is_none(), "{what}");
-            view.pending_navigation = None;
-        });
         carry(cx, rest[7], rest[6].top() + px(2.));
         assert_eq!(
             drop_target(&view, cx),
@@ -575,7 +582,7 @@ fn a_configured_row_gap_attaches_each_marker_to_the_row_below(cx: &mut gpui::Tes
     let (names, gap) = view.read_with(cx, |view, _| {
         (
             selectors(view, 0),
-            px(super::super::line_height(&view.config.sidebar)),
+            px(crate::sidebar::line_height(&view.config.sidebar)),
         )
     });
     let rows: Vec<_> = names.iter().map(|name| bounds(cx, name)).collect();

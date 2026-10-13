@@ -15,8 +15,7 @@ use super::{
     cell::RowState,
     glyph_width, label_text,
     layout::{self, Highlight, SidebarLook},
-    line_height,
-    space_groups::workspace_rows,
+    line_height, visible_workspace_entries,
     wash::HostMark,
     workspaces::workspace_label,
 };
@@ -231,10 +230,15 @@ impl HerdrWindow {
             let Some(snapshot) = &live.snapshot else {
                 continue;
             };
+            let collapsed_repos = if endpoint_index == 0 {
+                &self.collapsed_repos
+            } else {
+                &endpoint.collapsed_repos
+            };
             let host = multi.then_some(endpoint.label.as_str());
-            // One mark per space the expanded list would show as a row:
-            // group headers and dividers have none.
-            for (index, indented) in workspace_rows(snapshot, self.collapsed_for(endpoint_index)) {
+            for (index, indented, _) in
+                visible_workspace_entries(&snapshot.workspaces, collapsed_repos)
+            {
                 let workspace = &snapshot.workspaces[index];
                 let id = workspace.workspace_id.clone();
                 let key = format!("rail-workspace-{endpoint_id}-{id}");

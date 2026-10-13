@@ -2,14 +2,16 @@
 //! fork's `src/client/shell/tests/space_groups.rs` and the `anchor` and
 //! `group` cases of its `src/space_order.rs`. Where the fork's tests click and
 //! compose a frame, these read the rows the frame would be built from; the
-//! painted geometry is in `layout_tests/space_groups.rs`.
+//! painted geometry is in `painted.rs`.
 
-use super::*;
+use crate::sidebar::layout_tests;
 use crate::sidebar::space_groups::{
     Entry, GROUP_TOKEN, Group, Marker, SidebarRow, Space, anchor, collapse_key, group,
-    sidebar_rows, workspace_rows,
+    sidebar_rows, visible_workspace_entries,
 };
-use herdr_client::protocol::ClientShellWorktree;
+use herdr_client::protocol::{
+    AgentStatus, ClientShellSnapshot, ClientShellWorkspace, ClientShellWorktree,
+};
 use std::collections::HashSet;
 
 /// Spaces `ws_1..`, each with its tokens, the first one focused.
@@ -74,9 +76,9 @@ fn id(snapshot: &ClientShellSnapshot, index: usize) -> &str {
 
 /// The spaces navigation steps through, in order.
 fn navigation<'a>(snapshot: &'a ClientShellSnapshot, collapsed: &HashSet<String>) -> Vec<&'a str> {
-    workspace_rows(snapshot, collapsed)
+    visible_workspace_entries(&snapshot.workspaces, collapsed)
         .into_iter()
-        .map(|(index, _)| id(snapshot, index))
+        .map(|(index, _, _)| id(snapshot, index))
         .collect()
 }
 
@@ -85,7 +87,7 @@ fn headers<'a>(
     snapshot: &'a ClientShellSnapshot,
     collapsed: &HashSet<String>,
 ) -> Vec<(String, Vec<&'a str>)> {
-    sidebar_rows(snapshot, collapsed)
+    sidebar_rows(&snapshot.workspaces, collapsed)
         .into_iter()
         .filter_map(|row| match row {
             SidebarRow::Marker(Marker {
@@ -104,7 +106,7 @@ fn headers<'a>(
 /// `▸ key` for a header, `---` for the divider, a space's id for its own row
 /// (`  id` when indented).
 fn drawn(snapshot: &ClientShellSnapshot, collapsed: &HashSet<String>) -> Vec<String> {
-    sidebar_rows(snapshot, collapsed)
+    sidebar_rows(&snapshot.workspaces, collapsed)
         .into_iter()
         .map(|row| match row {
             SidebarRow::Marker(Marker { group: None, .. }) => "---".to_owned(),
@@ -197,7 +199,7 @@ fn runs_render_in_server_order_with_a_divider_before_ungrouped_spaces() {
     );
     // The divider's run is the ungrouped spaces after it.
     assert_eq!(
-        sidebar_rows(&snapshot, &none)[5],
+        sidebar_rows(&snapshot.workspaces, &none)[5],
         SidebarRow::Marker(Marker {
             group: None,
             members: vec![3],
@@ -271,7 +273,7 @@ fn a_collapsed_group_keeps_its_focused_member_and_shows_its_most_urgent_status()
     );
     // The header still counts every member, hidden ones included, and stands
     // in for them with the status that most wants attention.
-    let rows = sidebar_rows(&snapshot, &work);
+    let rows = sidebar_rows(&snapshot.workspaces, &work);
     let SidebarRow::Marker(header) = &rows[0] else {
         panic!("a header leads the list");
     };
@@ -314,7 +316,7 @@ fn worktree_children_follow_their_parent_group() {
     );
     assert_eq!(headers(&snapshot, &folded)[0].1, ["ws_1", "ws_3"]);
     // The parent row still offers the repository's fold inside a group.
-    let rows = sidebar_rows(&snapshot, &none);
+    let rows = sidebar_rows(&snapshot.workspaces, &none);
     assert_eq!(
         rows[1],
         SidebarRow::Workspace(Entry {
@@ -331,7 +333,7 @@ fn a_collapsed_group_shows_a_focused_worktree_child_as_a_top_level_row() {
     family(&mut snapshot, 1, &[2]);
     snapshot.workspaces[0].focused = false;
     snapshot.workspaces[1].focused = true;
-    let rows = sidebar_rows(&snapshot, &collapsed(&[collapse_key("work")]));
+    let rows = sidebar_rows(&snapshot.workspaces, &collapsed(&[collapse_key("work")]));
     assert_eq!(
         rows[1..],
         [SidebarRow::Workspace(Entry {
@@ -362,7 +364,7 @@ fn a_group_and_a_repository_with_one_name_collapse_separately() {
 fn gaps_attach_a_marker_to_the_row_below_and_a_child_to_its_parent() {
     let mut snapshot = grouped(&[Some("work"), Some("work"), None]);
     family(&mut snapshot, 1, &[2]);
-    let rows = sidebar_rows(&snapshot, &HashSet::new());
+    let rows = sidebar_rows(&snapshot.workspaces, &HashSet::new());
     let gaps: Vec<_> = rows
         .windows(2)
         .map(|pair| pair[1].gap_after(&pair[0]))
