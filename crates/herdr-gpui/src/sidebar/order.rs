@@ -51,7 +51,7 @@ impl HerdrWindow {
 
     /// The agents the panel paints, by host index, in its order. Painting
     /// and stepping both read it, so a shortcut lands on the row below.
-    pub(crate) fn panel_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
+    pub(super) fn panel_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
         panel_agents(self.listed_lives(), self.agent_sort)
     }
 

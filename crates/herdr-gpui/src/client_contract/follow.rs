@@ -11,8 +11,23 @@
 //! The Herdr fork's terminal client sends `agent.mark_unread` in
 //! `src/client/shell/endpoints.rs`.
 
-use crate::{HerdrWindow, controls::fork::mark_unread};
-use herdr_client::{ClientHandle, SendError};
+use crate::HerdrWindow;
+use herdr_client::{ClientHandle, ForkMethod, Method, SendError, protocol::ClientShellSnapshot};
+use serde_json::{Value, json};
+
+/// `agent.mark_unread` for the focused pane: the daemon holds that agent's
+/// acknowledged completion, so its badge comes back, for every client, once
+/// this one leaves the pane. `None` without a focused pane.
+///
+/// Whether the pane has an agent, and whether that agent is idle, is the
+/// daemon's to decide: it answers `agent_not_found` or `agent_not_idle`.
+pub(super) fn mark_unread(snapshot: &ClientShellSnapshot) -> Option<(Method, Value)> {
+    let pane_id = snapshot.focused_pane_id.as_deref()?;
+    Some((
+        Method::Fork(ForkMethod::AgentMarkUnread),
+        json!({"pane_id": pane_id}),
+    ))
+}
 
 impl HerdrWindow {
     /// Asks the daemon to hold the focused agent's acknowledged completion
@@ -46,7 +61,7 @@ impl HerdrWindow {
     /// Queues a request on the selected host and follows its answer.
     /// Nothing is followed when it could not be queued; the caller reports
     /// that.
-    pub(crate) fn follow_request(
+    fn follow_request(
         &mut self,
         enqueue: impl FnOnce(&ClientHandle) -> Result<String, SendError>,
     ) -> Result<(), SendError> {

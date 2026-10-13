@@ -1,5 +1,5 @@
-//! `client.report`, the gjermundgaraba/herdr fork's Agents list report, and
-//! the lane request envelope every request is measured and written in.
+//! `client.report`, the gjermundgaraba/herdr fork's Agents list report,
+//! measured in the lane request envelope it is written in.
 
 use super::ClientHandle;
 use crate::{
@@ -16,11 +16,7 @@ struct LaneRequest<'a, P> {
     params: &'a P,
 }
 
-pub(super) fn encode_request(
-    id: &str,
-    method: Method,
-    params: &impl serde::Serialize,
-) -> Result<String> {
+fn encode_request(id: &str, method: Method, params: &impl serde::Serialize) -> Result<String> {
     Ok(serde_json::to_string(&LaneRequest {
         id,
         method: method.as_str(),
