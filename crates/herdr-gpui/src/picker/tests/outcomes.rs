@@ -148,29 +148,50 @@ fn an_answer_too_long_to_send_is_reported_and_the_plugin_is_cancelled(
     cx: &mut gpui::TestAppContext,
 ) {
     let (mut first, _second, view, cx) = window_with_two_connections(cx);
-    deliver(&view, 0, open("pick-1", true), cx);
-    let search = view.read_with(cx, |view, _| shown(view).unwrap().search.clone());
-    cx.update(|window, cx| {
-        search.update(cx, |input, cx| {
-            use gpui::EntityInputHandler;
-            // More than the daemon takes in one command, though half of
-            // what fits a frame: sent, it would cost the connection.
-            let limit = herdr_client::protocol::clients::MAX_ENDPOINT_COMMAND_BYTES;
-            input.replace_text_in_range(None, &"x".repeat(limit), window, cx)
+    let limit = herdr_client::protocol::clients::MAX_ENDPOINT_COMMAND_BYTES;
+    let mut create = |pick_id: &str, text: &str, cx: &mut VisualTestContext| {
+        deliver(&view, 0, open(pick_id, true), cx);
+        let search = view.read_with(cx, |view, _| shown(view).unwrap().search.clone());
+        cx.update(|window, cx| {
+            search.update(cx, |input, cx| {
+                use gpui::EntityInputHandler;
+                input.replace_text_in_range(None, text, window, cx)
+            })
+        });
+        press(&view, "enter", cx);
+        assert_closed(&view, cx);
+        sent(&mut first)
+    };
+    let reported = |cx: &mut VisualTestContext| {
+        view.read_with(cx, |view, _| {
+            view.local_error
+                .as_deref()
+                .is_some_and(|error| error.starts_with("Picker: "))
         })
-    });
-    press(&view, "enter", cx);
-    // The created text does not fit one daemon command, so the plugin hears
+    };
+
+    // Text that fits is sent as typed, however long.
+    let text = "x".repeat(limit / 2);
+    assert_eq!(
+        create("pick-1", &text, cx),
+        Sent::resolve("pick-1", json!({"type": "created", "text": text}))
+    );
+    assert!(!reported(cx));
+
+    // More than the daemon takes in one command, though half of what fits a
+    // frame: sent, it would cost the connection. The plugin hears
     // `cancelled` instead of nothing, and the window says why.
     assert_eq!(
-        sent(&mut first),
-        Sent::resolve("pick-1", json!({"type": "cancelled"}))
+        create("pick-2", &"x".repeat(limit), cx),
+        Sent::resolve("pick-2", json!({"type": "cancelled"}))
     );
-    assert_closed(&view, cx);
-    view.read_with(cx, |view, _| {
-        let error = view.local_error.as_deref().unwrap();
-        assert!(error.starts_with("Picker: "), "{error}");
-    });
+    assert!(reported(cx));
+
+    // Escaping counts: the limit is on the request as it is written.
+    assert_eq!(
+        create("pick-3", &"\"".repeat(limit / 2), cx),
+        Sent::resolve("pick-3", json!({"type": "cancelled"}))
+    );
 }
 
 #[gpui::test]

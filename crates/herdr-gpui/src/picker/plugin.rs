@@ -32,11 +32,15 @@ use crate::{HerdrWindow, connection::ConnectionBridge};
 use gpui::{Context, Window};
 use herdr_client::{
     ClientEvent, ClientHandle, ForkMethod, Method,
-    protocol::pick::{
-        EndpointPickOpen, PICK_CLOSE_KIND, PICK_OPEN_KIND, UiPickOutcome, UiPickResolveParams,
-        decode_close, decode_open,
+    protocol::{
+        clients::MAX_ENDPOINT_COMMAND_BYTES,
+        pick::{
+            EndpointPickOpen, PICK_CLOSE_KIND, PICK_OPEN_KIND, UiPickOutcome, UiPickResolveParams,
+            decode_close, decode_open,
+        },
     },
 };
+use serde_json::json;
 use std::sync::{Arc, Mutex, Weak};
 
 /// A picker the daemon asked for, with the boot it was asked under: the
@@ -76,15 +80,10 @@ pub(crate) struct Inbox {
     /// client hold one picker, so there is at most one; it goes with a new
     /// boot or the connection, whose daemon forgot the picker.
     owed: Option<Answer>,
-    /// The requests of the answers the daemon has not replied to. Each stays
-    /// until its reply or its rejection is filed here, or the connection or
-    /// the daemon's boot goes. The daemon lets a client hold one picker, but
-    /// a plugin can close one and open the next while the answers still wait
-    /// behind the connection's one request in flight, so there can be many.
-    /// The connection bounds them: its command queue takes 64 requests, its
-    /// worker holds one more back and one in flight, its event queue holds 8
-    /// replies not filed yet, and it ends when the one in flight is not
-    /// answered in time.
+    /// The requests of the answers the daemon has not replied to, which a new
+    /// boot also drops. The daemon lets a client hold one picker, but a
+    /// plugin can close one and open the next while the answers wait, so
+    /// there can be many; [`crate::fork::Inbox`] says what bounds them.
     sent: Vec<String>,
 }
 
@@ -269,6 +268,24 @@ impl PluginPick {
     }
 }
 
+/// Whether `params` fits one daemon command, the longest lane request the
+/// daemon reads before it closes the connection. Created text is the user's
+/// own and a picked id the plugin's, so either can outgrow one. The answer is
+/// measured as `ClientHandle::request` writes it, escaping included, under
+/// the longest request id the handle gives, as the terminal client measures
+/// its own.
+fn fits(params: &UiPickResolveParams) -> bool {
+    let request = serde_json::to_value(params).map(|params| {
+        json!({
+            "id": format!("gpui-{}", u64::MAX),
+            "method": Method::Fork(ForkMethod::UiPickResolve).as_str(),
+            "params": params,
+        })
+        .to_string()
+    });
+    request.is_ok_and(|request| request.len() <= MAX_ENDPOINT_COMMAND_BYTES)
+}
+
 /// A picker's answer in the daemon's terms; no choice is a cancellation.
 pub(super) fn outcome(choice: Option<Choice>) -> UiPickOutcome {
     match choice {
@@ -388,18 +405,23 @@ impl HerdrWindow {
     /// Answers a plugin's picker on the connection that asked. A connection
     /// that is gone has nothing to answer: the daemon cancelled its pickers
     /// when the client left. A full command queue keeps the answer in the
-    /// connection's mailbox until a later poll can queue it. Any other answer
-    /// that cannot be queued, such as created text too long for one daemon
-    /// command, is reported and replaced by `cancelled`, so the plugin is not
-    /// left waiting on a picker that has closed.
+    /// connection's mailbox until a later poll can queue it. An answer too
+    /// long for one daemon command, which would cost the connection, and any
+    /// other that cannot be queued are reported and replaced by `cancelled`,
+    /// so the plugin is not left waiting on a picker that has closed.
     pub(super) fn answer_plugin_pick(&mut self, pick: PluginPick, outcome: UiPickOutcome) {
-        let cancelled = outcome == UiPickOutcome::Cancelled;
+        let mut params = UiPickResolveParams {
+            pick_id: pick.pick_id.clone(),
+            outcome,
+        };
+        if !fits(&params) {
+            self.local_error = Some("Picker: the answer is too long to send.".into());
+            params.outcome = UiPickOutcome::Cancelled;
+        }
+        let cancelled = params.outcome == UiPickOutcome::Cancelled;
         let answer = Answer {
             boot: pick.boot.clone(),
-            params: UiPickResolveParams {
-                pick_id: pick.pick_id.clone(),
-                outcome,
-            },
+            params,
         };
         // The reader holds the mailbox's lock only to file one event. One it
         // poisoned belongs to a connection that is over.

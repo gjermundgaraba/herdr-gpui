@@ -253,15 +253,9 @@ impl ClientHandle {
     }
     /// Serialize the API envelope, generate an ID, and queue on the ordered writer.
     /// Only methods advertised in Connected are sent. Responses retain API errors.
-    /// The daemon closes a connection that sends a request longer than
-    /// [`clients::MAX_ENDPOINT_COMMAND_BYTES`], so one that long is refused here with
-    /// [`Error::RequestTooLarge`] and nothing is written.
     pub fn request(&self, boot_id: &str, method: Method, params: Value) -> Result<String> {
         let id = self.next_request_id();
-        let request = report::encode_request(&id, method, &params)?;
-        if request.len() > clients::MAX_ENDPOINT_COMMAND_BYTES {
-            return Err(Error::RequestTooLarge);
-        }
+        let request = json!({"id": id, "method": method.as_str(), "params": params}).to_string();
         self.queue_request(boot_id, id, method, request)
     }
     fn next_request_id(&self) -> String {

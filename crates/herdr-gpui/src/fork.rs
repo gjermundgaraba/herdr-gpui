@@ -28,6 +28,14 @@ mod tests;
 /// One connection's fork mailbox, filled by its event reader after the
 /// upstream mailboxes and read by the window. Replaced with the connection,
 /// so it also names the connection that answers what arrived in it.
+///
+/// The requests sent from here that wait for the daemon's reply are kept by
+/// id, each until its reply or its rejection is filed, or the connection
+/// goes. They can be many, as each waits behind the connection's one request
+/// in flight, but the connection bounds them: its command queue takes 64
+/// requests, its worker holds one more back and one in flight, its event
+/// queue holds 8 replies not filed yet, and it ends when the one in flight is
+/// not answered in time.
 #[derive(Debug, Default)]
 pub(crate) struct Inbox {
     /// The `ui.pick` picker the daemon asked this connection to show.
