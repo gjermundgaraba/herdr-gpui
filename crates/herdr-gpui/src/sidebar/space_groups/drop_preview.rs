@@ -19,6 +19,8 @@ impl HerdrWindow {
     /// The configured gap above a row that starts a repository, as upstream's
     /// spaces loop adds it; none without a custom spaces layout.
     pub(super) fn space_row_gap(&self) -> f32 {
+        // Mirrors `spaces_custom` in `render.rs`'s `render_sidebar` and the
+        // `row_gap * line_height` gap its spaces loop paints: change both.
         let spaces = &self.config.sidebar_layout.spaces;
         if self.config.usage.inline && *spaces != SpaceLayout::default() {
             f32::from(spaces.row_gap) * line_height(&self.config.sidebar)
@@ -69,20 +71,20 @@ impl HerdrWindow {
 
 /// One row of a host's spaces list, as the last frame laid it out.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) struct PreviewRow {
+struct PreviewRow {
     /// The drag's unit this row belongs to; `None` for a row the drag does
     /// not reorder, such as a marker.
-    pub(super) unit: Option<usize>,
+    unit: Option<usize>,
     /// A group header or a divider.
-    pub(super) marker: bool,
+    marker: bool,
     /// The row's height with the gap above it.
-    pub(super) height: f32,
+    height: f32,
 }
 
 /// Each row's shift to preview dropping unit `dragged` into `slot`, the gap
 /// before unit `slot`. A gap that moves nothing moves no row, and units
 /// without a row (hidden ones) are passed over.
-pub(super) fn row_shifts(rows: &[PreviewRow], dragged: usize, slot: usize) -> Vec<f32> {
+fn row_shifts(rows: &[PreviewRow], dragged: usize, slot: usize) -> Vec<f32> {
     let mut shifts = vec![0.; rows.len()];
     let in_units = |position: usize, units: std::ops::Range<usize>| {
         rows[position]

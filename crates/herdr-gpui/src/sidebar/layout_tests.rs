@@ -75,6 +75,8 @@ mod superset_dots;
 #[cfg(test)]
 mod text_width;
 #[cfg(test)]
+mod token_separators;
+#[cfg(test)]
 mod update_notes;
 #[cfg(test)]
 mod update_notes_scrollbar;
