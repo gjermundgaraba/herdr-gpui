@@ -33,20 +33,13 @@ pub(crate) struct Inbox {
     /// The jump the daemon forwarded last, until the window takes it. A
     /// newer one replaces it: the daemon has given up on the older itself.
     jump: Option<EndpointClientJump>,
-    /// The requests of the jump answers the daemon has not acknowledged.
-    /// Each stays until its reply or its rejection is filed here, or the
-    /// connection goes: the oldest is the next to be answered, so none gives
-    /// way to a newer one. A daemon holds one jump open per client, but it
-    /// gives up on that one as it forwards the next, while the answers still
-    /// wait behind the connection's one request in flight, so there can be
-    /// many. The connection bounds them: its command queue takes 64
-    /// requests, its worker holds one more back and one in flight, its event
-    /// queue holds 8 replies not filed yet, and it ends when the one in
-    /// flight is not answered in time.
+    /// The requests of the jump answers the daemon has not acknowledged. The
+    /// oldest is the next to be answered, so none gives way to a newer one.
+    /// A daemon holds one jump open per client, but it gives up on that one
+    /// as it forwards the next while the answers wait, so there can be many;
+    /// [`crate::fork::Inbox`] says what bounds them.
     resolutions: Vec<String>,
-    /// The requests the window follows, each until its answer or its
-    /// rejection is filed here, or the connection goes. The connection bounds
-    /// them as it does `resolutions`.
+    /// The requests the window follows, bounded as `resolutions` is.
     followed: Vec<String>,
     /// Whether the daemon accepted one of `followed` since the window last
     /// asked.

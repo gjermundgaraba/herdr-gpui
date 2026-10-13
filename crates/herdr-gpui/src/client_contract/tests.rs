@@ -25,6 +25,7 @@ mod jump_replacement;
 mod jump_target;
 mod jumps;
 mod mailbox;
+mod mark_unread;
 mod online;
 mod outstanding;
 mod report_rows;

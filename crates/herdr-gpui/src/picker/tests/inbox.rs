@@ -105,10 +105,6 @@ fn a_close_and_the_next_picker_between_two_polls_arrive_together_in_order() {
 
 #[test]
 fn a_lost_connection_forgets_a_waiting_picker_and_closes_the_shown_one() {
-    let disconnected = || ClientEvent::Disconnected {
-        reason: "closed".into(),
-        ssh: None,
-    };
     let mut inbox = ready();
     opened(&mut inbox, "pick-1");
     assert!(inbox.apply(disconnected()).is_some());

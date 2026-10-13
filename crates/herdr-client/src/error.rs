@@ -45,8 +45,6 @@ pub enum Error {
     SelectionSchema(#[source] serde_json::Error),
     #[error("client command queue is full")]
     Full,
-    #[error("the request does not fit one daemon command")]
-    RequestTooLarge,
     #[error("the client report does not fit one daemon command")]
     ClientReportTooLarge,
     #[error("client is disconnected")]

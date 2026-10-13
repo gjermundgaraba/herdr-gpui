@@ -126,6 +126,13 @@ fn close(pick_id: &str) -> ClientEvent {
     crate::fork::control(PICK_CLOSE_KIND, &close)
 }
 
+fn disconnected() -> ClientEvent {
+    ClientEvent::Disconnected {
+        reason: "closed".into(),
+        ssh: None,
+    }
+}
+
 /// Hands `event` to `connection` the way its reader does: the fork mailbox
 /// sees it before the live state, and keeps the picker controls.
 fn feed(connection: &ConnectionBridge, event: ClientEvent) {
@@ -202,6 +209,10 @@ impl Sent {
         Self::default()
     }
 
+    fn cancelled(pick_id: &str) -> Self {
+        Self::resolve(pick_id, json!({"type": "cancelled"}))
+    }
+
     fn resolve(pick_id: &str, outcome: Value) -> Self {
         Self {
             requests: vec![json!({
@@ -249,6 +260,23 @@ fn sent(peer: &mut MockPeer) -> Sent {
     }
 }
 
+/// Hands `events` to connection `index` and lets the window see them.
+fn arrive(
+    view: &Entity<HerdrWindow>,
+    index: usize,
+    events: impl IntoIterator<Item = ClientEvent>,
+    cx: &mut VisualTestContext,
+) {
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            for event in events {
+                feed(&view.endpoints[index].connection, event);
+            }
+            view.poll_picker(window, cx);
+        })
+    });
+}
+
 /// Delivers a plugin picker on connection `index` and lets the window see it.
 fn deliver(
     view: &Entity<HerdrWindow>,
@@ -256,12 +284,7 @@ fn deliver(
     open: EndpointPickOpen,
     cx: &mut VisualTestContext,
 ) {
-    cx.update(|window, cx| {
-        view.update(cx, |view, cx| {
-            feed(&view.endpoints[index].connection, opening(open));
-            view.poll_picker(window, cx);
-        })
-    });
+    arrive(view, index, [opening(open)], cx);
 }
 
 /// Two peers that both offer `ui.pick.resolve`, and a drawn window holding a
@@ -304,6 +327,15 @@ fn assert_closed(view: &Entity<HerdrWindow>, cx: &mut VisualTestContext) {
         assert!(view.fork.picker.is_none());
         assert_ne!(view.menu.page, Some(Page::Picker));
     });
+}
+
+/// Whether the status bar shows a picker's failure.
+fn picker_error(view: &Entity<HerdrWindow>, cx: &mut VisualTestContext) -> bool {
+    view.read_with(cx, |view, _| {
+        view.local_error
+            .as_deref()
+            .is_some_and(|error| error.starts_with("Picker: "))
+    })
 }
 
 fn poll(view: &Entity<HerdrWindow>, cx: &mut VisualTestContext) {

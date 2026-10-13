@@ -4,10 +4,6 @@
 use super::*;
 use crate::palette::Filter;
 
-fn cancelled(pick_id: &str) -> Sent {
-    Sent::resolve(pick_id, json!({"type": "cancelled"}))
-}
-
 #[gpui::test]
 fn escape_and_every_other_way_out_of_the_page_answer_cancelled(cx: &mut gpui::TestAppContext) {
     let (mut first, mut second, view, cx) = window_with_two_connections(cx);
@@ -15,19 +11,19 @@ fn escape_and_every_other_way_out_of_the_page_answer_cancelled(cx: &mut gpui::Te
     deliver(&view, 0, open("pick-1", true), cx);
     redraw(cx);
     cx.simulate_keystrokes("escape");
-    assert_eq!(sent(&mut first), cancelled("pick-1"));
+    assert_eq!(sent(&mut first), Sent::cancelled("pick-1"));
     assert_closed(&view, cx);
 
     // Dismissing the menu, as a click outside its panel does.
     deliver(&view, 0, open("pick-2", true), cx);
     cx.update(|window, cx| view.update(cx, |view, cx| view.dismiss_menu(window, cx)));
-    assert_eq!(sent(&mut first), cancelled("pick-2"));
+    assert_eq!(sent(&mut first), Sent::cancelled("pick-2"));
     assert_closed(&view, cx);
 
     // Another page taking the menu.
     deliver(&view, 0, open("pick-3", true), cx);
     cx.update(|window, cx| view.update(cx, |view, cx| view.open_palette(Filter::All, window, cx)));
-    assert_eq!(sent(&mut first), cancelled("pick-3"));
+    assert_eq!(sent(&mut first), Sent::cancelled("pick-3"));
     view.read_with(cx, |view, _| {
         assert!(view.fork.picker.is_none());
         assert_eq!(view.menu.page, Some(Page::Palette));
@@ -40,7 +36,7 @@ fn escape_and_every_other_way_out_of_the_page_answer_cancelled(cx: &mut gpui::Te
     view.update(cx, |view, _| view.menu.reset());
     assert_eq!(sent(&mut first), Sent::nothing());
     poll(&view, cx);
-    assert_eq!(sent(&mut first), cancelled("pick-4"));
+    assert_eq!(sent(&mut first), Sent::cancelled("pick-4"));
     assert_closed(&view, cx);
 
     // None of it was said to the other connection.
@@ -51,33 +47,23 @@ fn escape_and_every_other_way_out_of_the_page_answer_cancelled(cx: &mut gpui::Te
 fn a_close_for_the_open_picker_dismisses_it_without_an_answer(cx: &mut gpui::TestAppContext) {
     let (mut first, mut second, view, cx) = window_with_two_connections(cx);
     deliver(&view, 0, open("pick-1", true), cx);
-    let close_on = |index: usize, pick_id: &str, cx: &mut VisualTestContext| {
-        cx.update(|window, cx| {
-            view.update(cx, |view, cx| {
-                feed(&view.endpoints[index].connection, close(pick_id));
-                view.poll_picker(window, cx);
-            })
-        });
-    };
     // Another picker's close, or this id on a connection that did not ask,
     // is not this picker's.
-    close_on(0, "pick-9", cx);
-    close_on(1, "pick-1", cx);
+    arrive(&view, 0, [close("pick-9")], cx);
+    arrive(&view, 1, [close("pick-1")], cx);
     assert!(view.read_with(cx, |view, _| shown(view).is_some()));
-    close_on(0, "pick-1", cx);
+    arrive(&view, 0, [close("pick-1")], cx);
     assert_closed(&view, cx);
     assert_eq!(sent(&mut second), Sent::nothing());
     assert_eq!(sent(&mut first), Sent::nothing());
 
     // A picker opened and closed before the window looked is never shown.
-    cx.update(|window, cx| {
-        view.update(cx, |view, cx| {
-            let connection = &view.endpoints[0].connection;
-            feed(connection, opening(open("pick-2", true)));
-            feed(connection, close("pick-2"));
-            view.poll_picker(window, cx);
-        })
-    });
+    arrive(
+        &view,
+        0,
+        [opening(open("pick-2", true)), close("pick-2")],
+        cx,
+    );
     assert_closed(&view, cx);
     assert_eq!(sent(&mut first), Sent::nothing());
 }
@@ -88,12 +74,7 @@ fn a_lost_connection_or_a_new_boot_dismisses_without_an_answer(cx: &mut gpui::Te
 
     // A new daemon boot on the connection that asked.
     deliver(&view, 0, open("pick-1", true), cx);
-    cx.update(|window, cx| {
-        view.update(cx, |view, cx| {
-            feed(&view.endpoints[0].connection, snapshot("boot-v2"));
-            view.poll_picker(window, cx);
-        })
-    });
+    arrive(&view, 0, [snapshot("boot-v2")], cx);
     assert_closed(&view, cx);
     view.update(cx, |view, _| {
         feed(&view.endpoints[0].connection, snapshot(BOOT))
@@ -101,34 +82,11 @@ fn a_lost_connection_or_a_new_boot_dismisses_without_an_answer(cx: &mut gpui::Te
 
     // The other connection restarting or dropping is not this picker's.
     deliver(&view, 0, open("pick-2", true), cx);
-    cx.update(|window, cx| {
-        view.update(cx, |view, cx| {
-            feed(&view.endpoints[1].connection, snapshot("boot-v2"));
-            feed(
-                &view.endpoints[1].connection,
-                ClientEvent::Disconnected {
-                    reason: "closed".into(),
-                    ssh: None,
-                },
-            );
-            view.poll_picker(window, cx);
-        })
-    });
+    arrive(&view, 1, [snapshot("boot-v2"), disconnected()], cx);
     assert!(view.read_with(cx, |view, _| shown(view).is_some()));
 
     // The connection that asked reports it is gone.
-    cx.update(|window, cx| {
-        view.update(cx, |view, cx| {
-            feed(
-                &view.endpoints[0].connection,
-                ClientEvent::Disconnected {
-                    reason: "closed".into(),
-                    ssh: None,
-                },
-            );
-            view.poll_picker(window, cx);
-        })
-    });
+    arrive(&view, 0, [disconnected()], cx);
     assert_closed(&view, cx);
     assert_eq!(sent(&mut second), Sent::nothing());
     assert_eq!(sent(&mut first), Sent::nothing());
@@ -161,13 +119,7 @@ fn a_removed_or_replaced_connection_takes_its_picker_with_it(cx: &mut gpui::Test
         })
     });
     assert_closed(&view, cx);
-    view.read_with(cx, |view, _| {
-        assert!(
-            view.local_error
-                .as_deref()
-                .is_none_or(|error| !error.starts_with("Picker: "))
-        );
-    });
+    assert!(!picker_error(&view, cx));
 }
 
 #[gpui::test]
@@ -177,7 +129,7 @@ fn a_picker_arriving_over_another_page_is_cancelled_and_leaves_it_alone(
     let (mut first, mut second, view, cx) = window_with_two_connections(cx);
     cx.update(|window, cx| view.update(cx, |view, cx| view.open_palette(Filter::All, window, cx)));
     deliver(&view, 0, open("pick-1", true), cx);
-    assert_eq!(sent(&mut first), cancelled("pick-1"));
+    assert_eq!(sent(&mut first), Sent::cancelled("pick-1"));
     view.read_with(cx, |view, _| {
         assert!(view.fork.picker.is_none());
         assert_eq!(view.menu.page, Some(Page::Palette));
@@ -188,18 +140,13 @@ fn a_picker_arriving_over_another_page_is_cancelled_and_leaves_it_alone(
     // Another host's picker does not replace the one being answered.
     deliver(&view, 0, open("pick-2", true), cx);
     deliver(&view, 1, open("pick-3", true), cx);
-    assert_eq!(sent(&mut second), cancelled("pick-3"));
+    assert_eq!(sent(&mut second), Sent::cancelled("pick-3"));
     assert_eq!(sent(&mut first), Sent::nothing());
     view.read_with(cx, |view, _| {
         assert_eq!(pick_id(shown(view).unwrap()), "pick-2")
     });
     // The cancelled picker's late close is not the shown picker's.
-    cx.update(|window, cx| {
-        view.update(cx, |view, cx| {
-            feed(&view.endpoints[1].connection, close("pick-3"));
-            view.poll_picker(window, cx);
-        })
-    });
+    arrive(&view, 1, [close("pick-3")], cx);
     view.read_with(cx, |view, _| {
         assert_eq!(pick_id(shown(view).unwrap()), "pick-2")
     });

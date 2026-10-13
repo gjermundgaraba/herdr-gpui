@@ -93,9 +93,9 @@ fn rows_follow_the_displayed_order_under_either_sort(cx: &mut gpui::TestAppConte
     let (view, cx) = window(cx, two_machines);
     let ids = |view: &HerdrWindow| {
         let panel: Vec<_> = view
-            .panel_agents()
+            .sidebar_agents()
             .into_iter()
-            .map(|(_, agent)| agent.pane_id.clone())
+            .map(|(_, pane)| pane.to_owned())
             .collect();
         let rows: Vec<_> = reported(&report_of(view))
             .into_iter()
@@ -116,9 +116,9 @@ fn rows_follow_the_displayed_order_under_either_sort(cx: &mut gpui::TestAppConte
 fn the_device_filter_narrows_the_panel_and_not_the_report(cx: &mut gpui::TestAppContext) {
     let (view, cx) = window(cx, two_machines);
     let panel = |view: &HerdrWindow| {
-        view.panel_agents()
+        view.sidebar_agents()
             .into_iter()
-            .map(|(_, agent)| agent.pane_id.clone())
+            .map(|(_, pane)| pane.to_owned())
             .collect::<Vec<_>>()
     };
     let rows = |view: &HerdrWindow| {
