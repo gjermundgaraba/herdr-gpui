@@ -12,7 +12,7 @@
 //! `src/client/shell/endpoints.rs`.
 
 use crate::HerdrWindow;
-use herdr_client::{ClientHandle, ForkMethod, Method, SendError, protocol::ClientShellSnapshot};
+use herdr_client::{ForkMethod, Method, SendError, protocol::ClientShellSnapshot};
 use serde_json::{Value, json};
 
 /// `agent.mark_unread` for the focused pane: the daemon holds that agent's
@@ -49,34 +49,23 @@ impl HerdrWindow {
             self.local_error = Some("Mark Agent Unread: no pane is focused.".into());
             return;
         };
-        // Followed to the daemon's answer, which is all that confirms it. Only
-        // a failure is written: a queued request leaves any other error shown.
-        if let Err(error) =
-            self.follow_request(|handle| handle.request(&snapshot.boot_id, method, params))
-        {
-            self.local_error = Some(format!("Mark Agent Unread: {error}"));
-        }
-    }
-
-    /// Queues a request on the selected host and follows its answer.
-    /// Nothing is followed when it could not be queued; the caller reports
-    /// that.
-    fn follow_request(
-        &mut self,
-        enqueue: impl FnOnce(&ClientHandle) -> Result<String, SendError>,
-    ) -> Result<(), SendError> {
         let connection = &self.endpoints[self.selected_endpoint].connection;
-        let handle = connection.handle.as_ref().ok_or(SendError::Disconnected)?;
-        // Held across the queueing, so the answer cannot reach the mailbox
-        // before it knows to keep it. The reader holds this lock only to
-        // file one event.
-        let mut fork = connection
-            .fork
-            .lock()
-            .map_err(|_| SendError::Disconnected)?;
-        let id = enqueue(handle)?;
-        fork.clients.follow(id);
-        Ok(())
+        let Some(handle) = connection.handle.as_ref() else {
+            self.local_error = Some(format!("Mark Agent Unread: {}", SendError::Disconnected));
+            return;
+        };
+        // Followed to the daemon's answer, which is all that confirms it. The
+        // mailbox stays locked across the queueing, so the answer cannot reach
+        // it before it knows to keep it; the reader holds this lock only to
+        // file one event. A poisoned mailbox belongs to a connection that is
+        // over: the request still goes, unfollowed. Only a failure is
+        // written: a queued request leaves any other error shown.
+        let mut fork = connection.fork.lock().ok();
+        match (handle.request(&snapshot.boot_id, method, params), &mut fork) {
+            (Ok(id), Some(fork)) => fork.clients.follow(id),
+            (Ok(_), None) => {}
+            (Err(error), _) => self.local_error = Some(format!("Mark Agent Unread: {error}")),
+        }
     }
 
     /// Whether the daemon accepted a followed request on any connection the
