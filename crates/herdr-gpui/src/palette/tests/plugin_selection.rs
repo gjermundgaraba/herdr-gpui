@@ -6,7 +6,6 @@ fn commands() -> Vec<ClientShellCommand> {
         ClientShellCommandAction::PluginAction,
         ClientShellCommandAction::Shell,
         ClientShellCommandAction::Pane,
-        ClientShellCommandAction::Popup,
     ]
     .into_iter()
     .map(|action| ClientShellCommand {
@@ -29,7 +28,7 @@ fn selection(pane_id: &str) -> SelectionReadParams {
 }
 
 /// Only a plugin action is sent the selection, as Herdr reads it for no
-/// other kind; shell, pane, and popup commands keep their exact parameters.
+/// other kind; shell and pane commands keep their exact parameters.
 #[test]
 fn only_plugin_actions_are_sent_the_selection() {
     let mut snapshot = snapshot();

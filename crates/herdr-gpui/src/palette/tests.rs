@@ -9,6 +9,7 @@ mod client_action_keys;
 mod go_to_search;
 mod notes;
 mod plugin_selection;
+mod popup_selection;
 
 fn matches_query(text: &str, query: &str) -> bool {
     let entries = [Entry::new(

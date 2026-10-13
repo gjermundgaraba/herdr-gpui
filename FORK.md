@@ -99,6 +99,11 @@ Keep it in step with this list.
   it has answered
   (`crates/herdr-gpui/src/client_contract/jump.rs`,
   `crates/herdr-gpui/src/group_terminals/fork.rs`)
+- Plugin popup selection: a plugin key the daemon advertises as `Popup`,
+  because its entrypoint opens a popup, is sent the targeted pane's
+  selection as a plugin action is, as the TUI does
+  (`crates/herdr-gpui/src/palette.rs`,
+  `crates/herdr-gpui/src/palette/tests/popup_selection.rs`)
 - Agent picker and workspace list: the `agent_picker` and `workspace_list`
   actions of the daemon's `[keys]` table open two navigators over every
   enabled host, built on the picker's list
