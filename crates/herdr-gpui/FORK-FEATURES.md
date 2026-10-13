@@ -217,13 +217,17 @@ and again on every tick while it waits:
 
 Nothing follows the navigation's own request: a host that refuses it shows
 that in the status bar as it would for a click, and the jump times out, as it
-does when you select another host before the pane shows. This window
-selects a host at the click, so a jump that arrives while the switch is
-still under way and names the host you just left, even the pane it was
-showing, navigates back there and is answered `focused` once the pane
-shows. The terminal client changes host only when the switch completes, so
-it lets your switch finish and answers a jump to the pane it was showing
-`timeout`.
+does when you select another host before the pane shows.
+
+This window selects a host at the click, so a jump that arrives while the
+switch is still under way and names the host you just left, even the pane
+it was showing, navigates back there and is answered `focused` once the
+pane shows. The terminal client changes host only when the switch
+completes. There a first jump, one that replaces no other, to the pane it
+still shows does not navigate: your switch finishes, and the jump answers
+`timeout`. A jump to another pane of the host you left navigates back in
+both clients.
+
 A jump never closes a menu or dialog: it waits for the window, and times
 out if the menu stays open.
 
