@@ -11,28 +11,21 @@
 use super::SidebarRow;
 use crate::{
     HerdrWindow,
-    config::SpaceLayout,
     sidebar::{line_height, reorder::Plan},
 };
 
 impl HerdrWindow {
     /// The configured gap above a row that starts a repository, as upstream's
-    /// spaces loop adds it; none without a custom spaces layout.
+    /// spaces loop paints it under a spaces layout that adds it.
     pub(super) fn space_row_gap(&self) -> f32 {
-        // Mirrors `spaces_custom` in `render.rs`'s `render_sidebar` and the
-        // `row_gap * line_height` gap its spaces loop paints: change both.
-        let spaces = &self.config.sidebar_layout.spaces;
-        if self.config.usage.inline && *spaces != SpaceLayout::default() {
-            f32::from(spaces.row_gap) * line_height(&self.config.sidebar)
-        } else {
-            0.
-        }
+        f32::from(self.config.sidebar_layout.spaces.row_gap) * line_height(&self.config.sidebar)
     }
 
     /// Each of one host's `rows`, markers included, shifted to preview the
     /// drop `plan` describes into `slot`, from the heights the last frame
     /// laid out: shifting moves rows, never resizes them. `base` is the
-    /// child position of the host's first row in the spaces list. Upstream
+    /// child position of the host's first row in the spaces list, and
+    /// `spaces_custom` whether the spaces layout adds the row gap. Upstream
     /// sums each unit's height here instead, which leaves markers behind.
     pub(in crate::sidebar) fn preview_shifts(
         &self,
@@ -40,8 +33,13 @@ impl HerdrWindow {
         plan: &Plan,
         base: usize,
         slot: usize,
+        spaces_custom: bool,
     ) -> Vec<f32> {
-        let row_gap = self.space_row_gap();
+        let row_gap = if spaces_custom {
+            self.space_row_gap()
+        } else {
+            0.
+        };
         let measured: Vec<_> = rows
             .iter()
             .enumerate()
