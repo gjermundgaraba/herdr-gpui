@@ -205,7 +205,6 @@ impl HerdrWindow {
                             &marker,
                             (snapshot, &endpoint_id, &row_cx),
                             (position, gapped, slide, now),
-                            spaces_custom,
                             cx,
                         );
                         sliding |= moving;
