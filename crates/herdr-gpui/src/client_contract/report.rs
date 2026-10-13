@@ -145,27 +145,39 @@ pub(super) fn build<'a>(
 /// closes a connection that sends a lane request longer than
 /// [`MAX_ENDPOINT_COMMAND_BYTES`], and a report within its row and text
 /// limits can still be, so the request is measured as it will be written. One
-/// that does not fit loses rows from the end of the list, in proportion to
-/// how far over it is, until it does; one that does not fit without rows is
-/// [`Error::TooLarge`].
+/// that does not fit keeps the longest head of its rows that does, found by
+/// bisection so the window's tick encodes the report a bounded number of
+/// times; one that does not fit without rows is [`Error::TooLarge`].
 pub(super) fn one_command(mut report: ClientReport) -> Result<Value, Error> {
-    loop {
+    let rows = std::mem::take(&mut report.agents);
+    // Every row lengthens the request, so a head that fits only has shorter
+    // heads that fit too.
+    let mut encode = |keep: usize| -> Result<Option<Value>, Error> {
+        report.agents = rows[..keep].to_vec();
         let params = serde_json::to_value(&report)?;
         let length = crate::fork::lane_request_len(ForkMethod::ClientReport, &params);
-        if length <= MAX_ENDPOINT_COMMAND_BYTES {
-            return Ok(params);
-        }
-        let rows = report.agents.len();
-        if rows == 0 {
-            return Err(Error::TooLarge);
-        }
-        let keep = (rows * MAX_ENDPOINT_COMMAND_BYTES / length).min(rows - 1);
-        tracing::warn!(
-            category = "client_report",
-            rows,
-            keep,
-            "report exceeds the lane command size; dropping trailing rows"
-        );
-        report.agents.truncate(keep);
+        Ok((length <= MAX_ENDPOINT_COMMAND_BYTES).then_some(params))
+    };
+    if let Some(params) = encode(rows.len())? {
+        return Ok(params);
     }
+    let Some(mut fitting) = encode(0)? else {
+        return Err(Error::TooLarge);
+    };
+    // `low` rows fit and `high` do not.
+    let (mut low, mut high) = (0, rows.len());
+    while high - low > 1 {
+        let middle = low + (high - low) / 2;
+        match encode(middle)? {
+            Some(params) => (low, fitting) = (middle, params),
+            None => high = middle,
+        }
+    }
+    tracing::warn!(
+        category = "client_report",
+        rows = rows.len(),
+        keep = low,
+        "report exceeds the lane command size; dropping trailing rows"
+    );
+    Ok(fitting)
 }
