@@ -1,13 +1,16 @@
 //! One test of whether a host is online, as the Herdr fork's terminal client
 //! has: a host whose connection is up but that the user cannot act on, such
-//! as one whose daemon needs an update, is ordered, stepped, reported, and
-//! jumped to as not online everywhere.
+//! as one whose daemon needs an update, is stepped, reported, and jumped to
+//! as not online. The panel orders it by its connection, as upstream's merge
+//! does, where the terminal client lists it last.
 
 use super::*;
 use crate::client_contract::jump::jump_target;
 
 #[gpui::test]
-fn a_connected_host_that_is_not_online_is_not_online_anywhere(cx: &mut gpui::TestAppContext) {
+fn a_connected_host_that_is_not_online_is_not_stepped_reported_or_jumped_to(
+    cx: &mut gpui::TestAppContext,
+) {
     let (view, cx) = window(cx, |view| {
         two_machines(view);
         // Build's connection is up, its snapshot current, but its daemon is
@@ -20,10 +23,10 @@ fn a_connected_host_that_is_not_online_is_not_online_anywhere(cx: &mut gpui::Tes
 
     view.read_with(cx, |view, _| {
         let build = host_id(1);
-        // Its lifted blocked agent follows every online host's agents.
+        // Its connection is up, so its lifted blocked agent leads the panel.
         assert_eq!(
             view.sidebar_agents(),
-            [(0, "local-blocked"), (0, "local-idle"), (1, "build-lifted"),]
+            [(1, "build-lifted"), (0, "local-blocked"), (0, "local-idle")]
         );
         // The agent keys never land on it.
         assert_eq!(

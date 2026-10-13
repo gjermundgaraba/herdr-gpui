@@ -6,13 +6,14 @@
 //! name reaches the wire through `as_str` in exactly one place, and a typo is a
 //! compile error instead of an `UnsupportedMethod` rejection at runtime.
 
+mod fork;
+
+pub use fork::ForkMethod;
+
 /// An endpoint API method. `as_str` is the wire spelling, and the only place a
 /// method name is written out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Method {
-    AgentMarkUnread,
-    ClientJumpResolve,
-    ClientReport,
     ClientShellSurfaceSet,
     CommandInvoke,
     IntegrationList,
@@ -43,7 +44,6 @@ pub enum Method {
     TabFocus,
     TabMove,
     TabRename,
-    UiPickResolve,
     WorkspaceClose,
     WorkspaceCreate,
     WorkspaceFocus,
@@ -54,14 +54,13 @@ pub enum Method {
     WorktreeList,
     WorktreeOpen,
     WorktreeRemove,
+    /// The client-lane methods the gjermundgaraba/herdr fork adds.
+    Fork(ForkMethod),
 }
 
 impl Method {
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::AgentMarkUnread => "agent.mark_unread",
-            Self::ClientJumpResolve => "client.jump.resolve",
-            Self::ClientReport => "client.report",
             Self::ClientShellSurfaceSet => "client_shell.surface.set",
             Self::CommandInvoke => "command.invoke",
             Self::IntegrationList => "integration.list",
@@ -92,7 +91,6 @@ impl Method {
             Self::TabFocus => "tab.focus",
             Self::TabMove => "tab.move",
             Self::TabRename => "tab.rename",
-            Self::UiPickResolve => "ui.pick.resolve",
             Self::WorkspaceClose => "workspace.close",
             Self::WorkspaceCreate => "workspace.create",
             Self::WorkspaceFocus => "workspace.focus",
@@ -103,6 +101,7 @@ impl Method {
             Self::WorktreeList => "worktree.list",
             Self::WorktreeOpen => "worktree.open",
             Self::WorktreeRemove => "worktree.remove",
+            Self::Fork(method) => method.as_str(),
         }
     }
 

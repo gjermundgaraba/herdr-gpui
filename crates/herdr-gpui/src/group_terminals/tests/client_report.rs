@@ -17,9 +17,10 @@ fn greet(connection: &ConnectionBridge) {
     ))
     .unwrap();
     welcome.methods.push(REPORT.into());
-    let mut clients = connection.clients.lock().unwrap();
-    clients.apply(ClientEvent::Connected(welcome));
-    clients.apply(ClientEvent::Snapshot(Arc::new(fixture_snapshot())));
+    let mut fork = connection.fork.lock().unwrap();
+    fork.clients.apply(ClientEvent::Connected(welcome));
+    fork.clients
+        .apply(ClientEvent::Snapshot(Arc::new(fixture_snapshot())));
 }
 
 /// The requests `peer` was sent since the last call, each answered; a

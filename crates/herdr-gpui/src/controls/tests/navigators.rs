@@ -5,8 +5,16 @@ use super::*;
 #[test]
 fn the_navigators_are_named_as_the_daemons_keys_table_names_them() {
     for (command, name, label) in [
-        (Command::AgentPicker, "agent_picker", "Agent Picker"),
-        (Command::WorkspaceList, "workspace_list", "Workspace List"),
+        (
+            Command::Fork(ForkCommand::AgentPicker),
+            "agent_picker",
+            "Agent Picker",
+        ),
+        (
+            Command::Fork(ForkCommand::WorkspaceList),
+            "workspace_list",
+            "Workspace List",
+        ),
     ] {
         let info = COMMANDS
             .iter()

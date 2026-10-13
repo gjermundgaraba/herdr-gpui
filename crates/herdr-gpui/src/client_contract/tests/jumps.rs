@@ -19,9 +19,9 @@ const RESOLVE: &str = "client.jump.resolve";
 /// What a connection's reader leaves in its contract mailbox once the
 /// daemon's welcome and first snapshot arrived.
 fn greet(connection: &ConnectionBridge, methods: &[&str]) {
-    let mut clients = connection.clients.lock().unwrap();
-    clients.apply(welcome(methods));
-    clients.apply(snapshot(BOOT));
+    let mut fork = connection.fork.lock().unwrap();
+    fork.clients.apply(welcome(methods));
+    fork.clients.apply(snapshot(BOOT));
 }
 
 /// Local over `local`, presented and ready for input, with `pane_1` focused
@@ -106,7 +106,7 @@ pub(super) fn arrive(
         view.endpoints[index]
             .connection
             .mailboxes()
-            .deliver(ClientEvent::ClientJump(jump));
+            .deliver(jumping(&jump));
     });
 }
 

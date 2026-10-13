@@ -3,11 +3,6 @@
 //! then follows the selected endpoint: that host's published `[keys]` profile,
 //! with this GUI's own `[keybindings]` still layered on top. Everything else,
 //! themes and sidebar included, stays local by upstream design.
-//!
-//! The actions the client performs itself are the exception within the
-//! profile: the navigators, Back and Forward, and the unread hold keep the
-//! bindings of this machine's own `[keys]` table, as in the Herdr fork, so
-//! they answer the same keys whichever host is selected.
 
 use super::HerdrWindow;
 use crate::{
@@ -41,9 +36,9 @@ impl ServerKeymap {
         pane_keys: &PaneKeys,
         local: &DaemonKeys,
     ) -> Self {
-        let keymap = DaemonKeys::from_profile(profile).and_then(|keys| {
-            Keymap::with_overrides(overrides, pane_keys, &keys.with_client_actions(local))
-        });
+        let keymap = DaemonKeys::from_profile(profile)
+            .map(|keys| keys.with_client_actions(local))
+            .and_then(|keys| Keymap::with_overrides(overrides, pane_keys, &keys));
         if let Err(error) = &keymap {
             tracing::warn!(endpoint, %error, "Using local keybindings for this device");
         }

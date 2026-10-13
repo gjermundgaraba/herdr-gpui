@@ -75,7 +75,7 @@ impl HerdrWindow {
             if this.navigator_query(&query, cx) {
                 return;
             }
-            if let Some(picker) = &mut this.picker
+            if let Some(picker) = &mut this.fork.picker
                 && picker.list.set_query(&query)
             {
                 picker.scroll.scroll_to_item(0, ScrollStrategy::Top);
@@ -91,7 +91,7 @@ impl HerdrWindow {
         if let Some(row) = list.selected() {
             scroll.scroll_to_item(row, ScrollStrategy::Center);
         }
-        self.picker = Some(Picker {
+        self.fork.picker = Some(Picker {
             title: crate::notifications::safe_text(title, render::TITLE_CHARS).into(),
             search,
             list,
@@ -119,7 +119,7 @@ impl HerdrWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(picker) = self.picker.take() else {
+        let Some(picker) = self.fork.picker.take() else {
             return;
         };
         self.answer_picker(picker.source, choice);
@@ -130,7 +130,7 @@ impl HerdrWindow {
 
     /// Closes the picker without answering: whoever asked no longer waits.
     pub(crate) fn close_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.picker.take().is_some() && self.menu.page == Some(Page::Picker) {
+        if self.fork.picker.take().is_some() && self.menu.page == Some(Page::Picker) {
             self.dismiss_menu(window, cx);
         }
     }
@@ -139,7 +139,7 @@ impl HerdrWindow {
     /// menu was dismissed, or another page is opening over it. Whoever asked
     /// must never be left waiting on a picker that is no longer on screen.
     pub(crate) fn cancel_picker(&mut self) {
-        if let Some(picker) = self.picker.take() {
+        if let Some(picker) = self.fork.picker.take() {
             self.answer_picker(picker.source, None);
         }
     }
@@ -149,7 +149,7 @@ impl HerdrWindow {
         // `dismiss_menu` and `open_menu` cancel a picker at once. The menu
         // has other ways to leave a page, such as the selected connection
         // being replaced, and this catches those.
-        if let Some(picker) = &self.picker
+        if let Some(picker) = &self.fork.picker
             && self.menu.page != Some(Page::Picker)
         {
             let focused = picker.search.read(cx).focus.is_focused(window);
@@ -163,14 +163,14 @@ impl HerdrWindow {
         self.poll_plugin_picks(window, cx);
         self.refresh_navigator(cx);
         // A dismissal the menu refused leaves an answered picker's page up.
-        if self.picker.is_none() && self.menu.page == Some(Page::Picker) {
+        if self.fork.picker.is_none() && self.menu.page == Some(Page::Picker) {
             self.dismiss_menu(window, cx);
         }
     }
 
     /// Chooses `row`, as clicking it does.
     fn choose_picker_row(&mut self, row: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(picker) = &mut self.picker else {
+        let Some(picker) = &mut self.fork.picker else {
             return;
         };
         if matches!(picker.source, Source::Navigator(_)) {
@@ -192,7 +192,7 @@ impl HerdrWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(picker) = &mut self.picker else {
+        let Some(picker) = &mut self.fork.picker else {
             return;
         };
         if matches!(picker.source, Source::Navigator(_)) {

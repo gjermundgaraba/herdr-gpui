@@ -19,7 +19,7 @@
 //! live in the same set as the collapsed worktree repositories, namespaced
 //! apart from them.
 
-use super::workspaces::{status_priority, visible_workspace_entries, workspace_entries};
+use super::{agents::status_priority, visible_workspace_entries, workspaces::workspace_entries};
 use herdr_client::protocol::{AgentStatus, ClientShellSnapshot, ClientShellWorkspace};
 use std::collections::HashSet;
 

@@ -589,10 +589,10 @@ static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 /// Asynchronous, endpoint-local preferences. Dropping lets the worker drain queued
 /// saves without waiting; process exit may interrupt pending writes.
 /// How the agents panel orders its rows, as in the terminal client: grouped
-/// keeps the daemon's workspace order, priority is the daemon's own queue of
-/// the agents that want attention, read from each agent's `priority_key`. Herdr's `ui.agent_panel_sort` seeds it until the user toggles
+/// keeps the daemon's workspace order, priority floats the agents that want
+/// attention. Herdr's `ui.agent_panel_sort` seeds it until the user toggles
 /// it, which deserializes upstream's spellings ("spaces", alias "workspaces").
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
 pub enum AgentSort {
     #[default]
     #[serde(rename = "spaces", alias = "workspaces")]

@@ -22,6 +22,7 @@ use herdr_client::protocol::{
 mod agent_order;
 mod hierarchy;
 mod host_mark;
+mod priority_key;
 mod row_text;
 mod space_groups;
 mod statuses;

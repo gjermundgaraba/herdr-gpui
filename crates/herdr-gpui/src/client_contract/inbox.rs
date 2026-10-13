@@ -10,7 +10,10 @@
 //! command. The answer to a followed request reaches it too, so a refusal
 //! shows like any other.
 
-use herdr_client::{ClientEvent, Method, protocol::clients::EndpointClientJump};
+use herdr_client::{
+    ClientEvent, ForkMethod, Method,
+    protocol::clients::{CLIENT_JUMP_KIND, EndpointClientJump, decode_jump},
+};
 use serde_json::Value;
 
 /// Characters of a daemon's error code that are logged.
@@ -66,18 +69,26 @@ fn rejection(response: &Value) -> Option<String> {
 
 impl Inbox {
     /// Keeps the events this mailbox waits for and passes every other one on.
+    /// A jump is optional, and its payload is a tool's: one this client
+    /// cannot read is dropped like an unknown control, and the daemon stops
+    /// waiting for its answer on its own. The serde error may quote the
+    /// payload, so it is not logged.
     pub(crate) fn apply(&mut self, event: ClientEvent) -> Option<ClientEvent> {
         let event = match event {
-            ClientEvent::ClientJump(jump) => {
-                self.jump = Some(jump);
+            ClientEvent::Control { kind, data } if kind == CLIENT_JUMP_KIND => {
+                match decode_jump(&data) {
+                    Ok(jump) => self.jump = Some(jump),
+                    Err(_) => tracing::warn!(category = "client_jump", "malformed control ignored"),
+                }
                 return None;
             }
             event => event,
         };
         match &event {
             ClientEvent::Connected(welcome) => {
-                self.reports = Method::ClientReport.advertised_in(&welcome.methods);
-                self.resolves = Method::ClientJumpResolve.advertised_in(&welcome.methods);
+                let offered = |method| Method::Fork(method).advertised_in(&welcome.methods);
+                self.reports = offered(ForkMethod::ClientReport);
+                self.resolves = offered(ForkMethod::ClientJumpResolve);
             }
             // A new boot forgets no request. The worker refuses what was
             // queued for the old boot one by one, after this snapshot, and

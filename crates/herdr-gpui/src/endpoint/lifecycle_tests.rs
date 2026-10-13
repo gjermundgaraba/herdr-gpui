@@ -232,8 +232,8 @@ fn connected_endpoint(id: &str) -> (Endpoint, Server) {
             Method::WorktreeCreate,
             Method::WorktreeOpen,
             Method::WorktreeRemove,
-            Method::UiPickResolve,
-            Method::AgentMarkUnread,
+            Method::Fork(herdr_client::ForkMethod::UiPickResolve),
+            Method::Fork(herdr_client::ForkMethod::AgentMarkUnread),
         ]
         .map(|method| method.as_str().to_owned()),
     );
