@@ -77,7 +77,9 @@ answers with the chosen item or the created text, on the connection that
 asked, as `ui.pick.resolve`, and Escape answers `cancelled`. The picker also
 goes away when the plugin closes it (`endpoint.pick.close.v1`), the
 connection is lost, or the daemon restarts; it answers `cancelled` then
-unless the daemon has already given up on it.
+unless the daemon has already given up on it. An answer longer than the
+daemon reads in one command, such as created text of about a megabyte, is
+answered `cancelled` instead, and the window says why.
 
 A picker is shown only for the host the window presents. One that arrives on
 another host's connection, or while this window shows a menu, a dialog, or a
@@ -272,10 +274,11 @@ by optional fields. Each shape is checked against the fork's own fixture in
   the control; the daemon answers a late one `pick_not_found` or
   `jump_not_found`, which a client expects.
 - The daemon closes a connection whose lane request is longer than
-  `MAX_ENDPOINT_COMMAND_BYTES` (1 MiB). `ClientHandle::request` refuses such
-  a request with `Error::RequestTooLarge` before anything is written; a
-  picker's answer with long created text is the request that can be.
-  `ClientHandle::report` queues a `ClientReport` measured as it will be
-  written: a report too long loses rows from the end of its list until it
+  `MAX_ENDPOINT_COMMAND_BYTES` (1 MiB). `ClientHandle::request` writes what
+  it is given, so each fork request that can grow is bounded where it is
+  built. `ClientHandle::report` queues a `ClientReport` measured as it will
+  be written: a report too long loses rows from the end of its list until it
   fits, and one that does not fit without rows is refused with
-  `Error::ClientReportTooLarge` and nothing is sent.
+  `Error::ClientReportTooLarge` and nothing is sent. Herdr GPUI measures a
+  picker's answer the same way before it queues it (see Plugin pickers). A
+  jump's answer carries only the daemon's jump id and a fixed outcome.
