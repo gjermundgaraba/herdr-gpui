@@ -7,8 +7,8 @@
 //! its `src/client/shell/aggregate_navigation/agent_picker.rs`, for its
 //! `Agents` and `Workspaces` layouts. A row is found by the same text,
 //! labelled the same way, and carries the same target, so either client
-//! opens the same pane for the same search. The cases are ported in `tests/rows_agents.rs` and
-//! `tests/rows_workspaces.rs`.
+//! opens the same pane for the same search. The cases are ported in
+//! `tests/rows_agents.rs` and `tests/rows_workspaces.rs`.
 
 use herdr_client::protocol::{
     AgentStatus, ClientShellAgent, ClientShellPane, ClientShellSnapshot, ClientShellTab,
