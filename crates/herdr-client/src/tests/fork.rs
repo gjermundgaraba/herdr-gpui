@@ -8,7 +8,6 @@ use crate::{
 };
 
 mod controls;
-mod reports;
 
 /// A named endpoint control, as the daemon sends one after the handshake.
 fn control(kind: &str, data: &str) -> ServerMessage {

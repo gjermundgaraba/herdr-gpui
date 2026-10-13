@@ -40,7 +40,6 @@ use herdr_client::{
         },
     },
 };
-use serde_json::json;
 use std::sync::{Arc, Mutex, Weak};
 
 /// A picker the daemon asked for, with the boot it was asked under: the
@@ -271,19 +270,13 @@ impl PluginPick {
 /// Whether `params` fits one daemon command, the longest lane request the
 /// daemon reads before it closes the connection. Created text is the user's
 /// own and a picked id the plugin's, so either can outgrow one. The answer is
-/// measured as `ClientHandle::request` writes it, escaping included, under
-/// the longest request id the handle gives, as the terminal client measures
-/// its own.
+/// measured as `ClientHandle::request` writes it, escaping included, as the
+/// terminal client measures its own.
 fn fits(params: &UiPickResolveParams) -> bool {
-    let request = serde_json::to_value(params).map(|params| {
-        json!({
-            "id": format!("gpui-{}", u64::MAX),
-            "method": Method::Fork(ForkMethod::UiPickResolve).as_str(),
-            "params": params,
-        })
-        .to_string()
-    });
-    request.is_ok_and(|request| request.len() <= MAX_ENDPOINT_COMMAND_BYTES)
+    serde_json::to_value(params).is_ok_and(|params| {
+        crate::fork::lane_request_len(ForkMethod::UiPickResolve, &params)
+            <= MAX_ENDPOINT_COMMAND_BYTES
+    })
 }
 
 /// A picker's answer in the daemon's terms; no choice is a cancellation.

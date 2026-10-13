@@ -85,8 +85,7 @@ Keep it in step with this list.
   its hosts and the agents panel's rows in displayed order, again whenever
   they change, so tools can read them from the daemon. The report ignores the
   sidebar's device filter, so it lists the agents of every enabled host
-  (`crates/herdr-client/src/handle/report.rs`,
-  `crates/herdr-gpui/src/client_contract.rs`,
+  (`crates/herdr-gpui/src/client_contract.rs`,
   `crates/herdr-gpui/src/client_contract/report.rs`,
   `crates/herdr-gpui/src/sidebar/order/fork.rs`)
 - Client jump: `endpoint.client-jump.v1` navigates to the named pane, across
