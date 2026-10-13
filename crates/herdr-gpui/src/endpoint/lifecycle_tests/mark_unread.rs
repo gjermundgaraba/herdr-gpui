@@ -182,3 +182,36 @@ fn mark_unread_without_a_connection_or_under_a_menu_sends_nothing(cx: &mut gpui:
         }
     );
 }
+
+#[gpui::test]
+fn mark_unread_on_a_poisoned_mailbox_is_still_sent(cx: &mut gpui::TestAppContext) {
+    let (fixture, cx) = cx.add_window_view(|window, cx| {
+        Fixture(cx.new(|cx| crate::sidebar::layout_tests::fixture_window(window, cx)))
+    });
+    let view = fixture.update(cx, |fixture, _| fixture.0.clone());
+    let (endpoint, mut server) = connected_endpoint("ssh:fixture");
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            prepare_mouse(view, endpoint, cx);
+            let fork = view.endpoints[view.selected_endpoint]
+                .connection
+                .fork
+                .clone();
+            let poisoned = std::thread::spawn(move || {
+                let _held = fork.lock().unwrap();
+                panic!("poison the mailbox");
+            })
+            .join();
+            assert!(poisoned.is_err());
+            // The connection is not to blame: the request goes, unfollowed,
+            // and no error is shown for it.
+            view.command(Command::Fork(ForkCommand::MarkUnread), window, cx);
+            assert_eq!(view.local_error, None);
+        })
+    });
+    let ClientMessage::ClientShellEndpointRequest { request, .. } = server.receive() else {
+        panic!("the mark must be sent");
+    };
+    let request: serde_json::Value = serde_json::from_str(&request).unwrap();
+    assert_eq!(request["method"], "agent.mark_unread");
+}
