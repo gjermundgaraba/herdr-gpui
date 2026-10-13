@@ -1,6 +1,6 @@
 //! The agents the next, previous, and numbered agent keys step through. The
 //! panel keeps showing what a host last sent while it reconnects, but a key
-//! must not land there: the Herdr fork steps through `online_agent_rows`
+//! must not land there: the Herdr fork steps through `online_agent_targets`
 //! (`src/client/shell/aggregate_navigation.rs`), and so does this client.
 
 use super::*;
