@@ -12,7 +12,7 @@ use super::{
     agents::status_indicator,
     cell::RowContext,
     glyph_width, label_text, line_height,
-    space_groups::{Group, Marker},
+    space_groups::{Group, Marker, collapse_key},
 };
 use crate::HerdrWindow;
 use gpui::{prelude::*, *};
@@ -80,7 +80,7 @@ impl HerdrWindow {
             - count_width
             - status_width)
             .max(0.);
-        let (toggle_endpoint, toggle_key) = (endpoint_id.to_owned(), group.key());
+        let (toggle_endpoint, toggle_key) = (endpoint_id.to_owned(), collapse_key(group.name));
         div()
             .id(SharedString::from(key.clone()))
             .debug_selector(|| key.clone())
