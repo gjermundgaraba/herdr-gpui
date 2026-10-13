@@ -278,10 +278,9 @@ by optional fields. Each shape is checked against the fork's own fixture in
   `jump_not_found`, which a client expects.
 - The daemon closes a connection whose lane request is longer than
   `MAX_ENDPOINT_COMMAND_BYTES` (1 MiB). `ClientHandle::request` writes what
-  it is given, so each fork request that can grow is bounded where it is
-  built. `ClientHandle::report` queues a `ClientReport` measured as it will
-  be written: a report too long loses rows from the end of its list until it
-  fits, and one that does not fit without rows is refused with
-  `Error::ClientReportTooLarge` and nothing is sent. Herdr GPUI measures a
-  picker's answer the same way before it queues it (see Plugin pickers). A
-  jump's answer carries only the daemon's jump id and a fixed outcome.
+  it is given, so Herdr GPUI measures each fork request that can grow as
+  `request` will write it, under the longest request id it gives, before it
+  queues it. A report too long loses rows from the end of its list until it
+  fits, and one that does not fit without rows is not sent. A picker's answer
+  too long is answered `cancelled` instead (see Plugin pickers). A jump's
+  answer carries only the daemon's jump id and a fixed outcome.

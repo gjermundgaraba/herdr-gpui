@@ -45,8 +45,6 @@ pub enum Error {
     SelectionSchema(#[source] serde_json::Error),
     #[error("client command queue is full")]
     Full,
-    #[error("the client report does not fit one daemon command")]
-    ClientReportTooLarge,
     #[error("client is disconnected")]
     Disconnected,
     #[error("a clipboard image upload is already reserved or in progress")]

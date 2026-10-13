@@ -29,6 +29,7 @@ mod mark_unread;
 mod online;
 mod outstanding;
 mod report_rows;
+mod report_size;
 mod wiring;
 
 /// A key shaped like the fork's daemon writes one. Only the tests know the
