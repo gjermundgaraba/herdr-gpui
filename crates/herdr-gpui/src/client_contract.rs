@@ -42,9 +42,12 @@ mod tests;
 pub(crate) use inbox::Inbox;
 
 use crate::{HerdrWindow, connection::ConnectionBridge};
-use herdr_client::protocol::{
-    ClientShellSnapshot,
-    clients::{ClientReport, ClientReportError},
+use herdr_client::{
+    ForkMethod, Method,
+    protocol::{
+        ClientShellSnapshot,
+        clients::{ClientReport, ClientReportError},
+    },
 };
 use std::{
     hash::{Hash, Hasher},
@@ -242,16 +245,22 @@ impl HerdrWindow {
             }
         };
         if held.is_none_or(|sent| sent.report != report) {
-            // The connection measures the request it writes, and trims a
-            // report too long for one daemon command.
-            match handle.report(&boot, report.clone()) {
-                Ok(request) => mailbox.report_sent(request),
+            // A report too long for one daemon command is trimmed, and one
+            // that cannot be is not sent, nor retried until it changes.
+            let method = Method::Fork(ForkMethod::ClientReport);
+            let queued = report::one_command(report.clone())
+                .map(|params| handle.request(&boot, method, params));
+            match queued {
+                Ok(Ok(request)) => mailbox.report_sent(request),
                 // A full queue drains; the report is still owed.
-                Err(herdr_client::Error::Full) => return,
+                Ok(Err(herdr_client::Error::Full)) => return,
                 // Anything else is not retried: a failed connection is
                 // replaced by a new one, which is reported to afresh.
-                Err(error) => {
+                Ok(Err(error)) => {
                     tracing::warn!(category = "client_report", %error, "report not queued");
+                }
+                Err(error) => {
+                    tracing::warn!(category = "client_report", %error, "report not sent");
                 }
             }
         }
