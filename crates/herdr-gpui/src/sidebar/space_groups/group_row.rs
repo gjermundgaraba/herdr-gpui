@@ -24,11 +24,6 @@ use gpui::{prelude::*, *};
 use herdr_client::protocol::ClientShellSnapshot;
 use std::time::Instant;
 
-/// Where the spaces loop puts a marker: its place among its host's rows,
-/// whether the row gap separates it from the row above, and while a drop is
-/// previewed the drag with the shift the marker slides to.
-pub(super) type MarkerPlace<'a> = (usize, bool, Option<(&'a WorkspaceDrag, f32)>, Instant);
-
 impl HerdrWindow {
     /// Toggles a fold of one host's spaces list: a worktree repository or a
     /// space group, by its collapse key. Folding is this client's own view
@@ -49,12 +44,14 @@ impl HerdrWindow {
     }
 
     /// A marker's row as the spaces list places it, and whether it is still
-    /// sliding to its place.
+    /// sliding to its place. The loop says where it goes: its place among its
+    /// host's rows, whether the row gap separates it from the row above, and
+    /// while a drop is previewed the drag with the shift the marker slides to.
     pub(in crate::sidebar) fn marker_row(
         &self,
         marker: &Marker<'_>,
         (snapshot, endpoint_id, row_cx): (&ClientShellSnapshot, &str, &RowContext<'_>),
-        (position, gapped, slide, now): MarkerPlace<'_>,
+        (position, gapped, slide, now): (usize, bool, Option<(&WorkspaceDrag, f32)>, Instant),
         cx: &mut Context<Self>,
     ) -> (Stateful<Div>, bool) {
         // A header or divider between passed rows slides with them.
