@@ -40,8 +40,10 @@
 //! click, so a jump to the host the window is leaving no longer finds its
 //! pane presented, even the pane it was showing: it navigates back, and is
 //! answered `focused` once that host's surface is active again. The terminal
-//! client changes host only when the switch completes, so there the switch
-//! finishes and a jump to the pane it was showing answers `timeout`.
+//! client changes host only when the switch completes, so there a first jump,
+//! one that replaces none, to the pane it still shows does not navigate: the
+//! switch finishes, and the jump answers `timeout`. A jump there to another
+//! pane of the host being left navigates, as here, and can answer `focused`.
 //!
 //! A host that goes away while a jump waits is no longer online, which
 //! answers it `unavailable` on the next tick.
