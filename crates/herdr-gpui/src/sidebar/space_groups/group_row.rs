@@ -6,36 +6,73 @@
 //! `src/client/shell/space_groups.rs`, which draws the header as
 //! `▾ name ──── 2`. Here the name fills the row and the count sits at its
 //! end, with the members' most urgent status before it while collapsed.
+//!
+//! Upstream's spaces loop in `render.rs` hands each marker of
+//! `space_groups::sidebar_rows` to [`HerdrWindow::marker_row`], which places
+//! it as that loop places a space's row: the gap above it and the slide of a
+//! drop preview.
 
-use super::{
-    HOST_ARROW_WIDTH,
-    agents::status_indicator,
-    cell::RowContext,
-    glyph_width, label_text, line_height,
-    space_groups::{Group, Marker, collapse_key},
+use super::{Group, Marker, collapse_key};
+use crate::{
+    HerdrWindow,
+    sidebar::{
+        HOST_ARROW_WIDTH, WorkspaceDrag, agents::status_indicator, cell::RowContext, glyph_width,
+        label_text, line_height,
+    },
 };
-use crate::HerdrWindow;
 use gpui::{prelude::*, *};
 use herdr_client::protocol::ClientShellSnapshot;
+use std::time::Instant;
+
+/// Where the spaces loop puts a marker: its place among its host's rows,
+/// whether the row gap separates it from the row above, and while a drop is
+/// previewed the drag with the shift the marker slides to.
+pub(super) type MarkerPlace<'a> = (usize, bool, Option<(&'a WorkspaceDrag, f32)>, Instant);
 
 impl HerdrWindow {
     /// Toggles a fold of one host's spaces list: a worktree repository or a
     /// space group, by its collapse key. Folding is this client's own view
     /// of the list, never a daemon request.
-    pub(super) fn toggle_collapsed(&mut self, endpoint: &str, key: &str) {
-        let Some(index) = self.endpoints.iter().position(|e| e.id == endpoint) else {
+    fn toggle_collapsed(&mut self, endpoint: &str, key: &str) {
+        // The local host keeps its set on the window, as upstream's
+        // repository folds do.
+        let collapsed = if endpoint == crate::endpoint::LOCAL {
+            &mut self.collapsed_repos
+        } else if let Some(endpoint) = self.endpoints.iter_mut().find(|e| e.id == endpoint) {
+            &mut endpoint.collapsed_repos
+        } else {
             return;
         };
-        let collapsed = self.collapsed_for_mut(index);
         if !collapsed.remove(key) {
             collapsed.insert(key.to_owned());
         }
     }
 
+    /// A marker's row as the spaces list places it, and whether it is still
+    /// sliding to its place.
+    pub(in crate::sidebar) fn marker_row(
+        &self,
+        marker: &Marker<'_>,
+        (snapshot, endpoint_id, row_cx): (&ClientShellSnapshot, &str, &RowContext<'_>),
+        (position, gapped, slide, now): MarkerPlace<'_>,
+        cx: &mut Context<Self>,
+    ) -> (Stateful<Div>, bool) {
+        // A header or divider between passed rows slides with them.
+        let (shift, moving) = slide.map_or((0., false), |(drag, to)| {
+            drag.slide(&format!("\0marker-{position}"), to, now)
+        });
+        let gap = if gapped { self.space_row_gap() } else { 0. };
+        let row = self
+            .marker_element(marker, snapshot, endpoint_id, position, row_cx, cx)
+            .when(gap > 0., |row| row.mt(px(gap)))
+            .when(shift != 0., |row| row.top(px(shift)));
+        (row, moving)
+    }
+
     /// The row a marker draws: a group's header, or the divider. `position`
     /// is the row's place among its host's rows, which keeps the headers of a
     /// split group apart.
-    pub(super) fn marker_row(
+    fn marker_element(
         &self,
         marker: &Marker<'_>,
         snapshot: &ClientShellSnapshot,

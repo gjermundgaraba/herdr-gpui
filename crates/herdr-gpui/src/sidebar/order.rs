@@ -2,7 +2,7 @@
 //! next, and numbered shortcuts step through, as Herdr's TUI steps through
 //! its own sidebar: every listed host's rows, top to bottom.
 
-use super::{agents::panel_agents, space_groups::workspace_rows};
+use super::{agents::panel_agents, visible_workspace_entries};
 use crate::{HerdrWindow, controls::Command, state::LiveState};
 use herdr_client::protocol::{ClientShellAgent, ClientShellSnapshot};
 
@@ -42,9 +42,14 @@ impl HerdrWindow {
         self.listed_hosts()
             .filter(|(index, _)| !(multi && self.endpoints[*index].collapsed))
             .flat_map(|(index, snapshot)| {
-                workspace_rows(snapshot, self.collapsed_for(index))
+                let collapsed = if index == 0 {
+                    &self.collapsed_repos
+                } else {
+                    &self.endpoints[index].collapsed_repos
+                };
+                visible_workspace_entries(&snapshot.workspaces, collapsed)
                     .into_iter()
-                    .map(move |(row, _)| (index, snapshot.workspaces[row].workspace_id.as_str()))
+                    .map(move |(row, _, _)| (index, snapshot.workspaces[row].workspace_id.as_str()))
             })
             .collect()
     }

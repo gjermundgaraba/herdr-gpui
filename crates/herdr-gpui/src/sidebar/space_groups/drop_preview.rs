@@ -8,6 +8,65 @@
 //! that run's header, as the daemon then puts it in the run above or gives it
 //! a run of its own; within its own run it stays below the header.
 
+use super::SidebarRow;
+use crate::{
+    HerdrWindow,
+    config::SpaceLayout,
+    sidebar::{line_height, reorder::Plan},
+};
+
+impl HerdrWindow {
+    /// The configured gap above a row that starts a repository, as upstream's
+    /// spaces loop adds it; none without a custom spaces layout.
+    pub(super) fn space_row_gap(&self) -> f32 {
+        let spaces = &self.config.sidebar_layout.spaces;
+        if self.config.usage.inline && *spaces != SpaceLayout::default() {
+            f32::from(spaces.row_gap) * line_height(&self.config.sidebar)
+        } else {
+            0.
+        }
+    }
+
+    /// Each of one host's `rows`, markers included, shifted to preview the
+    /// drop `plan` describes into `slot`, from the heights the last frame
+    /// laid out: shifting moves rows, never resizes them. `base` is the
+    /// child position of the host's first row in the spaces list. Upstream
+    /// sums each unit's height here instead, which leaves markers behind.
+    pub(in crate::sidebar) fn preview_shifts(
+        &self,
+        rows: &[SidebarRow<'_>],
+        plan: &Plan,
+        base: usize,
+        slot: usize,
+    ) -> Vec<f32> {
+        let row_gap = self.space_row_gap();
+        let measured: Vec<_> = rows
+            .iter()
+            .enumerate()
+            .map(|(position, row)| {
+                // A unit keeps the gap above its rows wherever it lands, the
+                // host's first row included.
+                let gapped = match position.checked_sub(1) {
+                    None => matches!(row, SidebarRow::Workspace(_)),
+                    Some(previous) => row.gap_after(&rows[previous]),
+                };
+                PreviewRow {
+                    unit: match row {
+                        SidebarRow::Workspace(entry) => plan.unit_of(entry.index),
+                        SidebarRow::Marker(_) => None,
+                    },
+                    marker: matches!(row, SidebarRow::Marker(_)),
+                    height: self.sidebar_scroll[0]
+                        .bounds_for_item(base + position)
+                        .map_or(0., |bounds| f32::from(bounds.size.height))
+                        + if gapped { row_gap } else { 0. },
+                }
+            })
+            .collect();
+        row_shifts(&measured, plan.dragged(), slot)
+    }
+}
+
 /// One row of a host's spaces list, as the last frame laid it out.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct PreviewRow {
