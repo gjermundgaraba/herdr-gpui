@@ -47,10 +47,8 @@ name in its `src/server/client_commands.rs`. Message kinds, JSON field names
 and order, optional fields, serde defaults, outcome tags, and report limits
 are unchanged; the `schemars` derives and the server-side `ui.pick` and
 `ui.pick.close` parameters are not retained.
-`tests/fixtures/endpoint-{pick-open,pick-close,pick-resolve,client-report,client-jump,client-jump-resolve,agent-mark-unread}-v1.json`
-are verbatim copies of that fork's `tests/fixtures/`, and
-`endpoint-snapshot-shared-v1.json` is its copy from the first commit above,
-without `plugin_entries`.
+`tests/fixtures/endpoint-{pick-open,pick-close,pick-resolve,client-report,client-jump,client-jump-resolve,agent-mark-unread,snapshot-shared}-v1.json`
+are verbatim copies of that fork's current `tests/fixtures/`.
 
 The client discovery rules also adapt `src/server/socket_paths.rs`,
 `src/session.rs`, and `src/config/io.rs` from the same source/license.

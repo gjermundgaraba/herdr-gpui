@@ -42,10 +42,10 @@ method it does not advertise (`client.report`, `client.jump.resolve`,
 ## Agents panel order
 
 `priority` is the daemon's order, which the fork's daemon sends as each
-agent's `priority_key`, priority-token lifts included. One host's agents, or
-every host's together, sort by that key compared as plain bytes, smallest
-first, so this window and the terminal client list the same agent first. The
-key is never read.
+agent's `priority_key`, the `space_priority` lift included. One host's
+agents, or every host's together, sort by that key compared as plain bytes,
+smallest first, so this window and the terminal client list the same agent
+first. The key is never read.
 
 - Agents with equal keys keep the sidebar's host order, then their daemon's
   listing order.
