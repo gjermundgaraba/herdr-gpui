@@ -57,11 +57,10 @@ fn an_answer_needs_a_daemon_that_takes_one_and_a_boot_to_name() {
 }
 
 #[test]
-fn a_followed_request_keeps_its_answer_for_the_window() {
+fn a_followed_request_keeps_its_acceptance_for_the_window() {
     let mut inbox = Inbox::default();
     inbox.follow("gpui-3".into());
-    assert!(inbox.follows("gpui-3"));
-    assert_eq!(inbox.take_answer("gpui-3"), None, "not answered yet");
+    assert!(!inbox.take_accepted(), "not answered yet");
 
     // The live state sees the answer too.
     assert!(
@@ -72,11 +71,10 @@ fn a_followed_request_keeps_its_answer_for_the_window() {
             ))
             .is_some()
     );
-    assert_eq!(inbox.take_answer("gpui-3"), Some(true));
-    assert!(!inbox.follows("gpui-3"), "collected once");
-    assert_eq!(inbox.take_answer("gpui-3"), None);
+    assert!(inbox.take_accepted());
+    assert!(!inbox.take_accepted(), "collected once");
 
-    // A refusal is shown like any other.
+    // A refusal is shown like any other, and accepts nothing.
     inbox.follow("gpui-4".into());
     assert!(
         inbox
@@ -86,7 +84,34 @@ fn a_followed_request_keeps_its_answer_for_the_window() {
             ))
             .is_some()
     );
-    assert_eq!(inbox.take_answer("gpui-4"), Some(false));
+    assert!(!inbox.take_accepted());
+}
+
+#[test]
+fn a_request_the_window_does_not_follow_accepts_nothing() {
+    let mut inbox = Inbox::default();
+    inbox.follow("gpui-3".into());
+    assert!(
+        inbox
+            .apply(response(
+                "gpui-2",
+                json!({"id": "gpui-2", "result": {"type": "ok"}})
+            ))
+            .is_some()
+    );
+    assert!(!inbox.take_accepted());
+
+    // A followed request is answered once: a late duplicate is not followed.
+    inbox.apply(response(
+        "gpui-3",
+        json!({"id": "gpui-3", "result": {"type": "ok"}}),
+    ));
+    assert!(inbox.take_accepted());
+    inbox.apply(response(
+        "gpui-3",
+        json!({"id": "gpui-3", "result": {"type": "ok"}}),
+    ));
+    assert!(!inbox.take_accepted());
 }
 
 #[test]
@@ -102,7 +127,7 @@ fn a_request_the_worker_would_not_send_is_not_accepted() {
             .is_some(),
         "the user's own request still reports its failure"
     );
-    assert_eq!(inbox.take_answer("gpui-3"), Some(false));
+    assert!(!inbox.take_accepted());
 }
 
 #[test]
@@ -153,6 +178,11 @@ fn a_lost_connection_takes_its_jumps_and_followed_requests_with_it() {
     inbox.apply(snapshot("boot-1"));
     inbox.apply(ClientEvent::ClientJump(jump("jump-1")));
     inbox.follow("gpui-3".into());
+    inbox.apply(response(
+        "gpui-3",
+        json!({"id": "gpui-3", "result": {"type": "ok"}}),
+    ));
+    inbox.follow("gpui-4".into());
 
     inbox.apply(ClientEvent::Disconnected {
         reason: "gone".into(),
@@ -160,6 +190,15 @@ fn a_lost_connection_takes_its_jumps_and_followed_requests_with_it() {
     });
 
     assert_eq!(inbox.take_jump(), None);
-    assert!(!inbox.follows("gpui-3"));
+    assert!(
+        !inbox.take_accepted(),
+        "an acceptance goes with its connection"
+    );
     assert_eq!(inbox.resolve_boot(), None);
+    // A request of the old connection is no longer followed.
+    inbox.apply(response(
+        "gpui-4",
+        json!({"id": "gpui-4", "result": {"type": "ok"}}),
+    ));
+    assert!(!inbox.take_accepted());
 }
