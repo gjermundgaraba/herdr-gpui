@@ -60,9 +60,9 @@ mod tests;
 #[cfg(feature = "integration-test")]
 use crate::smoke;
 use crate::{
-    WINDOW_TITLE, avatars,
-    client_contract::PendingNavigation,
-    config, endpoint, git, log_window, menu, preferences,
+    WINDOW_TITLE, avatars, config, endpoint, git, log_window, menu,
+    navigation::OwnedNavigationTarget,
+    preferences,
     presentation::Presentation,
     sessions, sidebar,
     state::LiveState,
@@ -120,7 +120,7 @@ pub(crate) struct HerdrWindow {
     /// shortcut and a click anchor the list at the same place.
     pub(crate) sessions_anchor: std::rc::Rc<std::cell::Cell<Point<Pixels>>>,
     pub(crate) activation_deadline: Option<std::time::Instant>,
-    pub(crate) pending_navigation: Option<PendingNavigation>,
+    pub(crate) pending_navigation: Option<OwnedNavigationTarget>,
     /// Whether the leftmost strip gave Back and Forward their full width
     /// when it was last laid out; see `HerdrWindow::strip_leading`.
     pub(crate) strip_navigation_fits: bool,
@@ -190,8 +190,6 @@ pub(crate) struct HerdrWindow {
     pub(crate) picker: Option<crate::picker::Picker>,
     /// What this window last told its local daemon about itself.
     pub(crate) client_contract: crate::client_contract::ClientContract,
-    /// Back/Forward history of the panes this window visited.
-    pub(crate) history: crate::history::Tracker,
     /// A `worktree.remove` queued after its dialog closed.
     pub(crate) removal: Option<menu::Removal>,
     /// Removing worktrees whose pull request is merged, when enabled.
@@ -500,7 +498,6 @@ impl HerdrWindow {
         self.poll_picker(window, cx);
         // After the same settling: the report goes out on one connection, and
         // says what every host shows after this tick's updates.
-        self.sync_history();
         self.tick_client_contract(std::time::Instant::now(), cx);
         // After polling: a connection that just got its first snapshot, or a
         // reconnect, is told the theme without waiting for it to change.
@@ -865,7 +862,6 @@ impl HerdrWindow {
             menu: menu::MenuState::new(cx),
             picker: None,
             client_contract: Default::default(),
-            history: Default::default(),
             removal: None,
             merged_cleanup: Default::default(),
             worktree_script: None,

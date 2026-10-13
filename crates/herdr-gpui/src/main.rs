@@ -62,7 +62,6 @@ mod github;
 mod group_menu;
 mod group_terminals;
 mod herdr_settings;
-mod history;
 mod icon_font_notice;
 mod icons;
 mod input;

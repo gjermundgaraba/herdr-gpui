@@ -1,5 +1,5 @@
 //! `history_back` and `history_forward`, the Herdr fork's `[keys]` actions
-//! for stepping through visited panes.
+//! for Back and Forward along the presented host's focus trail.
 
 use super::*;
 

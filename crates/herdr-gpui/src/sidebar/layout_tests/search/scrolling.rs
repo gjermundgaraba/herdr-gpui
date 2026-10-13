@@ -63,7 +63,7 @@ fn editing_a_query_reveals_the_reset_selection(cx: &mut gpui::TestAppContext) {
     view.read_with(cx, |view, _| {
         assert_eq!(
             view.pending_navigation,
-            Some(crate::NavigationTarget::Workspace("w4".into()).into())
+            Some(crate::NavigationTarget::Workspace("w4".into()))
         );
     });
 }

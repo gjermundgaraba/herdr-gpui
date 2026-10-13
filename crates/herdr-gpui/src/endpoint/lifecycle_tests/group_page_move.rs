@@ -45,7 +45,7 @@ fn moving_a_page_steers_its_source_terminal_without_taking_focus(cx: &mut gpui::
                 if !ready {
                     assert_eq!(
                         view.pending_navigation,
-                        Some(NavigationTarget::Tab("next".into()).into())
+                        Some(NavigationTarget::Tab("next".into()))
                     );
                     // A coherent projection resumes the deferred navigation.
                     let mut state = view.endpoints[0].connection.inbox.lock().unwrap();

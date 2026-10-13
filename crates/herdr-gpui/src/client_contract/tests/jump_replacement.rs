@@ -59,10 +59,7 @@ fn a_jump_that_replaces_another_navigates_even_to_the_pane_presented(
     let (mut local, _remote, view, cx) = client(cx);
     let start = Instant::now();
     let waiting = |view: &Entity<HerdrWindow>, cx: &mut VisualTestContext| {
-        view.read_with(cx, |view, _| {
-            let pending = view.pending_navigation.as_ref();
-            pending.map(|pending| pending.target.clone())
-        })
+        view.read_with(cx, |view, _| view.pending_navigation.clone())
     };
     // The window is being resized: it presents `pane_1`, and a navigation
     // waits for the surface of the new size.
@@ -113,7 +110,7 @@ fn a_jump_that_replaces_another_waits_for_its_own_pane_to_show(cx: &mut gpui::Te
         assert_eq!(
             view.pending_navigation
                 .as_ref()
-                .map(|pending| pending.target.as_deref()),
+                .map(|pending| pending.as_deref()),
             Some(NavigationTarget::Pane("pane_1"))
         );
     });
@@ -125,45 +122,6 @@ fn a_jump_that_replaces_another_waits_for_its_own_pane_to_show(cx: &mut gpui::Te
     assert!(answers(&asked(&mut local, &view, 0, cx)).is_empty());
 
     focus(&view, 0, "pane_1", cx);
-    turn(&view, start + Duration::from_secs(1), cx);
-    assert_eq!(
-        answers(&asked(&mut local, &view, 0, cx)),
-        only("jump-2", ClientJumpOutcome::Focused)
-    );
-}
-
-#[gpui::test]
-fn a_replaced_jumps_refused_focus_request_ends_no_jump(cx: &mut gpui::TestAppContext) {
-    let (mut local, _remote, view, cx) = client(cx);
-    let start = Instant::now();
-
-    arrive(&view, 0, jump("jump-1", "local", BOOT, "pane_2"), cx);
-    turn(&view, start, cx);
-    let sent = received(&mut local);
-    assert_eq!(sent.len(), 1);
-    assert_eq!(sent[0].1["method"], "pane.focus");
-
-    arrive(&view, 0, jump("jump-2", &host_id(1), BOOT, "pane_7"), cx);
-    turn(&view, start, cx);
-
-    // Local refuses the first jump's focus request only now.
-    answer(
-        &mut local,
-        &view,
-        0,
-        &sent[0].1,
-        json!({"error": {"code": "pane_not_found", "message": "pane pane_2 not found"}}),
-        cx,
-    );
-    turn(&view, start, cx);
-    assert!(answers(&asked(&mut local, &view, 0, cx)).is_empty());
-    view.read_with(cx, |view, _| {
-        assert_eq!(view.selected_endpoint, 1, "the newer jump goes on");
-        assert_eq!(view.local_error, None, "a tool asked, not the user");
-    });
-
-    view.update(cx, |view, _| presented(view));
-    focus(&view, 1, "pane_7", cx);
     turn(&view, start + Duration::from_secs(1), cx);
     assert_eq!(
         answers(&asked(&mut local, &view, 0, cx)),

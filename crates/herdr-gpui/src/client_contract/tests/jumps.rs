@@ -252,7 +252,7 @@ fn a_jump_to_another_host_selects_it_with_the_pane_as_target(cx: &mut gpui::Test
         assert_eq!(
             view.pending_navigation
                 .as_ref()
-                .map(|pending| pending.target.as_deref()),
+                .map(|pending| pending.as_deref()),
             Some(NavigationTarget::Pane("pane_7"))
         );
     });
@@ -369,109 +369,39 @@ fn a_jump_that_never_shows_its_pane_times_out_before_the_daemon_does(
 }
 
 #[gpui::test]
-fn the_hosts_rejection_of_the_focus_request_answers_the_jump(cx: &mut gpui::TestAppContext) {
-    for (error, expected) in [
-        (
-            json!({"code": "pane_not_found", "message": "pane pane_2 not found"}),
-            ClientJumpOutcome::NotFound,
-        ),
-        (
-            json!({"code": "stale_boot", "message": "endpoint restarted"}),
-            ClientJumpOutcome::StaleBoot,
-        ),
-        (
-            json!({"code": "pane_focus_failed", "message": "the pane cannot take focus"}),
-            ClientJumpOutcome::Failed {
-                message: "the pane cannot take focus".into(),
-            },
-        ),
-        (
-            json!({"message": "malformed response"}),
-            ClientJumpOutcome::Failed {
-                message: "malformed response".into(),
-            },
-        ),
-    ] {
-        let (mut local, _remote, view, cx) = client(cx);
-        let start = Instant::now();
-        arrive(&view, 0, jump("jump-1", "local", BOOT, "pane_2"), cx);
-        turn(&view, start, cx);
-        let sent = received(&mut local);
-        assert_eq!(sent.len(), 1, "one request is in flight at a time");
-        assert_eq!(sent[0].1["method"], "pane.focus");
-        let pane = Some(NavigationTarget::Pane("pane_2".into()));
-        view.read_with(cx, |view, _| {
-            let fence = view.live.activation.as_ref().expect("input is fenced");
-            assert_eq!(fence.focus, pane);
-        });
-
-        answer(
-            &mut local,
-            &view,
-            0,
-            &sent[0].1,
-            json!({"error": error}),
-            cx,
-        );
-        turn(&view, start, cx);
-
-        assert_eq!(
-            answers(&asked(&mut local, &view, 0, cx)),
-            answer_of(expected)
-        );
-        view.read_with(cx, |view, _| {
-            let inbox = view.endpoints[0].connection.inbox.lock().unwrap();
-            assert_eq!(inbox.error, None, "a tool asked, not the user");
-            assert_eq!(view.local_error, None);
-            // Input no longer waits for a focus the host refused.
-            assert_eq!(inbox.activation.as_ref().unwrap().focus, None);
-            assert_eq!(view.live.activation.as_ref().unwrap().focus, None);
-        });
-    }
-}
-
-#[gpui::test]
-fn a_focus_request_the_connection_would_not_send_answers_unavailable(
+fn a_refused_focus_request_is_the_users_to_see_and_the_jump_times_out(
     cx: &mut gpui::TestAppContext,
 ) {
-    // Local's daemon takes jump answers and does not offer `pane.focus`.
-    let mut local = MockPeer::offering(&[RESOLVE]);
-    let remote = MockPeer::advertising(&[RESOLVE]);
-    let (view, cx) = window(cx, |_| {});
-    view.update(cx, |view, cx| attach(view, &local, &remote, &[RESOLVE], cx));
+    let (mut local, _remote, view, cx) = client(cx);
     let start = Instant::now();
     arrive(&view, 0, jump("jump-1", "local", BOOT, "pane_2"), cx);
     turn(&view, start, cx);
+    let sent = received(&mut local);
+    assert_eq!(sent.len(), 1, "one request is in flight at a time");
+    assert_eq!(sent[0].1["method"], "pane.focus");
 
-    // The connection's worker will not send the request, and says so.
-    let rejected = local
-        .client
-        .events
-        .recv_timeout(Duration::from_secs(3))
-        .unwrap();
-    assert!(
-        matches!(
-            rejected,
-            ClientEvent::CommandRejected {
-                request_id: Some(_),
-                reason: herdr_client::Error::UnsupportedMethod,
-            }
-        ),
-        "{rejected:?}"
+    answer(
+        &mut local,
+        &view,
+        0,
+        &sent[0].1,
+        json!({"error": {"code": "pane_focus_failed", "message": "the pane cannot take focus"}}),
+        cx,
     );
-    view.read_with(cx, |view, _| {
-        view.endpoints[0].connection.mailboxes().deliver(rejected);
-    });
-    turn(&view, start, cx);
-
-    // The host took nothing, which is what the tool hears, and at once.
-    let sent = asked(&mut local, &view, 0, cx);
-    assert_eq!(answers(&sent), answer_of(ClientJumpOutcome::Unavailable));
-    assert!(focused(&sent).is_empty(), "never written: {sent:?}");
+    turn(&view, start + Duration::from_secs(1), cx);
+    // Nothing follows the request: the refusal is shown as a click's is,
+    // and only what the window presents answers the jump.
+    assert!(answers(&asked(&mut local, &view, 0, cx)).is_empty());
     view.read_with(cx, |view, _| {
         let inbox = view.endpoints[0].connection.inbox.lock().unwrap();
-        assert_eq!(inbox.error, None, "a tool asked, not the user");
+        assert!(inbox.error.is_some());
     });
+
+    turn(&view, start + NAVIGATION_SETTLE_DEADLINE, cx);
+    assert_eq!(
+        answers(&asked(&mut local, &view, 0, cx)),
+        answer_of(ClientJumpOutcome::Timeout)
+    );
 }
 
 #[gpui::test]
