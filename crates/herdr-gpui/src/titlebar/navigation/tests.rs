@@ -43,10 +43,7 @@ fn visit(view: &Entity<HerdrWindow>, cx: &mut VisualTestContext, panes: &[&str])
                 view.live.snapshot = Some(snapshot.clone());
                 let endpoint = &mut view.endpoints[view.selected_endpoint];
                 endpoint.live.snapshot = Some(snapshot);
-                // The history steps only to hosts that are online.
-                endpoint.live.status = crate::state::ConnectionStatus::Connected;
                 endpoint.sync_live();
-                view.sync_history();
             }
             cx.notify();
         })
@@ -95,11 +92,10 @@ fn the_buttons_enable_as_the_trail_grows(cx: &mut TestAppContext) {
     assert_eq!(can(&view, cx), (false, false));
     visit(&view, cx, &["a", "b"]);
     assert_eq!(can(&view, cx), (true, false));
-    // The history moves at once and the step's navigation waits for the
-    // connection: it is on "a" until the step lands or is given up, which
-    // takes it back (`crate::history`).
+    // Without a connection the daemon is never asked, so the trail stays put
+    // rather than waiting on a focus that cannot arrive.
     cx.simulate_click(back.center(), Modifiers::default());
-    assert_eq!(can(&view, cx), (false, true));
+    assert_eq!(can(&view, cx), (true, false));
 }
 
 #[test]
@@ -121,4 +117,23 @@ fn each_platform_draws_its_own_buttons() {
     for style in [Style::Segmented, Style::Fluent, Style::Adwaita] {
         assert!(style.button().0.height <= px(28.));
     }
+}
+
+#[gpui::test]
+fn a_press_that_cannot_be_sent_leaves_the_landing_step_alone(cx: &mut TestAppContext) {
+    let (view, cx) = window(cx);
+    visit(&view, cx, PANES);
+    // A first Back to "b" was queued and is still landing.
+    cx.update(|_, cx| {
+        view.update(cx, |view, _| {
+            let selected = view.selected_endpoint;
+            view.endpoints[selected].history.begin(1);
+        })
+    });
+    // A second press the window cannot send (no connection here) must not
+    // replace or cancel it.
+    cx.update(|window, cx| view.update(cx, |view, cx| view.travel(Step::Back, window, cx)));
+    visit(&view, cx, &["b"]);
+    // "b" landed as a step back, so Forward still returns to "c".
+    assert_eq!(can(&view, cx), (true, true));
 }

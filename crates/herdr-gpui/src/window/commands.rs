@@ -61,34 +61,68 @@ impl HerdrWindow {
         if self.menu.page.is_some() {
             return false;
         }
-        self.dispatch_navigation(target, None, cx)
+        self.dispatch_navigation(target, cx)
+    }
+
+    /// Back or Forward along the selected endpoint's focus trail. The trail
+    /// remembers the step only once its request is queued, so a press while
+    /// an earlier one is still landing leaves that one in charge.
+    pub(crate) fn travel(&mut self, step: Step, window: &mut Window, cx: &mut Context<Self>) {
+        // A pane a section opened goes back to that section first.
+        if step == Step::Back
+            && self.activity_section().is_none()
+            && let Some(panel) = self.activity.return_to
+        {
+            self.show_activity_panel(panel, window, cx);
+            return;
+        }
+        let Some(snapshot) = self.live.snapshot.clone() else {
+            return;
+        };
+        let Some((index, pane)) = self.endpoints[self.selected_endpoint]
+            .history
+            .peek(step, &snapshot)
+            .map(|(index, pane)| (index, pane.to_owned()))
+        else {
+            return;
+        };
+        if self.navigate(NavigationTarget::Pane(&pane), cx) {
+            self.endpoints[self.selected_endpoint].history.begin(index);
+        }
+    }
+
+    pub(crate) fn can_travel(&self, step: Step) -> bool {
+        if step == Step::Back
+            && self.activity_section().is_none()
+            && self.activity.return_to.is_some()
+        {
+            return true;
+        }
+        self.live.snapshot.as_deref().is_some_and(|snapshot| {
+            self.endpoints[self.selected_endpoint]
+                .history
+                .can(step, snapshot)
+        })
     }
 
     /// Complete an accepted navigation even if its context menu has since opened.
-    /// One asked for by a jump or by a Back or Forward step brings its
-    /// `purpose`, and is followed to its host's answer. Such a navigation is
-    /// dispatched only to a host that is ready for input: until then it
-    /// waits, with its purpose, as the window's pending navigation. So only
-    /// a navigation nobody follows is dropped here for a host not ready.
     #[track_caller]
     pub(crate) fn dispatch_navigation(
         &mut self,
         target: NavigationTarget<&str>,
-        purpose: Option<crate::client_contract::Purpose>,
         cx: &mut Context<Self>,
     ) -> bool {
         if !self.input_ready() {
             return false;
         }
-        let focus = |handle: &herdr_client::ClientHandle, boot: &str| match target {
-            NavigationTarget::Workspace(id) => handle.focus_workspace(boot, id),
-            NavigationTarget::Tab(id) => handle.focus_tab(boot, id),
-            NavigationTarget::Pane(id) => handle.focus_pane(boot, id),
-        };
-        let queued = match purpose {
-            Some(purpose) => self.follow_focus_change(purpose, target.clone(), focus),
-            None => self.request_focus_change("Navigate", Some((&target).into()), focus),
-        };
+        let queued =
+            self.request_focus_change("Navigate", Some((&target).into()), |handle, boot| {
+                match target {
+                    NavigationTarget::Workspace(id) => handle.focus_workspace(boot, id),
+                    NavigationTarget::Tab(id) => handle.focus_tab(boot, id),
+                    NavigationTarget::Pane(id) => handle.focus_pane(boot, id),
+                }
+            });
         self.discard_composition(cx);
         cx.notify();
         queued
@@ -576,10 +610,8 @@ impl HerdrWindow {
         };
         // Followed to the daemon's answer, which is all that confirms it. Only
         // a failure is written: a queued request leaves any other error shown.
-        if let Err(error) = self
-            .follow_request(crate::client_contract::Purpose::MarkUnread, |handle| {
-                handle.request(&snapshot.boot_id, method, params)
-            })
+        if let Err(error) =
+            self.follow_request(|handle| handle.request(&snapshot.boot_id, method, params))
         {
             self.local_error = Some(format!("Mark Agent Unread: {error}"));
         }

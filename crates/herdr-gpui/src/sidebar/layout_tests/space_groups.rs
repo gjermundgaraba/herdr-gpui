@@ -431,7 +431,7 @@ fn a_mirror_focuses_and_opens_the_menu_of_its_space_but_never_lifts(cx: &mut gpu
         view.update(cx, |view, _| {
             assert_eq!(
                 view.pending_navigation.take(),
-                Some(NavigationTarget::Workspace("w2".to_owned()).into()),
+                Some(NavigationTarget::Workspace("w2".to_owned())),
                 "{what}"
             );
         });

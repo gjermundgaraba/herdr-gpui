@@ -206,7 +206,7 @@ fn enter_on_another_hosts_agent_presents_that_host_with_the_pane_as_target(
         assert_eq!(view.selected_endpoint, 1);
         assert_eq!(
             view.pending_navigation,
-            Some(NavigationTarget::Pane("w1:p1".into()).into())
+            Some(NavigationTarget::Pane("w1:p1".into()))
         );
     });
 }

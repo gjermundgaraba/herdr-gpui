@@ -6,43 +6,21 @@
 //! the jump it forwarded last, and the answers to the requests the window follows
 //! or sent for the contract. The answer to a report or to a jump's answer
 //! never reaches the live state, so a rejected one is logged and does not
-//! appear in the window as a failed command.
+//! appear in the window as a failed command. The answer to a followed request
+//! reaches it too, so a refusal shows like any other.
 
 use herdr_client::{ClientEvent, Method, protocol::clients::EndpointClientJump};
 use serde_json::Value;
 
 /// Characters of a daemon's error code that are logged.
 const CODE_CHARS: usize = 64;
-/// Characters of a daemon's error message that are kept.
-const MESSAGE_CHARS: usize = 256;
-
-/// Why a followed request did not do what it asked. The daemon's error codes
-/// are read here, at the boundary; the window matches on the cause.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-pub(crate) enum Refusal {
-    #[error("the pane no longer exists")]
-    PaneNotFound,
-    #[error("the daemon has restarted")]
-    StaleBoot,
-    /// The request never reached the daemon: the window could not queue it,
-    /// or the connection worker would not send it.
-    #[error("the request was not sent")]
-    Unsent,
-    /// Any other refusal, with the daemon's own words for it.
-    #[error("{message}")]
-    Other { message: String },
-}
-
-/// How a followed request ended.
-pub(crate) type Answer = Result<(), Refusal>;
 
 #[derive(Debug)]
 struct Followed {
     request: String,
-    /// Whether the answer is kept from the live state: a tool asked, not the
-    /// user, so a refusal must not appear as a failed command.
-    quiet: bool,
-    answer: Option<Answer>,
+    /// Whether the daemon accepted it, once it has answered or the
+    /// connection worker would not send it.
+    accepted: Option<bool>,
 }
 
 #[derive(Debug, Default)]
@@ -89,36 +67,6 @@ fn rejection(response: &Value) -> Option<String> {
         .and_then(Value::as_str)
         .unwrap_or("invalid_response");
     Some(crate::notifications::safe_text(code, CODE_CHARS))
-}
-
-/// What a daemon's answer to a followed request says.
-fn answer_of(response: &Value) -> Answer {
-    let Some(error) = error_of(response) else {
-        return Ok(());
-    };
-    Err(match error.get("code").and_then(Value::as_str) {
-        Some("pane_not_found") => Refusal::PaneNotFound,
-        Some("stale_boot") => Refusal::StaleBoot,
-        _ => Refusal::Other {
-            message: crate::notifications::safe_text(
-                error
-                    .get("message")
-                    .and_then(Value::as_str)
-                    .unwrap_or("malformed response"),
-                MESSAGE_CHARS,
-            ),
-        },
-    })
-}
-
-/// Why the connection worker would not send a followed request. Whatever
-/// the reason, the daemon never saw it, so only a boot that changed since
-/// it was queued is more than a request that was not sent.
-fn unsent(reason: &herdr_client::Error) -> Refusal {
-    match reason {
-        herdr_client::Error::CommandBoot => Refusal::StaleBoot,
-        _ => Refusal::Unsent,
-    }
 }
 
 impl Inbox {
@@ -189,7 +137,8 @@ impl Inbox {
             }
             return false;
         }
-        self.record(request, || answer_of(response))
+        self.record(request, error_of(response).is_none());
+        true
     }
 
     /// Records that the connection worker would not send `request`. Returns
@@ -205,24 +154,20 @@ impl Inbox {
             tracing::warn!(category = "client_jump", %reason, "answer not sent");
             return false;
         }
-        self.record(request, || {
-            tracing::debug!(category = "followed_request", %reason, "request not sent");
-            Err(unsent(reason))
-        })
+        self.record(request, false);
+        true
     }
 
-    /// Keeps `answer` for the window when it follows `request`. Returns
-    /// whether the live state should see the event too.
-    fn record(&mut self, request: &str, answer: impl FnOnce() -> Answer) -> bool {
-        let Some(followed) = self
+    /// Keeps whether the daemon accepted `request` for the window, when it
+    /// follows that request.
+    fn record(&mut self, request: &str, accepted: bool) {
+        if let Some(followed) = self
             .followed
             .iter_mut()
             .find(|followed| followed.request == request)
-        else {
-            return true;
-        };
-        followed.answer = Some(answer());
-        !followed.quiet
+        {
+            followed.accepted = Some(accepted);
+        }
     }
 
     /// The boot a report on this connection names, once its daemon has said
@@ -267,13 +212,11 @@ impl Inbox {
     }
 
     /// Follows `request` to its answer. Called under the same lock as the
-    /// queueing, so even an immediate rejection finds it. A `quiet` request's
-    /// answer is kept from the live state.
-    pub(crate) fn follow(&mut self, request: String, quiet: bool) {
+    /// queueing, so even an immediate rejection finds it.
+    pub(crate) fn follow(&mut self, request: String) {
         self.followed.push(Followed {
             request,
-            quiet,
-            answer: None,
+            accepted: None,
         });
     }
 
@@ -285,12 +228,13 @@ impl Inbox {
             .any(|followed| followed.request == request)
     }
 
-    /// The answer to `request` once it has one, which ends the following.
-    pub(crate) fn take_answer(&mut self, request: &str) -> Option<Answer> {
+    /// Whether the daemon accepted `request`, once it has answered, which
+    /// ends the following.
+    pub(crate) fn take_answer(&mut self, request: &str) -> Option<bool> {
         let index = self
             .followed
             .iter()
-            .position(|followed| followed.request == request && followed.answer.is_some())?;
-        self.followed.remove(index).answer
+            .position(|followed| followed.request == request && followed.accepted.is_some())?;
+        self.followed.remove(index).accepted
     }
 }

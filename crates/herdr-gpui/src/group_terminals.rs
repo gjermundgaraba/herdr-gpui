@@ -247,7 +247,7 @@ impl HerdrWindow {
                     if self.navigation_ready() {
                         self.navigate(crate::NavigationTarget::Tab(&tab), cx);
                     } else {
-                        self.pending_navigation = Some(crate::NavigationTarget::Tab(tab).into());
+                        self.pending_navigation = Some(crate::NavigationTarget::Tab(tab));
                     }
                 }
                 cx.notify();

@@ -115,7 +115,7 @@ fn worktree_creation_reports_failures_and_follows_the_created_checkout(
             // Creating navigates to the pane so the shell is immediately focused.
             assert_eq!(
                 view.pending_navigation,
-                Some(crate::NavigationTarget::Pane("p9".into()).into())
+                Some(crate::NavigationTarget::Pane("p9".into()))
             );
             // A folded group cannot hide the checkout that was just created.
             assert!(view.collapsed_repos.is_empty());

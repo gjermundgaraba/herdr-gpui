@@ -97,7 +97,7 @@ fn collapsed_sidebar_is_a_rail_in_every_layout_that_navigates(cx: &mut TestAppCo
         view.read_with(cx, |view, _| {
             assert_eq!(
                 view.pending_navigation,
-                Some(NavigationTarget::Workspace("w3".into()).into()),
+                Some(NavigationTarget::Workspace("w3".into())),
                 "{mode:?}"
             );
         });
@@ -107,7 +107,7 @@ fn collapsed_sidebar_is_a_rail_in_every_layout_that_navigates(cx: &mut TestAppCo
         view.read_with(cx, |view, _| {
             assert_eq!(
                 view.pending_navigation,
-                Some(NavigationTarget::Pane("p1".into()).into()),
+                Some(NavigationTarget::Pane("p1".into())),
                 "{mode:?}"
             );
             assert!(!view.sidebar_visible);
