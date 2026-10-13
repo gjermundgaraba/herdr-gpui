@@ -20,9 +20,9 @@
 //!
 //! Mirrors `src/client/shell/picks.rs` in the Herdr fork, which answers by
 //! the same rules but one. A picker that arrives while this window shows a
-//! menu, a dialog, or a picker of its own is answered `cancelled` and never
-//! shown; the terminal client closes the overlay it has open and shows the
-//! picker.
+//! menu, a dialog, or a picker or navigator of its own is answered
+//! `cancelled` and never shown; the terminal client closes the overlay it
+//! has open and shows the picker.
 
 use super::{
     Source,
