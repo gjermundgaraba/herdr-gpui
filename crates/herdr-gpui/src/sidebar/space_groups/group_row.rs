@@ -47,18 +47,25 @@ impl HerdrWindow {
     /// sliding to its place. The loop says where it goes: its place among its
     /// host's rows, whether the row gap separates it from the row above, and
     /// while a drop is previewed the drag with the shift the marker slides to.
+    /// `spaces_custom` is the loop's flag for a spaces layout that adds the
+    /// row gap.
     pub(in crate::sidebar) fn marker_row(
         &self,
         marker: &Marker<'_>,
         (snapshot, endpoint_id, row_cx): (&ClientShellSnapshot, &str, &RowContext<'_>),
         (position, gapped, slide, now): (usize, bool, Option<(&WorkspaceDrag, f32)>, Instant),
+        spaces_custom: bool,
         cx: &mut Context<Self>,
     ) -> (Stateful<Div>, bool) {
         // A header or divider between passed rows slides with them.
         let (shift, moving) = slide.map_or((0., false), |(drag, to)| {
             drag.slide(&format!("\0marker-{position}"), to, now)
         });
-        let gap = if gapped { self.space_row_gap() } else { 0. };
+        let gap = if gapped {
+            self.space_row_gap(spaces_custom)
+        } else {
+            0.
+        };
         let row = self
             .marker_element(marker, snapshot, endpoint_id, position, row_cx, cx)
             .when(gap > 0., |row| row.mt(px(gap)))
