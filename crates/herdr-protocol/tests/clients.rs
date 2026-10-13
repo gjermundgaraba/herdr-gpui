@@ -12,9 +12,7 @@
 //! The lane request envelope is not a type of this crate, so the tests spell
 //! it out.
 
-use herdr_protocol::{
-    AgentStatus, ClientShellPinnedSection, ClientShellSnapshot, Error, clients::*,
-};
+use herdr_protocol::{AgentStatus, ClientShellSnapshot, Error, clients::*};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
@@ -50,23 +48,8 @@ fn canonical<T: Serialize + DeserializeOwned>(json: &Value) -> T {
 }
 
 #[test]
-fn snapshot_fixture_carries_pinned_sections_and_agent_priority() {
+fn snapshot_fixture_carries_agent_priority() {
     let snapshot: ClientShellSnapshot = canonical(&value(SNAPSHOT));
-    assert_eq!(
-        snapshot.pinned_sections,
-        [
-            ClientShellPinnedSection {
-                title: "Priority".into(),
-                fg: Some("#ff8800".into()),
-                workspace_ids: vec!["w1".into()],
-            },
-            ClientShellPinnedSection {
-                title: "Platform".into(),
-                fg: None,
-                workspace_ids: vec!["w1".into(), "w2".into()],
-            },
-        ]
-    );
     let keys: Vec<_> = snapshot
         .agents
         .iter()
@@ -97,13 +80,11 @@ fn snapshot_fixture_carries_pinned_sections_and_agent_priority() {
 #[test]
 fn a_snapshot_without_the_additions_still_decodes() {
     let mut json = value(SNAPSHOT);
-    json.as_object_mut().unwrap().remove("pinned_sections");
     for agent in json["agents"].as_array_mut().unwrap() {
         agent.as_object_mut().unwrap().remove("priority_key");
         agent.as_object_mut().unwrap().remove("priority_mark");
     }
     let decoded: ClientShellSnapshot = serde_json::from_value(json).unwrap();
-    assert!(decoded.pinned_sections.is_empty());
     assert!(
         decoded
             .agents
@@ -114,29 +95,6 @@ fn a_snapshot_without_the_additions_still_decodes() {
 
 #[test]
 fn malformed_snapshot_additions_are_rejected() {
-    for (path, bad) in [
-        ("pinned_sections", json!({})),
-        ("pinned_sections", json!([{"title": "t", "fg": null}])),
-        (
-            "pinned_sections",
-            json!([{"fg": null, "workspace_ids": []}]),
-        ),
-        (
-            "pinned_sections",
-            json!([{"title": "t", "fg": 7, "workspace_ids": []}]),
-        ),
-        (
-            "pinned_sections",
-            json!([{"title": "t", "fg": null, "workspace_ids": [1]}]),
-        ),
-    ] {
-        let mut json = value(SNAPSHOT);
-        json[path] = bad.clone();
-        assert!(
-            serde_json::from_value::<ClientShellSnapshot>(json).is_err(),
-            "{bad}"
-        );
-    }
     for (field, bad) in [("priority_key", json!(3)), ("priority_mark", json!(["x"]))] {
         let mut json = value(SNAPSHOT);
         json["agents"][0][field] = bad.clone();

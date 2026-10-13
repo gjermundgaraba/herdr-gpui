@@ -400,8 +400,7 @@ impl<'de> Deserialize<'de> for TokenColor {
     }
 }
 
-/// A `#rgb` or `#rrggbb` color, as a token or a pinned section names one.
-pub(crate) fn parse_color(value: &str) -> Option<u32> {
+fn parse_color(value: &str) -> Option<u32> {
     let hex = value.strip_prefix('#')?;
     if !matches!(hex.len(), 3 | 6) || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return None;

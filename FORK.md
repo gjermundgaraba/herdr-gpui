@@ -65,8 +65,8 @@ Describe each local change here, with pointers to its code, when it is added.
   (`crates/herdr-protocol/src/pick.rs`, `crates/herdr-gpui/src/picker.rs`,
   `crates/herdr-gpui/src/picker/`)
 - Client contract types: `herdr-protocol` decodes the Herdr fork's
-  `pinned_sections`, `priority_key`, `priority_mark`, client report, and
-  client jump control, with the fork's fixtures
+  `priority_key`, `priority_mark`, client report, and client jump control,
+  with the fork's fixtures
   (`crates/herdr-protocol/src/wire.rs`, `crates/herdr-protocol/src/clients.rs`,
   `crates/herdr-client/src/method.rs`)
 - Client report: the window sends `client.report` to the local daemon with
@@ -97,10 +97,9 @@ Describe each local change here, with pointers to its code, when it is added.
   connected hosts first, with no client-side recency, and upstream's Devices
   layout lists each host's agents by the same key
   (`crates/herdr-gpui/src/sidebar/agents.rs`)
-- Space groups and pinned sections: the spaces sidebar starts a collapsible
-  header where the `space_group` token changes and draws the snapshot's
-  pinned sections first, with a copy of each member. Collapse state is per
-  host and in memory, and headers do not drag
+- Space groups: the spaces sidebar starts a collapsible header where the
+  `space_group` token changes. Collapse state is per host and in memory, and
+  headers do not drag. The TUI's pinned sections are not shown
   (`crates/herdr-gpui/src/sidebar/space_groups.rs`,
   `crates/herdr-gpui/src/sidebar/group_row.rs`,
   `crates/herdr-gpui/src/sidebar/render/spaces.rs`)
@@ -137,8 +136,8 @@ changing anything of the first two kinds below.
 | --- | --- | --- | --- |
 | Sidebar `separator_before` | `src/config/sidebar.rs`, `src/ui/sidebar/tokens.rs` | `crates/herdr-gpui/src/config/sidebar.rs`, `crates/herdr-gpui/src/sidebar/tokens.rs` | yes |
 | Plugin picker | `src/client/shell/picks.rs`, `src/client/shell/pick_overlay.rs` | `crates/herdr-gpui/src/picker.rs`, `crates/herdr-gpui/src/picker/` | yes, except a picker that arrives while a menu or dialog is open: Herdr GPUI answers `cancelled`, the TUI replaces its overlay and shows the picker |
-| Agent priority order | `src/client/shell/aggregate_navigation.rs` | `crates/herdr-gpui/src/sidebar/agents.rs`, `crates/herdr-gpui/src/sidebar/order.rs` | yes, except under a plugin agent view: Herdr GPUI keeps each host's own view order, the TUI applies the active host's view across hosts |
-| Space groups and pinned sections | `src/client/shell/space_groups.rs`, `src/space_order.rs` | `crates/herdr-gpui/src/sidebar/space_groups.rs`, `crates/herdr-gpui/src/sidebar/group_row.rs` | no: group headers do not drag in Herdr GPUI, and it keeps collapse state in memory where the TUI saves it to its preferences file |
+| Agent priority order | `src/client/shell/aggregate_navigation.rs` | `crates/herdr-gpui/src/sidebar/agents.rs`, `crates/herdr-gpui/src/sidebar/order.rs` | yes: both sort by the daemon's `priority_key`, whose `space_priority` lift neither client configures, except under a plugin agent view: Herdr GPUI keeps each host's own view order, the TUI applies the active host's view across hosts |
+| Space groups and pinned sections | `src/client/shell/space_groups.rs`, `src/space_order.rs` | `crates/herdr-gpui/src/sidebar/space_groups.rs`, `crates/herdr-gpui/src/sidebar/group_row.rs` | no: Herdr GPUI does not show pinned sections, which the TUI resolves from its own config; group headers do not drag in Herdr GPUI, and it keeps collapse state in memory where the TUI saves it to its preferences file |
 | Mark unread | `src/client/shell/endpoints.rs`, `src/client/shell/actions.rs` | `crates/herdr-gpui/src/window/commands.rs`, `crates/herdr-gpui/src/client_contract/follow.rs` | yes |
 | Client report | `src/client/shell/client_report.rs`, `src/client/client_contract.rs` | `crates/herdr-gpui/src/client_contract.rs`, `crates/herdr-gpui/src/client_contract/report.rs` | yes, except Herdr GPUI sends a report, and a jump or picker answer, only after the request its connection holds is answered |
 | Client jump | `src/client/shell/client_jump.rs` | `crates/herdr-gpui/src/client_contract/jump.rs` | yes, except under an open menu (Herdr GPUI leaves it open, so the jump waits for it and can time out) |

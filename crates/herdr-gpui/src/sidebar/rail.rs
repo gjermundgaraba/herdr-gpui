@@ -210,8 +210,8 @@ impl HerdrWindow {
                 continue;
             };
             let host = multi.then_some(endpoint.label.as_str());
-            // One mark per space the expanded list would show as its own
-            // row: group headers, dividers, and pinned mirrors have none.
+            // One mark per space the expanded list would show as a row:
+            // group headers and dividers have none.
             for (index, indented) in workspace_rows(snapshot, self.collapsed_for(endpoint_index)) {
                 let workspace = &snapshot.workspaces[index];
                 let id = workspace.workspace_id.clone();

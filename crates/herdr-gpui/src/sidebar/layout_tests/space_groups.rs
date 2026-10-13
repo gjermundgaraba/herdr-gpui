@@ -1,11 +1,10 @@
-//! Space group headers, dividers, and pinned mirrors as the spaces list
-//! paints and hit-tests them, in every layout and with several hosts. Which
-//! rows there are is `tests/space_groups.rs`; this is where they land and
-//! what a click on each does.
+//! Space group headers and dividers as the spaces list paints and hit-tests
+//! them, in every layout and with several hosts. Which rows there are is
+//! `tests/space_groups.rs`; this is where they land and what a click on each
+//! does.
 
 use super::*;
 use crate::{
-    NavigationTarget,
     config::LayoutMode,
     controls::Command,
     sidebar::space_groups::{SidebarRow, sidebar_rows},
@@ -16,13 +15,9 @@ use std::collections::HashSet;
 
 const REMOTE: &str = "ssh:test";
 
-/// `count` spaces `{prefix}1..`, flat, in the given groups, with the daemon's
-/// pinned sections as `(title, fg, member numbers)`. The first is focused.
-fn listing(
-    prefix: &str,
-    groups: &[Option<&str>],
-    pinned: &[(&str, Option<&str>, &[usize])],
-) -> ClientShellSnapshot {
+/// `count` spaces `{prefix}1..`, flat, in the given groups. The first is
+/// focused.
+fn listing(prefix: &str, groups: &[Option<&str>]) -> ClientShellSnapshot {
     let mut listing = snapshot(groups.len());
     for (index, (workspace, group)) in listing.workspaces.iter_mut().zip(groups).enumerate() {
         workspace.label = format!("{prefix}{}", index + 1);
@@ -34,46 +29,25 @@ fn listing(
             .into_iter()
             .collect();
     }
-    listing.pinned_sections = pinned
-        .iter()
-        .map(|&(title, fg, members)| ClientShellPinnedSection {
-            title: title.into(),
-            fg: fg.map(Into::into),
-            workspace_ids: members
-                .iter()
-                .map(|number| format!("w{}", number - 1))
-                .collect(),
-        })
-        .collect();
     listing
 }
 
-/// Two groups, two ungrouped spaces, and two pinned sections that share a
-/// member:
+/// Two groups and two ungrouped spaces:
 ///
 /// ```text
-/// 0  ▾ Priority        (space-1, space-3)
-/// 1    = space-1
-/// 2    = space-3
-/// 3  ▾ Review          (space-3)
-/// 4    = space-3
-/// 5  ▾ work
-/// 6    space-1
-/// 7    space-2
-/// 8  ▾ play
-/// 9    space-3
-/// 10 ─────
-/// 11   space-4
-/// 12   space-5
+/// 0 ▾ work
+/// 1   space-1
+/// 2   space-2
+/// 3 ▾ play
+/// 4   space-3
+/// 5 ─────
+/// 6   space-4
+/// 7   space-5
 /// ```
 fn local_listing() -> ClientShellSnapshot {
     listing(
         "space-",
         &[Some("work"), Some("work"), Some("play"), None, None],
-        &[
-            ("Priority", Some("#ff8800"), &[1, 3]),
-            ("Review", None, &[3]),
-        ],
     )
 }
 
@@ -102,7 +76,6 @@ fn grouped_window(
                 remote.live.snapshot = Some(Arc::new(listing(
                     "remote-",
                     &[Some("ops"), Some("ops"), None],
-                    &[("Priority", None, &[3])],
                 )));
                 remote.live.status = ConnectionStatus::Connected;
                 view.endpoints.push(remote);
@@ -144,10 +117,6 @@ fn selectors(view: &HerdrWindow, host: usize) -> Vec<String> {
                 format!("space-group-{id}-{position}")
             }
             SidebarRow::Marker(_) => format!("space-divider-{id}-{position}"),
-            SidebarRow::Mirror { index, section } => format!(
-                "mirror-{id}-{section}-{}",
-                snapshot.workspaces[*index].workspace_id
-            ),
             SidebarRow::Workspace(entry) if multi => format!(
                 "workspace-{id}-{}",
                 snapshot.workspaces[entry.index].workspace_id
@@ -176,7 +145,7 @@ fn click(cx: &mut VisualTestContext, selector: &str) {
 
 /// Every layout name, each alone and under host headers.
 /// Every layout that lists spaces. The Devices layout lists each host's
-/// agents instead, so it has no groups or sections to draw.
+/// agents instead, so it has no groups to draw.
 fn every_layout() -> impl Iterator<Item = (LayoutMode, bool)> {
     LayoutMode::ALL
         .into_iter()
@@ -185,9 +154,7 @@ fn every_layout() -> impl Iterator<Item = (LayoutMode, bool)> {
 }
 
 #[gpui::test]
-fn headers_dividers_mirrors_and_rows_stack_in_list_order_in_every_layout(
-    cx: &mut gpui::TestAppContext,
-) {
+fn headers_dividers_and_rows_stack_in_list_order_in_every_layout(cx: &mut gpui::TestAppContext) {
     for (mode, multi) in every_layout() {
         let (view, cx) = grouped_window(cx, mode, multi);
         let what = format!("{mode} multi={multi}");
@@ -201,21 +168,18 @@ fn headers_dividers_mirrors_and_rows_stack_in_list_order_in_every_layout(
                 (view.endpoints[host].id.clone(), selectors(view, host))
             });
             if host == 0 {
-                assert_eq!(rows.len(), 13, "{what}");
+                assert_eq!(rows.len(), 8, "{what}");
                 assert_eq!(rows[0], "space-group-local-0", "{what}");
-                assert_eq!(rows[1], "mirror-local-0-w0", "{what}");
-                assert_eq!(rows[4], "mirror-local-1-w2", "{what}");
-                assert_eq!(rows[10], "space-divider-local-10", "{what}");
+                assert_eq!(rows[3], "space-group-local-3", "{what}");
+                assert_eq!(rows[5], "space-divider-local-5", "{what}");
             } else {
                 assert_eq!(
                     rows,
                     [
                         "space-group-ssh:test-0",
-                        "mirror-ssh:test-0-w2",
-                        "space-group-ssh:test-2",
                         "workspace-ssh:test-w0",
                         "workspace-ssh:test-w1",
-                        "space-divider-ssh:test-5",
+                        "space-divider-ssh:test-3",
                         "workspace-ssh:test-w2",
                     ],
                     "{what}"
@@ -292,26 +256,12 @@ fn headers_dividers_mirrors_and_rows_stack_in_list_order_in_every_layout(
             }
             above = Some((selector.clone(), row));
         }
-        // The two copies of the space both sections pin are separate rows,
-        // above the space's own.
-        let own = if multi {
-            "workspace-local-w2"
-        } else {
-            "row-space-3"
-        };
-        let (first, second, own) = (
-            bounds(cx, "mirror-local-0-w2"),
-            bounds(cx, "mirror-local-1-w2"),
-            bounds(cx, own),
-        );
-        assert!(first.bottom() <= second.top(), "{what}");
-        assert!(second.bottom() <= own.top(), "{what}");
         cx.update(|window, _| window.remove_window());
     }
 }
 
 #[gpui::test]
-fn clicking_a_header_folds_its_group_or_section_on_its_own_host(cx: &mut gpui::TestAppContext) {
+fn clicking_a_header_folds_its_group_on_its_own_host(cx: &mut gpui::TestAppContext) {
     for (mode, multi) in every_layout() {
         let (view, cx) = grouped_window(cx, mode, multi);
         let what = format!("{mode} multi={multi}");
@@ -336,7 +286,7 @@ fn clicking_a_header_folds_its_group_or_section_on_its_own_host(cx: &mut gpui::T
         redraw(cx);
 
         // The group `work` holds the focused space-1 and space-2.
-        click(cx, "space-group-local-5");
+        click(cx, "space-group-local-0");
         view.read_with(cx, |view, _| {
             assert_eq!(folded(view), ["group:work"], "{what}")
         });
@@ -344,9 +294,9 @@ fn clicking_a_header_folds_its_group_or_section_on_its_own_host(cx: &mut gpui::T
         // both and stands in for them with their most urgent status.
         assert!(painted(cx, &own(1)), "{what}");
         assert!(!painted(cx, &own(2)), "{what}");
-        let header = bounds(cx, "space-group-local-5");
-        let status = bounds(cx, "space-group-local-5-status");
-        let count = bounds(cx, "space-group-local-5-count");
+        let header = bounds(cx, "space-group-local-0");
+        let status = bounds(cx, "space-group-local-0-status");
+        let count = bounds(cx, "space-group-local-0-count");
         assert!(
             header.contains(&status.center()) && status.right() <= count.left(),
             "{what}"
@@ -354,7 +304,7 @@ fn clicking_a_header_folds_its_group_or_section_on_its_own_host(cx: &mut gpui::T
         // The next header moved up into the room, and navigation skips what
         // is hidden, as the rows do.
         assert_eq!(
-            bounds(cx, "space-group-local-7").top(),
+            bounds(cx, "space-group-local-2").top(),
             bounds(cx, &own(1)).bottom(),
             "{what}"
         );
@@ -368,37 +318,15 @@ fn clicking_a_header_folds_its_group_or_section_on_its_own_host(cx: &mut gpui::T
             assert_eq!(stepped, ["w0", "w2", "w3", "w4"], "{what}");
         });
 
-        // A pinned section folds on its own: its mirrors go, the other
-        // section's and every space's own row stay.
+        // Clicking again unfolds.
         click(cx, "space-group-local-0");
-        view.read_with(cx, |view, _| {
-            assert_eq!(folded(view), ["group:work", "pinned:Priority"], "{what}")
-        });
-        assert!(!painted(cx, "mirror-local-0-w0"), "{what}");
-        assert!(!painted(cx, "mirror-local-0-w2"), "{what}");
-        assert!(painted(cx, "mirror-local-1-w2"), "{what}");
-        assert!(painted(cx, &own(1)) && painted(cx, &own(3)), "{what}");
-        // A collapsed header stays attached to the next one.
-        assert_eq!(
-            bounds(cx, "space-group-local-1").top(),
-            bounds(cx, "space-group-local-0").bottom(),
-            "{what}"
-        );
-
-        // Clicking again unfolds, each header by itself.
-        click(cx, "space-group-local-0");
-        view.read_with(cx, |view, _| {
-            assert_eq!(folded(view), ["group:work"], "{what}")
-        });
-        assert!(painted(cx, "mirror-local-0-w0"), "{what}");
-        click(cx, "space-group-local-5");
         view.read_with(cx, |view, _| assert!(folded(view).is_empty(), "{what}"));
         assert!(painted(cx, &own(2)), "{what}");
 
         if multi {
             // Another host's header folds that host's list only, and never
             // selects the host.
-            click(cx, "space-group-ssh:test-2");
+            click(cx, "space-group-ssh:test-0");
             view.read_with(cx, |view, _| {
                 assert!(view.collapsed_repos.is_empty(), "{what}");
                 assert_eq!(
@@ -419,79 +347,12 @@ fn clicking_a_header_folds_its_group_or_section_on_its_own_host(cx: &mut gpui::T
 }
 
 #[gpui::test]
-fn a_mirror_focuses_and_opens_the_menu_of_its_space_but_never_lifts(cx: &mut gpui::TestAppContext) {
-    for (mode, multi) in every_layout() {
-        let (view, cx) = grouped_window(cx, mode, multi);
-        let what = format!("{mode} multi={multi}");
-        let mirror = bounds(cx, "mirror-local-1-w2");
-
-        // A click focuses the space the row copies. Without a surface the
-        // window holds the navigation until one arrives.
-        cx.simulate_click(mirror.center(), Modifiers::default());
-        view.update(cx, |view, _| {
-            assert_eq!(
-                view.pending_navigation.take(),
-                Some(NavigationTarget::Workspace("w2".to_owned())),
-                "{what}"
-            );
-        });
-
-        // Holding a press arms no reorder: a copy has no place to move.
-        cx.simulate_mouse_down(mirror.center(), MouseButton::Left, Modifiers::default());
-        view.read_with(cx, |view, _| {
-            assert!(view.workspace_drag.is_none(), "{what}")
-        });
-        cx.executor().advance_clock(crate::reorder::LIFT_DELAY * 2);
-        cx.run_until_parked();
-        cx.simulate_mouse_move(
-            point(mirror.center().x, mirror.bottom() + px(60.)),
-            MouseButton::Left,
-            Modifiers::default(),
-        );
-        redraw(cx);
-        view.read_with(cx, |view, _| {
-            assert!(view.workspace_drag.is_none(), "{what}")
-        });
-        assert_eq!(bounds(cx, "mirror-local-1-w2"), mirror, "{what}");
-        cx.simulate_mouse_up(
-            point(mirror.center().x, mirror.bottom() + px(60.)),
-            MouseButton::Left,
-            Modifiers::default(),
-        );
-        // The space's own row does arm one, for contrast.
-        let own = if multi {
-            "workspace-local-w2"
-        } else {
-            "row-space-3"
-        };
-        let own = bounds(cx, own);
-        cx.simulate_mouse_down(own.center(), MouseButton::Left, Modifiers::default());
-        view.update(cx, |view, _| {
-            assert!(view.workspace_drag.take().is_some(), "{what}");
-            view.pending_navigation = None;
-        });
-        cx.simulate_mouse_up(own.center(), MouseButton::Left, Modifiers::default());
-        view.update(cx, |view, _| view.pending_navigation = None);
-
-        // A right click opens the space's menu at the mirror.
-        cx.simulate_mouse_down(mirror.center(), MouseButton::Right, Modifiers::default());
-        cx.simulate_mouse_up(mirror.center(), MouseButton::Right, Modifiers::default());
-        redraw(cx);
-        view.read_with(cx, |view, _| {
-            assert_eq!(view.menu.page, Some(crate::menu::Page::Workspace), "{what}");
-            assert_eq!(view.workspace_menu_target(), Some("w2"), "{what}");
-        });
-        cx.update(|window, _| window.remove_window());
-    }
-}
-
-#[gpui::test]
 fn workspace_shortcuts_step_through_each_space_once(cx: &mut gpui::TestAppContext) {
     let (view, cx) = grouped_window(cx, LayoutMode::default(), true);
     view.read_with(cx, |view, _| {
         let rows = view.sidebar_workspaces();
-        // Mirrors, headers, and dividers are not stops: every space of every
-        // host once, in the order its own rows are painted.
+        // Headers and dividers are not stops: every space of every host
+        // once, in the order its rows are painted.
         assert_eq!(
             rows,
             [
@@ -508,19 +369,18 @@ fn workspace_shortcuts_step_through_each_space_once(cx: &mut gpui::TestAppContex
         let step = |current, command| {
             crate::sidebar::sidebar_step(&rows, current, 0, command).map(|index| rows[index])
         };
-        // From the space two sections mirror, next is the space after it.
+        // Stepping from a group's only space crosses its header and the
+        // divider.
         assert_eq!(step(Some(2), Command::NextWorkspace), Some((0, "w3")));
         assert_eq!(step(Some(2), Command::PreviousWorkspace), Some((0, "w1")));
         assert_eq!(step(Some(7), Command::NextWorkspace), Some((0, "w0")));
-        // The numbered shortcut counts the selected host's own rows, so the
-        // first is the first space, not the first mirror.
+        // The numbered shortcut counts the selected host's own rows.
         assert_eq!(step(None, Command::WorkspaceNumber(1)), Some((0, "w0")));
         assert_eq!(step(None, Command::WorkspaceNumber(3)), Some((0, "w2")));
         assert_eq!(step(None, Command::WorkspaceNumber(5)), Some((0, "w4")));
         assert_eq!(step(None, Command::WorkspaceNumber(6)), None);
     });
-    // The focused space's own row is the one the list reveals and marks as
-    // the reorder's origin; its mirror only shows the selection.
+    // The focused space's row is the one the list reveals.
     view.update(cx, |view, cx| {
         let snapshot = Arc::make_mut(view.live.snapshot.as_mut().unwrap());
         for (index, workspace) in snapshot.workspaces.iter_mut().enumerate() {
@@ -531,9 +391,9 @@ fn workspace_shortcuts_step_through_each_space_once(cx: &mut gpui::TestAppContex
     });
     redraw(cx);
     view.read_with(cx, |view, _| {
-        // Host header, 5 pinned rows, header, 2 rows, header: its own row is
-        // the eleventh child of the list.
-        assert_eq!(view.sidebar_revealed[0].get(), Some(10));
+        // Host header, header, 2 rows, header: its row is the sixth child of
+        // the list.
+        assert_eq!(view.sidebar_revealed[0].get(), Some(5));
     });
 }
 
@@ -548,14 +408,13 @@ fn the_rail_marks_each_space_once_and_hides_a_folded_group(cx: &mut gpui::TestAp
     let marks: Vec<_> = (0..5)
         .map(|index| bounds(cx, &format!("rail-workspace-local-w{index}")))
         .collect();
-    // One mark per space, top to bottom in server order: no header, divider,
-    // or mirror takes a place between them.
+    // One mark per space, top to bottom in server order: no header or
+    // divider takes a place between them.
     for pair in marks.windows(2) {
         assert_eq!(pair[1].top(), pair[0].bottom());
     }
     view.update(cx, |view, cx| {
         view.collapsed_repos.insert("group:work".into());
-        view.collapsed_repos.insert("pinned:Priority".into());
         cx.notify();
     });
     redraw(cx);
@@ -566,42 +425,6 @@ fn the_rail_marks_each_space_once_and_hides_a_folded_group(cx: &mut gpui::TestAp
         bounds(cx, "rail-workspace-local-w2").top(),
         bounds(cx, "rail-workspace-local-w0").bottom()
     );
-}
-
-#[gpui::test]
-fn a_pinned_section_s_color_reaches_only_its_title(cx: &mut gpui::TestAppContext) {
-    let (view, cx) = grouped_window(cx, LayoutMode::default(), false);
-    view.read_with(cx, |view, _| {
-        let snapshot = view.live.snapshot.as_deref().unwrap();
-        let rows = sidebar_rows(snapshot, &view.collapsed_repos);
-        let fg: Vec<_> = rows
-            .iter()
-            .filter_map(|row| match row {
-                SidebarRow::Marker(marker) => marker.group.as_ref(),
-                _ => None,
-            })
-            .map(|group| (group.name, group.fg))
-            .collect();
-        // The daemon's color rides on the section it configured; a section
-        // without one, and every group, keep the theme's.
-        assert_eq!(
-            fg,
-            [
-                ("Priority", Some("#ff8800")),
-                ("Review", None),
-                ("work", None),
-                ("play", None),
-            ]
-        );
-    });
-    // A color this client cannot read falls back rather than failing to draw.
-    view.update(cx, |view, cx| {
-        Arc::make_mut(view.live.snapshot.as_mut().unwrap()).pinned_sections[0].fg =
-            Some("tomato".into());
-        cx.notify();
-    });
-    redraw(cx);
-    assert!(painted(cx, "space-group-local-0-name"));
 }
 
 /// Presses `row`, lets it lift, and carries it to `y`. Two moves, as the gap
@@ -648,40 +471,40 @@ fn a_row_dragged_past_a_header_moves_the_header_with_the_rows(cx: &mut gpui::Tes
         let what = mode.to_string();
         let names = view.read_with(cx, |view, _| selectors(view, 0));
         let rest: Vec<_> = names.iter().map(|name| bounds(cx, name)).collect();
-        // 5 ▾ work, 6 space-1, 7 space-2, 8 ▾ play, 9 space-3, 10 divider,
-        // 11 space-4, 12 space-5.
+        // 0 ▾ work, 1 space-1, 2 space-2, 3 ▾ play, 4 space-3, 5 divider,
+        // 6 space-4, 7 space-5.
         let at = |cx: &mut VisualTestContext, position: usize| bounds(cx, &names[position]);
 
         // Down, out of `work` and past `play`'s header and only space.
-        carry(cx, rest[6], rest[9].bottom() - px(2.));
+        carry(cx, rest[1], rest[4].bottom() - px(2.));
         assert_eq!(
             drop_target(&view, cx),
             serde_json::json!({"workspace_ids": ["w0"], "before_workspace_id": "w3"}),
             "{what}"
         );
-        let hole = rest[6].size.height;
+        let hole = rest[1].size.height;
         // The carried row follows the pointer.
         assert_eq!(
-            at(cx, 6).top() - rest[6].top(),
-            rest[9].bottom() - px(2.) - rest[6].center().y,
+            at(cx, 1).top() - rest[1].top(),
+            rest[4].bottom() - px(2.) - rest[1].center().y,
             "{what}"
         );
         // What it passed closed its place together, the header included.
-        for position in [7, 8, 9] {
+        for position in [2, 3, 4] {
             assert_eq!(
                 at(cx, position).top(),
                 rest[position].top() - hole,
                 "{what}: row {position}"
             );
         }
-        // Its own header, the divider, what follows, and every pinned row
-        // stayed where they were.
-        for position in [0, 1, 2, 3, 4, 5, 10, 11, 12] {
+        // Its own header, the divider, and what follows stayed where they
+        // were.
+        for position in [0, 5, 6, 7] {
             assert_eq!(at(cx, position), rest[position], "{what}: row {position}");
         }
         // Nothing was sent without a daemon, so every row is back in place.
         cx.simulate_mouse_up(
-            point(rest[6].center().x, rest[9].bottom() - px(2.)),
+            point(rest[1].center().x, rest[4].bottom() - px(2.)),
             MouseButton::Left,
             Modifiers::default(),
         );
@@ -696,27 +519,25 @@ fn a_row_dragged_past_a_header_moves_the_header_with_the_rows(cx: &mut gpui::Tes
 
         // Up, out of the ungrouped spaces to the top of the list: it lands
         // above `work`'s header, which slides down with everything passed.
-        carry(cx, rest[11], rest[5].top() + px(2.));
+        carry(cx, rest[6], rest[0].top() + px(2.));
         assert_eq!(
             drop_target(&view, cx),
             serde_json::json!({"workspace_ids": ["w3"], "before_workspace_id": "w0"}),
             "{what}"
         );
-        let hole = rest[11].size.height;
-        for position in [5, 6, 7, 8, 9, 10] {
+        let hole = rest[6].size.height;
+        for position in [0, 1, 2, 3, 4, 5] {
             assert_eq!(
                 at(cx, position).top(),
                 rest[position].top() + hole,
                 "{what}: row {position}"
             );
         }
-        for position in [0, 1, 2, 3, 4, 12] {
-            assert_eq!(at(cx, position), rest[position], "{what}: row {position}");
-        }
+        assert_eq!(at(cx, 7), rest[7], "{what}");
 
         // Up inside its own run, it stays below the run's divider.
         cx.simulate_mouse_up(
-            point(rest[11].center().x, rest[5].top() + px(2.)),
+            point(rest[6].center().x, rest[0].top() + px(2.)),
             MouseButton::Left,
             Modifiers::default(),
         );
@@ -725,16 +546,16 @@ fn a_row_dragged_past_a_header_moves_the_header_with_the_rows(cx: &mut gpui::Tes
             assert!(view.workspace_drag.is_none(), "{what}");
             view.pending_navigation = None;
         });
-        carry(cx, rest[12], rest[11].top() + px(2.));
+        carry(cx, rest[7], rest[6].top() + px(2.));
         assert_eq!(
             drop_target(&view, cx),
             serde_json::json!({"workspace_ids": ["w4"], "before_workspace_id": "w3"}),
             "{what}"
         );
-        assert_eq!(at(cx, 10), rest[10], "{what}");
+        assert_eq!(at(cx, 5), rest[5], "{what}");
         assert_eq!(
-            at(cx, 11).top(),
-            rest[11].top() + rest[12].size.height,
+            at(cx, 6).top(),
+            rest[6].top() + rest[7].size.height,
             "{what}"
         );
         cx.update(|window, _| window.remove_window());
@@ -742,7 +563,7 @@ fn a_row_dragged_past_a_header_moves_the_header_with_the_rows(cx: &mut gpui::Tes
 }
 
 /// With the daemon's `row_gap` configured, a header or divider clears the
-/// row above it and hugs the row below, and mirrors are spaced like rows.
+/// row above it and hugs the row below.
 #[gpui::test]
 fn a_configured_row_gap_attaches_each_marker_to_the_row_below(cx: &mut gpui::TestAppContext) {
     let (view, cx) = grouped_window(cx, LayoutMode::default(), false);
@@ -759,13 +580,12 @@ fn a_configured_row_gap_attaches_each_marker_to_the_row_below(cx: &mut gpui::Tes
     });
     let rows: Vec<_> = names.iter().map(|name| bounds(cx, name)).collect();
     let space = |position: usize| rows[position].top() - rows[position - 1].bottom();
-    // 0 ▾ Priority, 1 = space-1, 2 = space-3, 3 ▾ Review, 4 = space-3,
-    // 5 ▾ work, 6 space-1, 7 space-2, 8 ▾ play, 9 space-3, 10 divider,
-    // 11 space-4, 12 space-5.
-    for position in [1, 4, 6, 9, 11] {
+    // 0 ▾ work, 1 space-1, 2 space-2, 3 ▾ play, 4 space-3, 5 divider,
+    // 6 space-4, 7 space-5.
+    for position in [1, 4, 6] {
         assert_eq!(space(position), px(0.), "row {position} hugs its marker");
     }
-    for position in [2, 3, 5, 7, 8, 10, 12] {
+    for position in [2, 3, 5, 7] {
         assert_eq!(space(position), gap, "row {position} clears the row above");
     }
 }
