@@ -1,17 +1,21 @@
 //! Space group headers and dividers as the spaces list paints and hit-tests
 //! them, in every layout and with several hosts. Which rows there are is
-//! `tests/space_groups.rs`; this is where they land and what a click on each
-//! does.
+//! `rows.rs`; this is where they land and what a click on each does.
 
-use super::*;
+use crate::sidebar::layout_tests::*;
 use crate::{
+    HerdrWindow,
     config::LayoutMode,
     controls::Command,
     sidebar::space_groups::{SidebarRow, sidebar_rows},
     state::ConnectionStatus,
 };
-use gpui::{Modifiers, MouseButton, VisualTestContext, point};
-use std::collections::HashSet;
+use gpui::{
+    AppContext as _, Bounds, Entity, Modifiers, MouseButton, Pixels, VisualTestContext, point, px,
+    size,
+};
+use herdr_client::{ConnectTarget, protocol::*};
+use std::{collections::HashSet, sync::Arc};
 
 const REMOTE: &str = "ssh:test";
 
@@ -109,7 +113,12 @@ fn selectors(view: &HerdrWindow, host: usize) -> Vec<String> {
     };
     let snapshot = live.snapshot.as_deref().unwrap();
     let id = &endpoint.id;
-    sidebar_rows(snapshot, view.collapsed_for(host))
+    let collapsed = if host == 0 {
+        &view.collapsed_repos
+    } else {
+        &endpoint.collapsed_repos
+    };
+    sidebar_rows(&snapshot.workspaces, collapsed)
         .iter()
         .enumerate()
         .map(|(position, row)| match row {
@@ -158,7 +167,7 @@ fn headers_dividers_and_rows_stack_in_list_order_in_every_layout(cx: &mut gpui::
     for (mode, multi) in every_layout() {
         let (view, cx) = grouped_window(cx, mode, multi);
         let what = format!("{mode} multi={multi}");
-        let look = super::super::layout::for_mode(mode);
+        let look = crate::sidebar::layout::for_mode(mode);
         let font = view.read_with(cx, |view, _| view.config.sidebar.clone());
         let sidebar = bounds(cx, "sidebar");
         let hosts = if multi { 2 } else { 1 };
@@ -214,7 +223,7 @@ fn headers_dividers_and_rows_stack_in_list_order_in_every_layout(cx: &mut gpui::
             if selector.starts_with("space-group-") {
                 assert_eq!(
                     row.size.height,
-                    px(super::super::line_height(&font) + look.chrome_height()),
+                    px(crate::sidebar::line_height(&font) + look.chrome_height()),
                     "{what}: {selector}"
                 );
                 // Arrow, name, and count share the header's line: the arrow
@@ -250,7 +259,7 @@ fn headers_dividers_and_rows_stack_in_list_order_in_every_layout(cx: &mut gpui::
             }
             if selector.starts_with("space-divider-") {
                 assert!(
-                    row.size.height < px(super::super::line_height(&font)),
+                    row.size.height < px(crate::sidebar::line_height(&font)),
                     "{what}"
                 );
             }
@@ -575,7 +584,7 @@ fn a_configured_row_gap_attaches_each_marker_to_the_row_below(cx: &mut gpui::Tes
     let (names, gap) = view.read_with(cx, |view, _| {
         (
             selectors(view, 0),
-            px(super::super::line_height(&view.config.sidebar)),
+            px(crate::sidebar::line_height(&view.config.sidebar)),
         )
     });
     let rows: Vec<_> = names.iter().map(|name| bounds(cx, name)).collect();

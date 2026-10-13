@@ -16,12 +16,23 @@ fn fixed(kind: &TokenKind) -> usize {
 }
 
 /// A row as its line reads at `width` glyphs: each drawn token cut to its
-/// budget, joined by the separators the line places between them.
+/// budget, joined by the separators the line places between them, as
+/// `row/configured.rs` draws it.
 fn line(row: &[ResolvedToken], width: usize) -> String {
-    place(row, fixed, width)
+    let visible: Vec<_> = row
         .iter()
-        .map(|placed| {
-            let token = match &placed.token.kind {
+        .zip(budgets(row, fixed, width))
+        .filter_map(|(token, budget)| Some((token, budget?)))
+        .collect();
+    visible
+        .iter()
+        .enumerate()
+        .map(|(index, &(token, budget))| {
+            let gap = match index {
+                0 => "",
+                _ => separator(visible[index - 1].0, token),
+            };
+            let token = match &token.kind {
                 TokenKind::StateIcon => "*".to_owned(),
                 TokenKind::GitStatus { ahead, behind } => [("↑", ahead), ("↓", behind)]
                     .into_iter()
@@ -29,9 +40,9 @@ fn line(row: &[ResolvedToken], width: usize) -> String {
                     .map(|(arrow, count)| format!("{arrow}{count}"))
                     .collect::<Vec<_>>()
                     .join(" "),
-                TokenKind::Text(text, _) => text.chars().take(placed.budget).collect(),
+                TokenKind::Text(text, _) => text.chars().take(budget).collect(),
             };
-            format!("{}{token}", placed.gap)
+            format!("{gap}{token}")
         })
         .collect()
 }

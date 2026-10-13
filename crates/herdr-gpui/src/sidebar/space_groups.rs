@@ -3,7 +3,7 @@
 //!
 //! Mirrors the Herdr fork's `src/client/shell/space_groups.rs`, with the group
 //! of a worktree family from its `src/space_order.rs` (`anchor`, `group`);
-//! their cases are ported in `tests/space_groups.rs`.
+//! their cases are ported in `space_groups/tests/rows.rs`.
 //!
 //! A space joins a group through the `space_group` workspace token, which the
 //! daemon's `workspace.set_group` sets. The sidebar never reorders spaces: it
@@ -18,10 +18,21 @@
 //! Collapse state is this client's own, in memory, per host: the keys here
 //! live in the same set as the collapsed worktree repositories, namespaced
 //! apart from them.
+//!
+//! Upstream's spaces loop in `render.rs` lists [`sidebar_rows`], drawing each
+//! marker through `group_row` and previewing a drop through `drop_preview`.
+//! `sidebar.rs` imports [`visible_workspace_entries`] in place of upstream's,
+//! so navigation and the collapsed rail step through the same spaces.
 
-use super::{agents::status_priority, visible_workspace_entries, workspaces::workspace_entries};
-use herdr_client::protocol::{AgentStatus, ClientShellSnapshot, ClientShellWorkspace};
+use super::{agents::status_priority, workspaces};
+use herdr_client::protocol::{AgentStatus, ClientShellWorkspace};
 use std::collections::HashSet;
+
+mod drop_preview;
+mod group_row;
+
+#[cfg(test)]
+mod tests;
 
 /// Workspace metadata key that names a space's group.
 pub(super) const GROUP_TOKEN: &str = "space_group";
@@ -136,6 +147,12 @@ pub(super) enum SidebarRow<'a> {
 }
 
 impl SidebarRow<'_> {
+    /// A linked worktree's row under its repository's parent row; never a
+    /// marker.
+    pub(super) fn indented(&self) -> bool {
+        matches!(self, Self::Workspace(entry) if entry.indented)
+    }
+
     /// Whether the configured row gap separates `self` from `previous`, the
     /// row before it: a marker stays attached to the space below it, and a
     /// worktree child to its parent.
@@ -159,7 +176,7 @@ struct Run<'a> {
 fn runs(workspaces: &[ClientShellWorkspace]) -> Vec<Run<'_>> {
     let spaces: Vec<_> = workspaces.iter().map(Space::of).collect();
     let mut runs = Vec::<Run<'_>>::new();
-    for (index, child) in workspace_entries(workspaces) {
+    for (index, child) in workspaces::workspace_entries(workspaces) {
         let name = group(&spaces, index);
         match runs.last_mut() {
             // A child follows its parent, and a family shares one group.
@@ -179,10 +196,9 @@ fn runs(workspaces: &[ClientShellWorkspace]) -> Vec<Run<'_>> {
 ///
 /// `collapsed` holds this host's collapsed worktree repositories and groups.
 pub(super) fn sidebar_rows<'a>(
-    snapshot: &'a ClientShellSnapshot,
+    workspaces: &'a [ClientShellWorkspace],
     collapsed: &HashSet<String>,
 ) -> Vec<SidebarRow<'a>> {
-    let workspaces = &snapshot.workspaces;
     let mut rows = Vec::new();
     let runs = runs(workspaces);
     let mut run_of = vec![0; workspaces.len()];
@@ -192,7 +208,7 @@ pub(super) fn sidebar_rows<'a>(
         }
     }
     let mut shown: Vec<Vec<Entry>> = runs.iter().map(|_| Vec::new()).collect();
-    for (index, indented, fold) in visible_workspace_entries(workspaces, collapsed) {
+    for (index, indented, fold) in workspaces::visible_workspace_entries(workspaces, collapsed) {
         shown[run_of[index]].push(Entry {
             index,
             indented,
@@ -230,16 +246,19 @@ pub(super) fn sidebar_rows<'a>(
     rows
 }
 
-/// Each space's own row in sidebar order, as `(index, indented)`: what
-/// navigation steps through and the rail marks.
-pub(super) fn workspace_rows(
-    snapshot: &ClientShellSnapshot,
+/// Each space's own row in sidebar order, as upstream's
+/// [`workspaces::visible_workspace_entries`] gives them: `(index, child,
+/// group)`. The sidebar imports this one under that name, so navigation and
+/// the collapsed rail step through what the spaces list shows, one mark per
+/// space; group headers and dividers have none.
+pub(super) fn visible_workspace_entries(
+    workspaces: &[ClientShellWorkspace],
     collapsed: &HashSet<String>,
-) -> Vec<(usize, bool)> {
-    sidebar_rows(snapshot, collapsed)
+) -> Vec<(usize, bool, Option<String>)> {
+    sidebar_rows(workspaces, collapsed)
         .into_iter()
         .filter_map(|row| match row {
-            SidebarRow::Workspace(entry) => Some((entry.index, entry.indented)),
+            SidebarRow::Workspace(entry) => Some((entry.index, entry.indented, entry.fold)),
             SidebarRow::Marker(_) => None,
         })
         .collect()
