@@ -1,8 +1,9 @@
 //! The actions the client performs itself under a host's keybinding
 //! profile. The Herdr fork copies them from the local config
-//! (`Keybinds::copy_client_actions` in its `src/config/keybinds.rs`), so the
-//! same keys open the navigators, step through the history, and mark an
-//! agent unread whichever host is selected.
+//! (`Keybinds::copy_client_actions` in its
+//! `src/config/keybinds/client_actions.rs`), so the same keys open the
+//! navigators, step through the history, and mark an agent unread whichever
+//! host is selected.
 
 use super::*;
 use crate::controls::ForkCommand;
