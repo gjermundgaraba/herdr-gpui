@@ -94,7 +94,6 @@ impl PartialEq for Fingerprint {
 #[derive(Default)]
 pub(crate) struct ClientContract {
     sent: Option<SentReport>,
-    follows: follow::Follows,
     jumps: jump::Jumps,
 }
 

@@ -39,18 +39,6 @@ fn the_oldest_of_many_jump_answers_still_queued_is_kept_from_the_live_state() {
 }
 
 #[test]
-fn the_oldest_of_many_followed_requests_still_gets_its_answer() {
-    let mut inbox = Inbox::default();
-    for index in 0..OUTSTANDING {
-        inbox.follow(format!("unread-{index}"));
-    }
-    assert!(inbox.follows("unread-0"));
-    assert!(inbox.apply(refused("unread-0", "agent_not_idle")).is_some());
-    assert_eq!(inbox.take_answer("unread-0"), Some(false));
-    assert!(inbox.follows(&format!("unread-{}", OUTSTANDING - 1)));
-}
-
-#[test]
 fn a_new_boot_still_knows_the_requests_the_old_one_was_sent() {
     let mut inbox = Inbox::default();
     inbox.apply(welcome(&["client.jump.resolve"]));
@@ -67,7 +55,13 @@ fn a_new_boot_still_knows_the_requests_the_old_one_was_sent() {
     };
     assert!(inbox.apply(rejected("resolution-1")).is_none());
     assert!(inbox.apply(rejected("unread-1")).is_some());
-    assert_eq!(inbox.take_answer("unread-1"), Some(false));
+    assert!(!inbox.take_accepted());
+    // The rejection ended the following: the request was known.
+    inbox.apply(response(
+        "unread-1",
+        json!({"id": "unread-1", "result": {"type": "ok"}}),
+    ));
+    assert!(!inbox.take_accepted());
 }
 
 #[gpui::test]
