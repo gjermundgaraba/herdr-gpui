@@ -280,9 +280,6 @@ fn client_jump_resolve_fixture_lists_every_outcome() {
         ClientJumpOutcome::NotFound,
         ClientJumpOutcome::Unavailable,
         ClientJumpOutcome::Timeout,
-        ClientJumpOutcome::Failed {
-            message: "activation was cancelled".into(),
-        },
     ]
     .into_iter()
     .enumerate()
@@ -300,12 +297,10 @@ fn client_jump_resolve_fixture_lists_every_outcome() {
         serde_json::to_string(&requests[0].params).unwrap(),
         r#"{"jump_id":"jump-3","outcome":{"type":"focused"}}"#
     );
-    assert_eq!(
-        serde_json::to_string(&requests[5].params).unwrap(),
-        r#"{"jump_id":"jump-3","outcome":{"type":"failed","message":"activation was cancelled"}}"#
-    );
+    // The retired `failed` outcome is refused like any unknown one.
     for outcome in [
         json!({"type": "failed"}),
+        json!({"type": "failed", "message": "activation was cancelled"}),
         json!({"type": "cancelled"}),
         json!({"message": "x"}),
         json!("focused"),
