@@ -9,8 +9,8 @@ what the fork adds or changes.
 
 Against stock Herdr the additions stay inert. A daemon that sends none of the
 fork's snapshot fields, controls, or key actions decodes as before, and a
-method it does not advertise (`client.report`, `client.jump.resolve`,
-`ui.pick.resolve`, `agent.mark_unread`) is refused before it is sent.
+method it does not advertise (`ui.pick.resolve`, `agent.mark_unread`) is
+refused before it is sent.
 
 ## Sidebar
 
@@ -163,88 +163,6 @@ server's prefix while its profile applies. A local `config.toml` that does
 not parse gives the five no `[keys]` binding until it does, where the
 terminal client keeps the ones it last read.
 
-## Client report
-
-Each window tells its local daemon what its Agents list shows, with
-`client.report`, so tools can read it through that daemon's `client.list`
-and `client.changed`.
-
-The report names whether the window is the active one, the host it presents,
-and every host with its status (`connecting`, `online`, `reconnecting`,
-`attention` for a host that needs an update or a sign-in, `disabled` for one
-switched off or detached) and boot. It then lists the panel's rows in the
-order the panel shows them under its current sort, each with the snapshot's
-agent record unchanged, its space's label and number, and the pane's
-directories. The device picker's filter does not narrow the report: it
-always lists every enabled host's agents, in the order the panel has at All
-Devices. At most one row is focused: the focused pane of the presented host.
-An agent whose space the snapshot no longer lists has no row.
-
-The report goes to the local daemon only, never to another host, and only
-when its content changed: again after a new local connection, which is also
-how a restarted daemon is met, and one at a time, so changes that arrive
-while the daemon has not answered become one report. It keeps to the
-daemon's limits (64 hosts, 512 rows, ids of 128 bytes, text of 512), and a
-report still larger than one 1 MiB command loses rows from its end. Without
-a local connection, or with a daemon that does not offer `client.report`,
-nothing is sent, and a report the daemon rejects is logged, not retried.
-
-A window holds one connection per editor group that shows another Herdr tab,
-each a client of its own to the daemon. It reports on its own connection and
-stays with that one while it holds it, even when a group swap parks it, so
-the daemon keeps one report per window. A connection the window lets go of
-while a jump it carried is still unanswered is kept, no longer shown in any
-group, until that answer is sent and acknowledged or the daemon's 20 seconds
-are up.
-
-## Client jump
-
-A tool can ask a window to show a pane with `client.jump`, which the daemon
-forwards to the client it names. The window navigates the way a click on the
-agent's row does, switching host when the pane is on another one, and
-answers `client.jump.resolve` on the connection the jump arrived on,
-whichever editor group holds it meanwhile.
-
-The answer comes from what the window holds, checked when the jump arrives
-and again on every tick while it waits:
-
-- `not_found` for a host it does not list, or a pane the host's snapshot
-  does not list
-- `unavailable` for a host without a snapshot, or one that is not online
-- `stale_boot` when the host now runs another boot than the jump names
-- `focused` once the window presents that host with the pane focused: its
-  surface active and drawn from the snapshot that shows the pane focused, not
-  when the request was accepted or the host merely selected
-- `timeout` for a jump that has not got there after 12 seconds, before the
-  daemon's own 20
-
-Nothing follows the navigation's own request: a host that refuses it shows
-that in the status bar as it would for a click, and the jump times out, as it
-does when you select another host before the pane shows.
-
-This window selects a host at the click, so a jump that arrives while the
-switch is still under way and names the host you just left, even the pane
-it was showing, navigates back there and is answered `focused` once the
-pane shows. The terminal client changes host only when the switch
-completes. There a first jump, one that replaces no other, to the pane it
-still shows does not navigate: your switch finishes, and the jump answers
-`timeout`. A jump to another pane of the host you left navigates back in
-both clients.
-
-A jump never closes a menu or dialog: it waits for the window, and times
-out if the menu stays open.
-
-The newest jump wins: one that arrives while another is still open replaces
-it, and the replaced jump is never answered, because the daemon told its
-caller `jump_superseded` when it forwarded the newer one. A jump to the pane
-the window already presents is answered `focused` without navigating, unless
-it replaced another, in which case it navigates and is answered once its
-pane shows like any other. Jumps reach a window on one connection only, the
-one that carries its report. A daemon's `jump_not_found` for an answer that
-came too late is ignored and never reaches the status bar. An answer whose
-connection has since been replaced is dropped, and a jump this client cannot
-read is ignored.
-
 ## Library additions
 
 ### `herdr-protocol`
@@ -252,27 +170,11 @@ read is ignored.
 - `pick` holds the JSON shapes of a plugin's `ui.pick`: the `PICK_OPEN_KIND`
   and `PICK_CLOSE_KIND` controls (`EndpointPickOpen`, `EndpointPickClose`),
   an item, the create row, and the outcome and parameters of the
-  `ui.pick.resolve` answer. `decode_open` and `decode_close` return
-  `Error::PickPayload` with the `serde_json` source.
+  `ui.pick.resolve` answer, and the daemon's `MAX_ENDPOINT_COMMAND_BYTES`.
 - Snapshot additions, both optional: each agent's `priority_key` and
   `priority_mark`. A daemon without them decodes as an empty key and no mark.
   Keys are opaque: order agents by comparing them as bytes, with an empty key
   after every other one.
-- `clients` holds what a client sends and receives: `ClientReport` with its
-  endpoints and agent rows (the `client.report` parameters), the daemon's
-  `MAX_CLIENT_REPORT_*` limits and `MAX_ENDPOINT_COMMAND_BYTES`, the
-  `CLIENT_JUMP_KIND` control (`EndpointClientJump`), and
-  `ClientJumpResolveParams` with `ClientJumpOutcome`, the answer a client
-  sends as `client.jump.resolve`. `decode_jump` returns
-  `Error::ClientJumpPayload` with the `serde_json` source. The socket API
-  shapes tools read (`client.list`, `client.changed`, `client.jump`) are a
-  tool's, not a client's, and are not declared here.
-- `ClientReport::normalize` repeats the daemon's own check of a report: it
-  rejects a report the daemon would reject, with a typed
-  `ClientReportError`, and cuts display text to the daemon's limits. It does
-  not bound the encoded request: Herdr GPUI measures the request a report
-  becomes, and trims its rows to fit, before queuing it (see `herdr-client`
-  below).
 
 Unknown fields are ignored and optional ones default, as generation 1 grows
 by optional fields. Each shape is checked against the fork's own fixture in
@@ -284,23 +186,19 @@ by optional fields. Each shape is checked against the fork's own fixture in
   pong, are not ignored as upstream ignores them: they reach the owner as
   `ClientEvent::Control { kind: String, data: String }`, unread, and the
   owner ignores the kinds it has no use for. Herdr GPUI decodes
-  `endpoint.pick.open.v1`, `endpoint.pick.close.v1`, and
-  `endpoint.client-jump.v1` from it, and drops a payload it cannot decode
-  like an unknown control instead of treating it as a protocol failure.
+  `endpoint.pick.open.v1` and `endpoint.pick.close.v1` from it, and drops a
+  payload it cannot decode like an unknown control instead of treating it as
+  a protocol failure.
 - `Method::Fork` names the fork's client-lane methods:
-  `ForkMethod::ClientReport` (`protocol::clients::ClientReport`),
-  `ForkMethod::ClientJumpResolve` (`protocol::clients::ClientJumpResolveParams`),
-  `ForkMethod::UiPickResolve` (`protocol::pick::UiPickResolveParams`), and
+  `ForkMethod::UiPickResolve` (`protocol::pick::UiPickResolveParams`) and
   `ForkMethod::AgentMarkUnread` (`{"pane_id"}`). A daemon that does not
   advertise one rejects it before it is sent, like any other unadvertised
-  method. A picker's or a jump's answer goes on the connection that received
-  the control; the daemon answers a late one `pick_not_found` or
-  `jump_not_found`, which a client expects.
+  method. A picker's answer goes on the connection that received the
+  control; the daemon answers a late one `pick_not_found`, which a client
+  expects.
 - The daemon closes a connection whose lane request is longer than
   `MAX_ENDPOINT_COMMAND_BYTES` (1 MiB). `ClientHandle::request` writes what
   it is given, so Herdr GPUI measures each fork request that can grow as
   `request` will write it, under the longest request id it gives, before it
-  queues it. A report too long loses rows from the end of its list until it
-  fits, and one that does not fit without rows is not sent. A picker's answer
-  too long is answered `cancelled` instead (see Plugin pickers). A jump's
-  answer carries only the daemon's jump id and a fixed outcome.
+  queues it. A picker's answer too long is answered `cancelled` instead (see
+  Plugin pickers).

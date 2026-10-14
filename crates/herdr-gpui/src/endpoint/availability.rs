@@ -1,9 +1,9 @@
 //! What an endpoint's connection is doing, as a closed set. The devices list
-//! words it for the user, the client report sends the daemon's coarser
-//! version of it, and navigation asks whether a host can be reached at all.
+//! words it for the user, and navigation asks whether a host can be reached
+//! at all.
 
 use super::Endpoint;
-use herdr_client::{SshFailure, VersionMismatch, protocol::clients::ClientEndpointStatus};
+use herdr_client::VersionMismatch;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Availability {
@@ -15,8 +15,6 @@ pub(crate) enum Availability {
     DaemonOutdated,
     /// The handshake was refused until this app is updated.
     ClientOutdated,
-    /// `ssh` refused for a reason only the user can fix, such as signing in.
-    NeedsUser,
     Reconnecting,
     Online,
     Connecting,
@@ -31,38 +29,15 @@ impl Availability {
             // A refused handshake is an outage too, but says what fixes it.
             Self::DaemonOutdated => "Herdr update needed",
             Self::ClientOutdated => "app update needed",
-            Self::NeedsUser | Self::Reconnecting => "reconnecting",
+            Self::Reconnecting => "reconnecting",
             Self::Online => "online",
             Self::Connecting => "connecting",
         }
     }
 }
 
-/// The contract's five statuses. A detached host is reported as disabled:
-/// either way this client holds no connection to it until the user asks.
-impl From<Availability> for ClientEndpointStatus {
-    fn from(availability: Availability) -> Self {
-        match availability {
-            Availability::Disabled | Availability::Detached => Self::Disabled,
-            Availability::DaemonOutdated
-            | Availability::ClientOutdated
-            | Availability::NeedsUser => Self::Attention,
-            Availability::Reconnecting => Self::Reconnecting,
-            Availability::Online => Self::Online,
-            Availability::Connecting => Self::Connecting,
-        }
-    }
-}
-
 impl Endpoint {
     pub(crate) fn availability(&self) -> Availability {
-        let down = || {
-            if self.live.ssh_failure.is_some_and(SshFailure::needs_user) {
-                Availability::NeedsUser
-            } else {
-                Availability::Reconnecting
-            }
-        };
         if !self.enabled {
             Availability::Disabled
         } else if self.detached {
@@ -74,21 +49,14 @@ impl Endpoint {
             }
         } else if self.outage.is_some() {
             // Before `live`: a stopped handle can precede its disconnect state.
-            down()
+            Availability::Reconnecting
         } else if self.live.status.is_connected() {
             Availability::Online
         } else if self.live.error.is_some() {
-            down()
+            Availability::Reconnecting
         } else {
             Availability::Connecting
         }
-    }
-
-    /// As if this endpoint's connection had asked for its surface, for tests
-    /// outside this module that present a host without a handshake.
-    #[cfg(test)]
-    pub(crate) fn assume_surface_requested(&mut self) {
-        self.initial_surface = true;
     }
 
     pub fn status(&self) -> &'static str {
@@ -96,10 +64,10 @@ impl Endpoint {
     }
 
     /// Whether the user can act on this host now: what it shows is current,
-    /// and a navigation to it can be shown. Stepping, the agent picker, the
-    /// client report, and jumps all ask this one question, as the Herdr
-    /// fork's terminal client asks its endpoint status. The panel's order asks
-    /// upstream's: whether the host's connection is up.
+    /// and a navigation to it can be shown. Stepping and the agent picker
+    /// ask this one question, as the Herdr fork's terminal client asks its
+    /// endpoint status. The panel's order asks upstream's: whether the host's
+    /// connection is up.
     pub(crate) fn online(&self) -> bool {
         self.availability() == Availability::Online
     }

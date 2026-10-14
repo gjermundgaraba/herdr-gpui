@@ -5,7 +5,7 @@
 //! name, and the compact strings below are what its serde derives emit for
 //! `EndpointPickOpen`, `EndpointPickClose`, and `UiPickResolveParams`.
 
-use herdr_protocol::{Error, pick::*};
+use herdr_protocol::pick::*;
 use serde_json::{Value, json};
 
 const OPEN: &str = include_str!("fixtures/endpoint-pick-open-v1.json");
@@ -45,7 +45,7 @@ fn kinds_are_the_daemons() {
 
 #[test]
 fn pick_open_fixture_decodes_and_round_trips() {
-    let decoded = decode_open(OPEN).unwrap();
+    let decoded = serde_json::from_str::<EndpointPickOpen>(OPEN).unwrap();
     assert_eq!(decoded, open());
     assert_eq!(
         serde_json::to_value(&decoded).unwrap(),
@@ -60,7 +60,9 @@ fn pick_open_fixture_decodes_and_round_trips() {
 
 #[test]
 fn pick_open_optionals_default_and_unknown_fields_are_tolerated() {
-    let minimal = decode_open(r#"{"pick_id":"p","title":"","items":[]}"#).unwrap();
+    let minimal =
+        serde_json::from_str::<EndpointPickOpen>(r#"{"pick_id":"p","title":"","items":[]}"#)
+            .unwrap();
     assert_eq!(
         minimal,
         EndpointPickOpen {
@@ -76,7 +78,7 @@ fn pick_open_optionals_default_and_unknown_fields_are_tolerated() {
         r#"{"pick_id":"p","title":"","items":[]}"#
     );
     // Generation 1 grows by optional fields; a newer daemon's are ignored.
-    let newer = decode_open(
+    let newer = serde_json::from_str::<EndpointPickOpen>(
         r#"{"pick_id":"p","title":"t","items":[{"id":"a","label":"A","icon":"x"}],"multi":true,"selected":null,"create":null}"#,
     )
     .unwrap();
@@ -86,7 +88,7 @@ fn pick_open_optionals_default_and_unknown_fields_are_tolerated() {
 
 #[test]
 fn pick_close_fixture_decodes_and_round_trips() {
-    let decoded = decode_close(CLOSE).unwrap();
+    let decoded = serde_json::from_str::<EndpointPickClose>(CLOSE).unwrap();
     assert_eq!(
         decoded,
         EndpointPickClose {
@@ -131,9 +133,7 @@ fn resolve_params_fixture_covers_every_outcome() {
 }
 
 #[test]
-fn malformed_pick_payloads_are_typed_errors() {
-    use std::error::Error as _;
-
+fn malformed_pick_payloads_do_not_decode() {
     for data in [
         "",
         "not json",
@@ -150,19 +150,14 @@ fn malformed_pick_payloads_are_typed_errors() {
         r#"{"pick_id":"p","title":"t","items":[],"create":{}}"#,
         r#"{"pick_id":"p","title":"t","items":[]} trailing"#,
     ] {
-        let error = decode_open(data).expect_err(data);
-        assert!(matches!(error, Error::PickPayload(_)), "{data}");
-        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
         assert!(
-            error
-                .source()
-                .is_some_and(|source| source.is::<serde_json::Error>()),
+            serde_json::from_str::<EndpointPickOpen>(data).is_err(),
             "{data}"
         );
     }
     for data in ["", "{}", r#"{"pick_id":null}"#, r#"{"pick_id":["p"]}"#] {
         assert!(
-            matches!(decode_close(data), Err(Error::PickPayload(_))),
+            serde_json::from_str::<EndpointPickClose>(data).is_err(),
             "{data}"
         );
     }

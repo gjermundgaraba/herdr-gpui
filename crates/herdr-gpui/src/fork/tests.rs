@@ -1,16 +1,10 @@
 //! The fork mailbox: each named control goes to the feature that reads it,
-//! and every event neither keeps reaches the live state.
+//! and every event no feature keeps reaches the live state.
 
 use super::*;
-use herdr_client::protocol::{
-    ClientShellSnapshot,
-    clients::{CLIENT_JUMP_KIND, decode_jump},
-    endpoint::EndpointServerWelcome,
-    pick::PICK_OPEN_KIND,
-};
+use herdr_client::protocol::{ClientShellSnapshot, pick::PICK_OPEN_KIND};
+use serde_json::json;
 
-const JUMP: &str =
-    include_str!("../../../herdr-protocol/tests/fixtures/endpoint-client-jump-v1.json");
 const PICK_OPEN: &str =
     include_str!("../../../herdr-protocol/tests/fixtures/endpoint-pick-open-v1.json");
 
@@ -21,19 +15,14 @@ fn raw(kind: &str, data: &str) -> ClientEvent {
     }
 }
 
-/// A mailbox whose daemon offers the jump's answer and has sent a snapshot.
+/// A mailbox whose daemon has sent a snapshot, which names the boot a
+/// picker's answer needs.
 fn ready() -> Inbox {
-    let mut welcome: EndpointServerWelcome = serde_json::from_str(include_str!(
-        "../../../herdr-protocol/tests/fixtures/endpoint-welcome-v1.json"
-    ))
-    .unwrap();
-    welcome.methods.push("client.jump.resolve".into());
     let snapshot: ClientShellSnapshot = serde_json::from_str(include_str!(
         "../../../herdr-protocol/tests/fixtures/endpoint-snapshot-v1.json"
     ))
     .unwrap();
     let mut inbox = Inbox::default();
-    assert!(inbox.apply(ClientEvent::Connected(welcome)).is_some());
     assert!(
         inbox
             .apply(ClientEvent::Snapshot(Arc::new(snapshot)))
@@ -43,16 +32,14 @@ fn ready() -> Inbox {
 }
 
 #[test]
-fn each_control_reaches_the_feature_that_reads_it() {
+fn the_picker_control_reaches_the_picker() {
     let mut inbox = ready();
     assert!(inbox.apply(raw(PICK_OPEN_KIND, PICK_OPEN)).is_none());
-    assert!(inbox.apply(raw(CLIENT_JUMP_KIND, JUMP)).is_none());
     assert!(inbox.picks.take().open.is_some());
-    assert_eq!(inbox.clients.take_jump(), Some(decode_jump(JUMP).unwrap()));
 }
 
 #[test]
-fn a_control_neither_reads_reaches_the_live_state_unread() {
+fn a_control_no_feature_reads_reaches_the_live_state_unread() {
     let mut inbox = ready();
     let passed = inbox.apply(raw("endpoint.agent-completions.v1", "not json"));
     assert!(matches!(
@@ -66,5 +53,17 @@ fn a_control_neither_reads_reaches_the_live_state_unread() {
     state.apply(raw("endpoint.agent-completions.v1", "{}"));
     assert!(!state.dirty);
     assert!(inbox.picks.take().open.is_none());
-    assert_eq!(inbox.clients.take_jump(), None);
+}
+
+#[test]
+fn an_answer_mark_unread_follows_still_reaches_the_live_state() {
+    let mut inbox = Inbox::default();
+    let answer = ClientEvent::Response {
+        request_id: "gpui-3".into(),
+        response: json!({"id": "gpui-3", "error": {"code": "agent_not_idle"}}),
+    };
+    assert!(matches!(
+        inbox.apply(answer),
+        Some(ClientEvent::Response { request_id, .. }) if request_id == "gpui-3"
+    ));
 }

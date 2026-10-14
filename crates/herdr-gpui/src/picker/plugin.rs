@@ -32,14 +32,12 @@ use crate::HerdrWindow;
 use gpui::{Context, Window};
 use herdr_client::{
     ClientEvent, ClientHandle, ForkMethod, Method,
-    protocol::{
-        clients::MAX_ENDPOINT_COMMAND_BYTES,
-        pick::{
-            EndpointPickOpen, PICK_CLOSE_KIND, PICK_OPEN_KIND, UiPickOutcome, UiPickResolveParams,
-            decode_close, decode_open,
-        },
+    protocol::pick::{
+        EndpointPickClose, EndpointPickOpen, MAX_ENDPOINT_COMMAND_BYTES, PICK_CLOSE_KIND,
+        PICK_OPEN_KIND, UiPickOutcome, UiPickResolveParams,
     },
 };
+use serde_json::json;
 use std::sync::{Arc, Mutex, Weak};
 
 /// A picker the daemon asked for, with the boot it was asked under: the
@@ -102,7 +100,7 @@ impl Inbox {
     pub(crate) fn apply(&mut self, event: ClientEvent) -> Option<ClientEvent> {
         match event {
             ClientEvent::Control { kind, data } if kind == PICK_OPEN_KIND => {
-                let Ok(open) = decode_open(&data) else {
+                let Ok(open) = serde_json::from_str::<EndpointPickOpen>(&data) else {
                     tracing::warn!(category = "pick_open", "malformed control ignored");
                     return None;
                 };
@@ -119,7 +117,7 @@ impl Inbox {
                 None
             }
             ClientEvent::Control { kind, data } if kind == PICK_CLOSE_KIND => {
-                let Ok(close) = decode_close(&data) else {
+                let Ok(close) = serde_json::from_str::<EndpointPickClose>(&data) else {
                     tracing::warn!(category = "pick_close", "malformed control ignored");
                     return None;
                 };
@@ -260,11 +258,16 @@ impl PluginPick {
 /// daemon reads before it closes the connection. Created text is the user's
 /// own and a picked id the plugin's, so either can outgrow one. The answer is
 /// measured as `ClientHandle::request` writes it, escaping included, as the
-/// terminal client measures its own.
+/// terminal client measures its own, and under the longest request id the
+/// handle gives, so it fits under whatever id it is sent with.
 fn fits(params: &UiPickResolveParams) -> bool {
     serde_json::to_value(params).is_ok_and(|params| {
-        crate::fork::lane_request_len(ForkMethod::UiPickResolve, &params)
-            <= MAX_ENDPOINT_COMMAND_BYTES
+        let request = json!({
+            "id": format!("gpui-{}", u64::MAX),
+            "method": Method::Fork(ForkMethod::UiPickResolve).as_str(),
+            "params": params,
+        });
+        request.to_string().len() <= MAX_ENDPOINT_COMMAND_BYTES
     })
 }
 

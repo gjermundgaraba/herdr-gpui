@@ -102,7 +102,7 @@ fn an_answer_too_long_to_send_is_reported_and_the_plugin_is_cancelled(
     cx: &mut gpui::TestAppContext,
 ) {
     let (mut first, _second, view, cx) = window_with_two_connections(cx);
-    let limit = herdr_client::protocol::clients::MAX_ENDPOINT_COMMAND_BYTES;
+    let limit = herdr_client::protocol::pick::MAX_ENDPOINT_COMMAND_BYTES;
     let mut create = |pick_id: &str, text: &str, cx: &mut VisualTestContext| {
         deliver(&view, 0, open(pick_id, true), cx);
         let search = view.read_with(cx, |view, _| shown(view).unwrap().search.clone());

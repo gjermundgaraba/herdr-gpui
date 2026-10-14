@@ -74,7 +74,7 @@ fn mark_unread_asks_the_selected_host_about_its_focused_pane(cx: &mut gpui::Test
             project_until(view, cx, "the refusal", |view| view.live.error.is_some());
             assert_eq!(view.live.error.as_deref(), Some(REFUSAL));
             // The answer is followed, and a refusal confirms nothing.
-            view.tick_client_contract(Instant::now(), cx);
+            view.tick_mark_unread(cx);
             assert!(view.flash.is_none());
             assert_eq!(
                 view.live.status_text(view.local_error.as_deref()),
@@ -102,7 +102,7 @@ fn mark_unread_asks_the_selected_host_about_its_focused_pane(cx: &mut gpui::Test
     // Sent is not accepted: nothing is said until the daemon answers.
     cx.update(|_, cx| {
         view.update(cx, |view, cx| {
-            view.tick_client_contract(Instant::now(), cx);
+            view.tick_mark_unread(cx);
             assert!(view.flash.is_none());
         })
     });
@@ -110,14 +110,14 @@ fn mark_unread_asks_the_selected_host_about_its_focused_pane(cx: &mut gpui::Test
     cx.update(|_, cx| {
         view.update(cx, |view, cx| {
             wait_until(|| {
-                view.tick_client_contract(Instant::now(), cx);
+                view.tick_mark_unread(cx);
                 view.flash.is_some()
             });
             let said = view.flash.as_ref().map(|(flash, _)| flash.clone());
             assert_eq!(said, Some(crate::window::Flash::success("Marked unread")));
             // Said once: the answer is not read again on the next tick.
             view.flash = None;
-            view.tick_client_contract(Instant::now(), cx);
+            view.tick_mark_unread(cx);
             assert!(view.flash.is_none());
         })
     });

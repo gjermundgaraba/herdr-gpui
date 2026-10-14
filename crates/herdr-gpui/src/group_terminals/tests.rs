@@ -11,8 +11,6 @@ use herdr_client::protocol::{
 };
 use std::sync::Arc;
 
-mod client_jump;
-mod client_report;
 mod idle_reassert;
 mod padding;
 mod plugin_picks;

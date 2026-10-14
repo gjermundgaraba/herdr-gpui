@@ -1,9 +1,7 @@
 //! The `agent.mark_unread` request, against the Herdr fork's fixture.
 
 use super::*;
-use crate::client_contract::follow::mark_unread;
-use herdr_client::{ForkMethod, Method};
-use serde_json::{Value, json};
+use herdr_client::protocol::AgentStatus;
 
 fn snapshot() -> ClientShellSnapshot {
     serde_json::from_str(include_str!(

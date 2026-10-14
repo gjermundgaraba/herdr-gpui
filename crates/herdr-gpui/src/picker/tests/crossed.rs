@@ -5,8 +5,7 @@
 use super::*;
 
 /// Replies to the request `peer` reads next, which must be `method`, with
-/// `error`, and hands the reply to the connection's mailboxes as its reader
-/// does.
+/// `error`, and hands the reply to the connection as its reader does.
 fn refuse(
     peer: &mut MockPeer,
     view: &Entity<HerdrWindow>,
@@ -18,9 +17,7 @@ fn refuse(
     assert_eq!(request["method"], method);
     let id = request["id"].as_str().unwrap();
     let reply = peer.respond(BOOT, id, &json!({"id": id, "error": error}));
-    view.update(cx, |view, _| {
-        view.endpoints[0].connection.mailboxes().deliver(reply);
-    });
+    view.update(cx, |view, _| feed(&view.endpoints[0].connection, reply));
 }
 
 /// The daemon error the first connection's live state holds for the status bar.
