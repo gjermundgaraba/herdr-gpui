@@ -401,6 +401,10 @@ impl Config {
     {
         self.resolve_fonts_with(installed, resolves_platform_alias);
         self.check_font_weight(font_weight::platform_has_weight);
+        self.check_color_fonts(
+            super::color_fonts::platform_has_color,
+            super::color_fonts::platform_coverage,
+        );
     }
 
     /// Records whether the terminal's family lacks a face at its configured

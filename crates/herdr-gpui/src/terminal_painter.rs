@@ -1,4 +1,5 @@
 mod area;
+mod color_glyphs;
 mod decorations;
 mod glyphs;
 mod graphics;
@@ -7,6 +8,7 @@ mod images;
 
 use self::area::whole;
 pub(crate) use self::area::{Layer, Part, Span, cell_ranges, clip, covers};
+use self::color_glyphs::paint_glyphs;
 #[cfg(test)]
 use self::decorations::decoration_offsets;
 pub(crate) use self::decorations::decoration_spans;
@@ -18,7 +20,7 @@ pub(crate) use self::grid::Ground;
 use self::grid::{background_extent, grid_corners, grid_rect, last_row_has_separator};
 use self::images::{ImageCache, ImageGeometry, below_text};
 pub(crate) use self::images::{ImageTarget, PlacedImages};
-use crate::config::Theme;
+use crate::config::{ColorGlyphs, Theme};
 use crate::terminal::*;
 use gpui::*;
 use herdr_client::protocol::{CellData, FrameData, PaneSurfacePane, SurfaceRect};
@@ -129,6 +131,7 @@ pub(crate) struct TerminalPainter {
     // Resolved foreground includes reverse, dim and hidden; only bold/italic
     // affect shaping. Decorations remain at exact cell-grid coordinates.
     glyphs: GlyphCache,
+    color_glyphs: ColorGlyphs,
     cell_width: Option<f32>,
     diagnostics: PaintDiagnostics,
     images: ImageCache,
@@ -149,6 +152,7 @@ impl Default for TerminalPainter {
             theme: Theme::default(),
             config: None,
             glyphs: GlyphCache::default(),
+            color_glyphs: ColorGlyphs::default(),
             cell_width: None,
             diagnostics: PaintDiagnostics::new(Instant::now()),
             images: ImageCache::default(),
@@ -186,39 +190,6 @@ fn link_bounds(frame: &FrameData, rows: &[(u16, std::ops::Range<u16>)]) -> Optio
         width: right - left,
         height: bottom - top + 1,
     })
-}
-
-/// `ShapedLine::paint` without its per-call layer, whose BoundsTree insert
-/// would otherwise run once per cell. Glyph placement matches GPUI's.
-fn paint_glyphs(
-    line: &ShapedLine,
-    origin: Point<Pixels>,
-    line_height: Pixels,
-    color: Rgba,
-    window: &mut Window,
-) -> Result<()> {
-    let baseline = origin
-        + point(
-            px(0.),
-            (line_height - line.ascent - line.descent) / 2. + line.ascent,
-        );
-    for run in &line.runs {
-        for glyph in &run.glyphs {
-            let position = baseline + point(glyph.position.x, px(0.));
-            if glyph.is_emoji {
-                window.paint_emoji(position, run.font_id, glyph.id, line.font_size)?;
-            } else {
-                window.paint_glyph(
-                    position,
-                    run.font_id,
-                    glyph.id,
-                    line.font_size,
-                    color.into(),
-                )?;
-            }
-        }
-    }
-    Ok(())
 }
 
 /// Runs of one background in `columns`: start, end, color, and whether it is
@@ -909,7 +880,14 @@ impl TerminalPainter {
                     px((index / usize::from(frame.width)) as f32 * self.cell_height),
                 );
             let color = rgb(cell_colors(cell, &self.theme).0);
-            let result = paint_glyphs(shaped, position, px(self.cell_height), color, window);
+            let result = paint_glyphs(
+                shaped,
+                position,
+                px(self.cell_height),
+                color,
+                &self.color_glyphs,
+                window,
+            );
             paint_errors += u64::from(result.is_err());
             #[cfg(feature = "integration-test")]
             {
@@ -952,7 +930,16 @@ impl TerminalPainter {
                     ),
                     color,
                 ));
-                if paint_glyphs(&line, origin, px(self.cell_height), color, window).is_err() {
+                if paint_glyphs(
+                    &line,
+                    origin,
+                    px(self.cell_height),
+                    color,
+                    &self.color_glyphs,
+                    window,
+                )
+                .is_err()
+                {
                     tracing::warn!(category = "glyph_paint", "IME composition paint failed");
                 }
             });
