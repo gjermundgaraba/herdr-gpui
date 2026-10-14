@@ -1,15 +1,12 @@
 //! The fork's client-lane methods, spelled as the Herdr fork's
-//! `endpoint-client-report-v1.json`, `endpoint-client-jump-resolve-v1.json`
-//! and `endpoint-agent-mark-unread-v1.json` fixtures and its `ui.pick` docs
-//! spell them.
+//! `endpoint-agent-mark-unread-v1.json` fixture and its `ui.pick` docs spell
+//! them.
 
 use super::*;
 
 #[test]
 fn fork_methods_match_the_forks_spelling() {
     for (method, name) in [
-        (ForkMethod::ClientReport, "client.report"),
-        (ForkMethod::ClientJumpResolve, "client.jump.resolve"),
         (ForkMethod::AgentMarkUnread, "agent.mark_unread"),
         (ForkMethod::UiPickResolve, "ui.pick.resolve"),
     ] {
@@ -22,10 +19,7 @@ fn fork_methods_match_the_forks_spelling() {
         assert!(!method.advertised_in(&["client_shell.surface.set".into()]));
         assert!(!method.advertised_in(&[format!("{name}.extra")]));
     }
-    // `client.jump` is the tool's socket API method, never a lane method.
-    let resolve = Method::Fork(ForkMethod::ClientJumpResolve);
-    assert!(!resolve.advertised_in(&["client.jump".into()]));
-    // Nor are the plugin's own `ui.pick` methods.
+    // The plugin's own `ui.pick` methods are not lane methods.
     let resolve = Method::Fork(ForkMethod::UiPickResolve);
     assert!(!resolve.advertised_in(&["ui.pick".into(), "ui.pick.close".into()]));
 }

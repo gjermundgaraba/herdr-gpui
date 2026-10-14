@@ -1,9 +1,9 @@
 //! What an endpoint's connection is doing, as a closed set. The devices list
-//! words it for the user, the client report sends the daemon's coarser
-//! version of it, and navigation asks whether a host can be reached at all.
+//! words it for the user, and navigation asks whether a host can be reached
+//! at all.
 
 use super::Endpoint;
-use herdr_client::{SshFailure, VersionMismatch, protocol::clients::ClientEndpointStatus};
+use herdr_client::{SshFailure, VersionMismatch};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Availability {
@@ -38,22 +38,6 @@ impl Availability {
     }
 }
 
-/// The contract's five statuses. A detached host is reported as disabled:
-/// either way this client holds no connection to it until the user asks.
-impl From<Availability> for ClientEndpointStatus {
-    fn from(availability: Availability) -> Self {
-        match availability {
-            Availability::Disabled | Availability::Detached => Self::Disabled,
-            Availability::DaemonOutdated
-            | Availability::ClientOutdated
-            | Availability::NeedsUser => Self::Attention,
-            Availability::Reconnecting => Self::Reconnecting,
-            Availability::Online => Self::Online,
-            Availability::Connecting => Self::Connecting,
-        }
-    }
-}
-
 impl Endpoint {
     pub(crate) fn availability(&self) -> Availability {
         let down = || {
@@ -84,21 +68,14 @@ impl Endpoint {
         }
     }
 
-    /// As if this endpoint's connection had asked for its surface, for tests
-    /// outside this module that present a host without a handshake.
-    #[cfg(test)]
-    pub(crate) fn assume_surface_requested(&mut self) {
-        self.initial_surface = true;
-    }
-
     pub fn status(&self) -> &'static str {
         self.availability().label()
     }
 
     /// Whether the user can act on this host now: what it shows is current,
-    /// and a navigation to it can be shown. Stepping, the agent picker, the
-    /// client report, and jumps all ask this one question, as the Herdr
-    /// fork's terminal client asks its endpoint status. The panel's order asks
+    /// and a navigation to it can be shown. Stepping and the agent picker
+    /// ask this one question, as the Herdr fork's terminal client asks its
+    /// endpoint status. The panel's order asks
     /// upstream's: whether the host's connection is up.
     pub(crate) fn online(&self) -> bool {
         self.availability() == Availability::Online

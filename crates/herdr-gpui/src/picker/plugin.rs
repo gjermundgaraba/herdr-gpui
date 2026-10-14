@@ -32,12 +32,9 @@ use crate::{HerdrWindow, connection::ConnectionBridge};
 use gpui::{Context, Window};
 use herdr_client::{
     ClientEvent, ClientHandle, ForkMethod, Method,
-    protocol::{
-        clients::MAX_ENDPOINT_COMMAND_BYTES,
-        pick::{
-            EndpointPickOpen, PICK_CLOSE_KIND, PICK_OPEN_KIND, UiPickOutcome, UiPickResolveParams,
-            decode_close, decode_open,
-        },
+    protocol::pick::{
+        EndpointPickOpen, MAX_ENDPOINT_COMMAND_BYTES, PICK_CLOSE_KIND, PICK_OPEN_KIND,
+        UiPickOutcome, UiPickResolveParams, decode_close, decode_open,
     },
 };
 use std::sync::{Arc, Mutex, Weak};

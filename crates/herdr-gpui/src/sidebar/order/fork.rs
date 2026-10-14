@@ -1,7 +1,7 @@
 //! The fork's views of the hosts' agents beside the panel's own: every
-//! enabled host's, whatever the device filter shows, for the client report
-//! and the agent picker, and only the online hosts' for the agent keys. And
-//! the live state the window draws a host from.
+//! enabled host's, whatever the device filter shows, for the agent picker,
+//! and only the online hosts' for the agent keys. And the live state the
+//! window draws a host from.
 
 use super::Row;
 use crate::{HerdrWindow, sidebar::agents::panel_agents, state::LiveState};
@@ -27,15 +27,6 @@ impl HerdrWindow {
             .enumerate()
             .filter(|(_, endpoint)| endpoint.enabled)
             .map(|(index, _)| (index, self.host_live(index)))
-    }
-
-    /// Every enabled host's agents in the panel's order under its current
-    /// sort, as the panel would paint them with the device filter at All
-    /// Devices. The client report lists these: the filter is a view of this
-    /// window, and does not narrow what tools read. The report leaves out the
-    /// rows it cannot describe (see `client_contract::report`).
-    pub(crate) fn reported_agents(&self) -> Vec<(usize, &ClientShellAgent)> {
-        panel_agents(self.enabled_lives(), self.agent_sort)
     }
 
     /// Every enabled host's agents in the panel's priority order, whatever
