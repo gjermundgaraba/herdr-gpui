@@ -266,10 +266,10 @@ impl HerdrWindow {
             .filter(|(group, tab)| Some(*group) != primary && Some(tab) != focused.as_ref())
             .collect();
         let now = Instant::now();
-        self.retain_parked(now, |parked| {
+        let terminals = &mut self.browser.terminals;
+        terminals.parked.retain(|parked| {
             parked.workspace == key && needed.iter().any(|(group, _)| *group == parked.group)
         });
-        let terminals = &mut self.browser.terminals;
         terminals.retry.retain(|(_, at)| now < *at);
         let target = self.endpoints[self.selected_endpoint]
             .connection
@@ -418,8 +418,6 @@ impl HerdrWindow {
             parked.unfocused = false;
             parked.asked = None;
             self.browser.terminals.parked.push(parked);
-        } else {
-            self.retire_connection(parked.connection, Instant::now());
         }
         self.live = self.endpoints[self.selected_endpoint].live.clone();
         if let Some(transfer) = &self.file_transfer {
@@ -663,15 +661,15 @@ impl HerdrWindow {
     /// Drops every parked connection: the window left their workspace or
     /// endpoint.
     pub(crate) fn drop_group_terminals(&mut self) {
-        self.retain_parked(Instant::now(), |_| false);
         let terminals = &mut self.browser.terminals;
+        terminals.parked.clear();
         terminals.primary = None;
     }
 
     /// Forgets `group`'s parked connection; the group closed.
     pub(crate) fn forget_group_terminal(&mut self, group: GroupId) {
-        self.retain_parked(Instant::now(), |parked| parked.group != group);
         let terminals = &mut self.browser.terminals;
+        terminals.parked.retain(|parked| parked.group != group);
         terminals.retry.retain(|(waiting, _)| *waiting != group);
         if terminals.primary == Some(group) {
             terminals.primary = None;

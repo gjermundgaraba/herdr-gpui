@@ -13,6 +13,7 @@
 //! letters act on the list, and in the search they are text.
 
 mod rows;
+mod seen;
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests;
@@ -23,9 +24,10 @@ use super::{
     Source,
     list::{Item, List},
 };
-use crate::{HerdrWindow, client_contract::Fingerprint, navigation::NavigationTarget};
+use crate::{HerdrWindow, navigation::NavigationTarget};
 use gpui::{prelude::*, *};
 use rows::{Host, Row, StatusFilter, Target, View};
+use seen::Fingerprint;
 
 /// Rows Ctrl-D and Ctrl-U move by.
 const PAGE: isize = 8;
@@ -177,7 +179,7 @@ impl HerdrWindow {
         let navigator = Navigator {
             view,
             rows,
-            seen: self.client_report_fingerprint(),
+            seen: self.navigator_fingerprint(),
             notice: None,
         };
         let list = navigator.list();
@@ -217,7 +219,7 @@ impl HerdrWindow {
         let before = picker.list.selected();
         if let Source::Navigator(navigator) = &mut picker.source {
             navigator.rows = self.navigator_rows(&navigator.view);
-            navigator.seen = self.client_report_fingerprint();
+            navigator.seen = self.navigator_fingerprint();
             picker.list = navigator.list();
         }
         let moved = picker.list.selected() != before;
@@ -252,7 +254,7 @@ impl HerdrWindow {
         else {
             return;
         };
-        if navigator.seen != self.client_report_fingerprint() && self.relist_navigator(cx) {
+        if navigator.seen != self.navigator_fingerprint() && self.relist_navigator(cx) {
             self.reveal_navigator_selection();
         }
     }

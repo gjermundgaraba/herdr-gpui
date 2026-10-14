@@ -46,8 +46,8 @@ fn a_fork_method_is_written_when_offered_and_rejected_when_not() {
         .handle
         .request(
             "boot-v1",
-            Method::Fork(ForkMethod::ClientJumpResolve),
-            json!({"jump_id": "jump-3", "outcome": {"type": "timeout"}}),
+            Method::Fork(ForkMethod::AgentMarkUnread),
+            json!({"pane_id": "w1:p1"}),
         )
         .unwrap();
     assert!(matches!(
