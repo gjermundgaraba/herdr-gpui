@@ -207,6 +207,8 @@ pub(super) struct Look {
     pub line_ratio: f32,
     pub cell_ratio: f32,
     pub theme: Theme,
+    /// The codepoints that draw in their font's own colors.
+    pub color_glyphs: crate::config::ColorGlyphs,
 }
 
 /// The rows of `rect` that lie within a `width` by `height` frame.
@@ -247,6 +249,7 @@ pub(super) fn paint_screen(
             let cell_height = size * look.line_ratio;
             let mut painter = painter.borrow_mut();
             painter.set_appearance(size, cell_height, look.theme.clone());
+            painter.set_color_glyphs(&look.color_glyphs);
             let cell_width = painter.cell_width(&look.font, window, cx);
             let height = f32::from(rect.height) * cell_height;
             let rise = (height - f32::from(bounds.size.height)).max(0.);

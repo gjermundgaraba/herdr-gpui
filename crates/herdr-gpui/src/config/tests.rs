@@ -9,6 +9,7 @@ mod client_action_keys;
 mod code;
 mod code_navigation;
 mod code_start;
+mod color_fonts;
 mod default_fonts;
 mod device_footer;
 mod device_icons;
