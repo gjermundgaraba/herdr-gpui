@@ -3,7 +3,7 @@
 //! features:
 //!
 //! - [`Inbox`]: a connection's mailbox for what only the fork reads, the
-//!   plugin picker's controls and answers and the client contract's
+//!   plugin picker's controls and answers and Mark Agent Unread's answers
 //! - [`ForkState`]: what a window keeps for them
 //! - [`HerdrWindow::tick_fork`]: their part of a window tick
 //! - [`HerdrWindow::run_fork_command`]: the commands the fork adds
@@ -12,15 +12,12 @@
 //! still unread: each feature's mailbox decodes the kinds it owns.
 
 use crate::{
-    HerdrWindow, client_contract, connection::ConnectionBridge, controls::ForkCommand, picker,
+    HerdrWindow, connection::ConnectionBridge, controls::ForkCommand, mark_unread, picker,
 };
 use gpui::{Context, Window};
 use herdr_client::{ClientEvent, ForkMethod, Method};
 use serde_json::{Value, json};
-use std::{
-    sync::{Arc, Mutex, Weak},
-    time::Instant,
-};
+use std::sync::{Arc, Mutex, Weak};
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
@@ -41,17 +38,16 @@ mod tests;
 pub(crate) struct Inbox {
     /// The `ui.pick` picker the daemon asked this connection to show.
     pub(crate) picks: picker::plugin::Inbox,
-    /// What the client contract needs of this connection: whether its daemon
-    /// takes reports, and the answers to the requests the contract sent.
-    pub(crate) clients: client_contract::Inbox,
+    /// The `agent.mark_unread` requests the window follows to their answer.
+    pub(crate) unread: mark_unread::Inbox,
 }
 
 impl Inbox {
     /// Keeps the events the fork waits for and passes every other one on.
     pub(crate) fn apply(&mut self, event: ClientEvent) -> Option<ClientEvent> {
-        self.picks
-            .apply(event)
-            .and_then(|event| self.clients.apply(event))
+        let event = self.picks.apply(event)?;
+        self.unread.observe(&event);
+        Some(event)
     }
 }
 
@@ -60,8 +56,6 @@ impl Inbox {
 pub(crate) struct ForkState {
     /// The picker on the menu's picker page, and whoever waits on its answer.
     pub(crate) picker: Option<picker::Picker>,
-    /// What this window last told its local daemon about itself.
-    pub(crate) client_contract: client_contract::ClientContract,
 }
 
 impl ConnectionBridge {
@@ -78,9 +72,26 @@ impl HerdrWindow {
     pub(crate) fn tick_fork(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // A picker is answered on the connection that asked for it.
         self.poll_picker(window, cx);
-        // The report goes out on one connection, and says what every host
-        // shows after this tick's updates.
-        self.tick_client_contract(Instant::now(), cx);
+        self.tick_mark_unread(cx);
+    }
+
+    /// Every connection this window holds: each endpoint's own, and each
+    /// editor group's parked one. Each is a client of its own to its daemon,
+    /// so anything a daemon addresses to one client may arrive on any of them.
+    pub(crate) fn connections(&self) -> impl Iterator<Item = &ConnectionBridge> {
+        self.endpoints
+            .iter()
+            .map(|endpoint| &endpoint.connection)
+            .chain(self.parked_connections())
+    }
+
+    /// The connection whose fork mailbox is `mailbox`, while the window holds
+    /// it. A bridge replaces its mailboxes when it reconnects, so a mailbox
+    /// names one connection for its whole life, wherever the window keeps it
+    /// meanwhile.
+    pub(crate) fn connection_of(&self, mailbox: &Weak<Mutex<Inbox>>) -> Option<&ConnectionBridge> {
+        self.connections()
+            .find(|connection| connection.owns(mailbox))
     }
 
     /// Runs one of the commands the fork adds.

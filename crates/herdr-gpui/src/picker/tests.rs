@@ -44,9 +44,8 @@ impl MockPeer {
     /// Stalls the connection behind a request this peer leaves unanswered,
     /// then fills its command queue behind that for good: until the worker
     /// has taken the one command it keeps beside the request in flight, it
-    /// frees a slot whenever it runs. Returns the stalled request. The
-    /// client contract's tests use it too.
-    pub(crate) fn stall_commands(&mut self, boot_id: &str) -> Value {
+    /// frees a slot whenever it runs. Returns the stalled request.
+    pub(super) fn stall_commands(&mut self, boot_id: &str) -> Value {
         /// 64 queued commands and the one the worker keeps, as `herdr-client`
         /// documents its bound.
         const HELD_COMMANDS: usize = 65;

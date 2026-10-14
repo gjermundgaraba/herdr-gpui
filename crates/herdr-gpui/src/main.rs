@@ -16,7 +16,6 @@ mod browser;
 mod caffeine;
 mod checkpoint;
 mod cli;
-mod client_contract;
 mod close_modal;
 // `cloud` is the machinery every provider shares; alone it offers nothing to add.
 #[cfg(all(
@@ -74,6 +73,7 @@ mod listening_ports;
 mod local_path;
 mod log_window;
 mod login_env;
+mod mark_unread;
 mod menu;
 mod menus;
 mod merged_cleanup;

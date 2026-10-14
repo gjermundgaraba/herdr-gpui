@@ -1,5 +1,5 @@
 //! Mark Agent Unread as a command; its request is tested with the code that
-//! sends it, in `client_contract/tests/mark_unread.rs`.
+//! sends it, in `mark_unread/tests/request.rs`.
 
 use super::*;
 

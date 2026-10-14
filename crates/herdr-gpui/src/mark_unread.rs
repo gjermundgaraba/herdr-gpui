@@ -4,16 +4,80 @@
 //! through the live state and nothing else depends on it. An accepted
 //! `agent.mark_unread` is worth a word, because nothing on screen changes
 //! until the user leaves the pane, so that request is followed: the id is
-//! registered in the connection's contract mailbox under the lock it was
-//! queued under, the mailbox notes when the daemon accepts it, and the window
+//! registered in the connection's [`Inbox`] under the lock it was queued
+//! under, the mailbox notes when the daemon accepts it, and the window
 //! collects that on a later tick.
 //!
 //! The Herdr fork's terminal client sends `agent.mark_unread` in
 //! `src/client/shell/mark_unread.rs`.
 
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests;
+
 use crate::HerdrWindow;
-use herdr_client::{ForkMethod, Method, SendError, protocol::ClientShellSnapshot};
+use herdr_client::{ClientEvent, ForkMethod, Method, SendError, protocol::ClientShellSnapshot};
 use serde_json::{Value, json};
+
+/// One connection's followed requests, filled by its event reader and read
+/// by the window. Every event passes on to the live state, so a refusal
+/// shows like any other.
+///
+/// A request is kept until its answer or its rejection is filed, or the
+/// connection goes. Each waits behind the connection's one request in
+/// flight, so there can be several; [`crate::fork::Inbox`] says what bounds
+/// them.
+#[derive(Debug, Default)]
+pub(crate) struct Inbox {
+    followed: Vec<String>,
+    /// Whether the daemon accepted one of `followed` since the window last
+    /// asked.
+    accepted: bool,
+}
+
+impl Inbox {
+    /// Notes the answers to followed requests. A new boot forgets no
+    /// request: the worker refuses what was queued for the old boot one by
+    /// one, after the snapshot that names the new one, and each refusal has
+    /// to find its request here.
+    pub(crate) fn observe(&mut self, event: &ClientEvent) {
+        match event {
+            ClientEvent::Disconnected { .. } => *self = Self::default(),
+            ClientEvent::Response {
+                request_id,
+                response,
+            } => {
+                let refused = response.get("error").is_some_and(|error| !error.is_null());
+                self.record(request_id, !refused);
+            }
+            ClientEvent::CommandRejected {
+                request_id: Some(request_id),
+                ..
+            } => self.record(request_id, false),
+            _ => {}
+        }
+    }
+
+    /// Ends the following of `request`, when the window follows it, and
+    /// keeps for the window whether the daemon accepted it.
+    fn record(&mut self, request: &str, accepted: bool) {
+        if let Some(index) = self.followed.iter().position(|id| id == request) {
+            self.followed.remove(index);
+            self.accepted |= accepted;
+        }
+    }
+
+    /// Follows `request` to its answer. Called under the same lock as the
+    /// queueing, so even an immediate rejection finds it.
+    fn follow(&mut self, request: String) {
+        self.followed.push(request);
+    }
+
+    /// Whether the daemon accepted a followed request since the last call.
+    fn take_accepted(&mut self) -> bool {
+        std::mem::take(&mut self.accepted)
+    }
+}
 
 /// `agent.mark_unread` for the focused pane: the daemon holds that agent's
 /// acknowledged completion, so its badge comes back, for every client, once
@@ -21,7 +85,7 @@ use serde_json::{Value, json};
 ///
 /// Whether the pane has an agent, and whether that agent is idle, is the
 /// daemon's to decide: it answers `agent_not_found` or `agent_not_idle`.
-pub(super) fn mark_unread(snapshot: &ClientShellSnapshot) -> Option<(Method, Value)> {
+fn mark_unread(snapshot: &ClientShellSnapshot) -> Option<(Method, Value)> {
     let pane_id = snapshot.focused_pane_id.as_deref()?;
     Some((
         Method::Fork(ForkMethod::AgentMarkUnread),
@@ -62,9 +126,18 @@ impl HerdrWindow {
         // written: a queued request leaves any other error shown.
         let mut fork = connection.fork.lock().ok();
         match (handle.request(&snapshot.boot_id, method, params), &mut fork) {
-            (Ok(id), Some(fork)) => fork.clients.follow(id),
+            (Ok(id), Some(fork)) => fork.unread.follow(id),
             (Ok(_), None) => {}
             (Err(error), _) => self.local_error = Some(format!("Mark Agent Unread: {error}")),
+        }
+    }
+
+    /// Says `Marked unread` once a host accepted the request: nothing on
+    /// screen changes until the user leaves the pane. A refusal is the status
+    /// bar's, like any other.
+    pub(crate) fn tick_mark_unread(&mut self, cx: &mut gpui::Context<Self>) {
+        if self.take_accepted_requests() {
+            self.show_flash(crate::window::Flash::success("Marked unread"), cx);
         }
     }
 
@@ -73,12 +146,12 @@ impl HerdrWindow {
     /// up to the first acceptance, so none is said twice. A busy mailbox is
     /// not waited on: it keeps its acceptance for the next tick. A connection
     /// the window let go of took its mailbox, and its answers, with it.
-    pub(super) fn take_accepted_requests(&self) -> bool {
+    fn take_accepted_requests(&self) -> bool {
         self.connections().fold(false, |accepted, connection| {
             let taken = connection
                 .fork
                 .try_lock()
-                .is_ok_and(|mut fork| fork.clients.take_accepted());
+                .is_ok_and(|mut fork| fork.unread.take_accepted());
             accepted | taken
         })
     }

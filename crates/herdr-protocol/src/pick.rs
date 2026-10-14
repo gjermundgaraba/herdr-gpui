@@ -5,6 +5,8 @@
 //! and the `ui.pick.resolve` parameters); Apache-2.0, see NOTICE.md. The JSON
 //! shapes, optional fields and message kinds are unchanged. Only what a
 //! client that shows the picker needs is retained.
+//! [`MAX_ENDPOINT_COMMAND_BYTES`] is the daemon's limit from
+//! `src/server/client_commands.rs`.
 //!
 //! The daemon sends [`EndpointPickOpen`] to the client that should show the
 //! picker and holds the plugin's request open. The client answers with the
@@ -19,6 +21,12 @@ use serde::{Deserialize, Serialize};
 pub const PICK_OPEN_KIND: &str = "endpoint.pick.open.v1";
 /// Server to client: the picker closed without this client's answer.
 pub const PICK_CLOSE_KIND: &str = "endpoint.pick.close.v1";
+
+/// Bytes of JSON one client-lane request may be. The daemon closes a
+/// connection that sends a larger one, so a client measures a request that
+/// may exceed it, as a picker answer that carries created text can, before
+/// sending.
+pub const MAX_ENDPOINT_COMMAND_BYTES: usize = 1024 * 1024;
 
 /// One row of a native picker.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
