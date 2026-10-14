@@ -10,6 +10,7 @@ use crate::{
 pub(crate) mod backdrop;
 mod bitmap_fonts;
 mod coder;
+mod color_fonts;
 mod daytona;
 mod edit;
 mod files;
@@ -32,6 +33,7 @@ pub use backdrop::Backdrop;
 pub use coder::CoderConfig;
 #[cfg(feature = "coder")]
 pub(crate) use coder::CoderFields;
+pub(crate) use color_fonts::ColorGlyphs;
 pub use daytona::DaytonaConfig;
 #[cfg(feature = "daytona")]
 pub(crate) use daytona::DaytonaFields;
@@ -170,6 +172,9 @@ pub struct Config {
     pub(crate) missing_fonts: Vec<String>,
     /// The terminal's configured weight, when its family has no face at it.
     pub(crate) missing_weight: Option<font_weight::MissingWeight>,
+    /// The codepoints the terminal's cascade takes from a color font, which
+    /// the painter draws in their own colors rather than in the text color.
+    pub(crate) color_glyphs: ColorGlyphs,
 }
 
 /// A device list larger than any real catalog is a config mistake.
@@ -478,6 +483,7 @@ impl Default for Config {
             icon_font_missing: false,
             missing_fonts: Vec::new(),
             missing_weight: None,
+            color_glyphs: ColorGlyphs::default(),
             palette: crate::palette::PaletteConfig::default(),
             sidebar: font(monospace, 12.0),
             // Tabs are terminal chrome, so they read in the monospace face the

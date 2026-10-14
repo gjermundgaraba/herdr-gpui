@@ -160,6 +160,16 @@ server's prefix while its profile applies. A local `config.toml` that does
 not parse gives the five no `[keys]` binding until it does, where the
 terminal client keeps the ones it last read.
 
+## Color fonts in the terminal
+
+On macOS, a color font in the GUI config's `[terminal] fallback`, such as an
+`sbix` spinner or icon font, draws the characters it supplies in its own
+colors. Upstream draws every glyph that is not Apple Color Emoji's in the
+text color. A character is the color font's when neither the terminal's
+family nor an earlier fallback has it, as Core Text picks fonts. Linux and
+Windows still draw such fonts in the text color. No daemon support is
+needed.
+
 ## Library additions
 
 ### `herdr-protocol`

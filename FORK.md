@@ -37,12 +37,6 @@ fork.
 Copies of upstream pull requests that no release contains yet. They sit at the
 bottom of the stack, directly above the tag.
 
-- Color fonts in the terminal fallback: `fix/color-font-glyphs`, no pull
-  request yet. An `sbix` or `COLR` font in `[terminal] fallback` draws the
-  codepoints it wins in its own colors on macOS. The copy leaves out the
-  branch's Go To preview wiring, which the release does not have
-  (`crates/herdr-gpui/src/config/color_fonts.rs`,
-  `crates/herdr-gpui/src/terminal_painter/color_glyphs.rs`)
 - Shifted keys in prefix chords: `fix/shifted-workspace-shortcuts`,
   penso/herdr-gpui#557. On macOS, the prefix, its chords, and custom
   command shortcuts match a shifted key such as `prefix+shift+1`, although
@@ -119,6 +113,17 @@ Keep it in step with this list.
   `agent.mark_unread` for the focused pane, keeps no local record, and shows
   "Marked unread" when the daemon accepts it
   (`crates/herdr-gpui/src/mark_unread.rs`)
+- Color fonts in the terminal: on macOS, the codepoints an `sbix` or `COLR`
+  font in `[terminal] fallback` wins are drawn in its own colors, through
+  GPUI's emoji path. Config resolution reads each color fallback's cmap into
+  `Config.color_glyphs`, off the UI thread, and the painter draws those
+  characters in color. It is a local change, not offered upstream for now,
+  and edits upstream's `config.rs`, `config/fonts.rs`, `terminal_painter.rs`,
+  and `window/render.rs` directly. Upstream's Go To preview, which the
+  release does not have yet, needs the same `set_color_glyphs` call as the
+  window; the `fix/color-font-glyphs` branch has it
+  (`crates/herdr-gpui/src/config/color_fonts.rs`,
+  `crates/herdr-gpui/src/terminal_painter/color_glyphs.rs`)
 
 ## Sibling fork: Herdr
 
