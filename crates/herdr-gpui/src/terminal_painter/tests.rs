@@ -3,6 +3,7 @@ use core::prelude::v1::test;
 
 mod backdrop;
 mod cells;
+mod color_fonts;
 mod composition;
 mod diagnostics;
 mod font_weight;
