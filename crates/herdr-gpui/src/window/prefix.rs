@@ -6,11 +6,25 @@
 //!
 //! The daemon's custom command shortcuts are matched here too, after the
 //! keymap's own, and Herdr's resize mode claims every key until it ends.
+//! A shifted key is also tried with the Shift GPUI dropped restored, after
+//! every lookup has missed the key as GPUI named it.
 
 use super::HerdrWindow;
 use crate::controls::Command;
 use gpui::{Context, Keystroke, Subscription, Window};
 use herdr_client::protocol::ClientShellCommandAction;
+
+mod shifted_keys;
+
+pub(crate) use shifted_keys::KeyChars;
+use shifted_keys::Typed;
+pub(super) use shifted_keys::current_layout;
+
+/// What the armed prefix runs for the next key.
+enum Bound {
+    Chord(Command),
+    Custom(String, ClientShellCommandAction),
+}
 
 impl HerdrWindow {
     /// GPUI calls interceptors before any binding or key handler sees the
@@ -30,54 +44,63 @@ impl HerdrWindow {
                 ) {
                     this.shift_taps.cancel();
                 }
-                // Everything matched here sees the function key's name: the
-                // prefix, its chords, custom commands, and resize mode.
-                // GPUI's own bindings still see the unnamed key.
+                // Everything matched here sees the function key's name, and
+                // a shifted key's restored Shift: the prefix, its chords,
+                // custom commands, and resize mode. GPUI's own bindings
+                // still see the key as GPUI named it.
                 let named = super::function_keys::named(&event.keystroke, this.key_press);
-                this.prefix_keystroke(named.as_ref().unwrap_or(&event.keystroke), window, cx);
+                let keystroke = named.as_ref().unwrap_or(&event.keystroke);
+                let restored = shifted_keys::restore(keystroke, this.key_press, this.key_layout);
+                let typed = Typed::new(keystroke, restored);
+                this.prefix_keystroke(&typed, window, cx);
             });
         })
     }
 
-    fn prefix_keystroke(
-        &mut self,
-        keystroke: &Keystroke,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn prefix_keystroke(&mut self, typed: &Typed<'_>, window: &mut Window, cx: &mut Context<Self>) {
         if self.resize_mode {
-            self.resize_keystroke(keystroke, window, cx);
+            self.resize_keystroke(typed, window, cx);
             return;
         }
-        let keymap = self.keymap();
-        let is_prefix = keymap.is_prefix(keystroke);
         if !self.prefix_armed {
-            if is_prefix {
+            // Without the prefix, a key GPUI's bindings or a pane key hold
+            // as GPUI named it is theirs; restoring its Shift must not take
+            // it from them for the prefix or a custom command.
+            let held = |keystroke: &Keystroke| self.keymap().holds_directly(keystroke);
+            let is_prefix =
+                |keystroke: &Keystroke| self.keymap().is_prefix(keystroke).then_some(());
+            if typed.find_unheld(is_prefix, held).is_some() {
                 self.prefix_armed = true;
                 cx.stop_propagation();
                 cx.notify();
             } else if self.menu.page.is_none()
-                && let Some((id, action)) = self.custom_command(keystroke, false)
+                && let Some((id, action)) =
+                    typed.find_unheld(|keystroke| self.custom_command(keystroke, false), held)
             {
                 cx.stop_propagation();
                 self.invoke_custom_command(&id, action, cx);
             }
             return;
         }
-        let chord = keymap.chord(keystroke);
+        let is_prefix = typed.matches(|keystroke| self.keymap().is_prefix(keystroke));
         self.prefix_armed = false;
         cx.notify();
         if is_prefix {
             return;
         }
         cx.stop_propagation();
-        let Some(command) = chord else {
-            if let Some((id, action)) = self.custom_command(keystroke, true) {
-                if self.menu.page.is_some() {
-                    self.dismiss_menu(window, cx);
-                }
-                self.invoke_custom_command(&id, action, cx);
-            }
+        // The keymap's chord, or else a custom command, for the key as GPUI
+        // named it, before either for the restored key, so a custom command
+        // bound to `prefix+!` still wins over a chord on `prefix+shift+1`.
+        let Some(bound) = typed.find(|keystroke| {
+            self.keymap()
+                .chord(keystroke)
+                .map(Bound::Chord)
+                .or_else(|| {
+                    self.custom_command(keystroke, true)
+                        .map(|(id, action)| Bound::Custom(id, action))
+                })
+        }) else {
             return;
         };
         // Commands wait while a menu page holds input, so the chord ends it
@@ -85,7 +108,10 @@ impl HerdrWindow {
         if self.menu.page.is_some() {
             self.dismiss_menu(window, cx);
         }
-        self.command(command, window, cx);
+        match bound {
+            Bound::Chord(command) => self.command(command, window, cx),
+            Bound::Custom(id, action) => self.invoke_custom_command(&id, action, cx),
+        }
     }
 
     /// The selected daemon's custom command `keystroke` runs.
@@ -110,12 +136,8 @@ impl HerdrWindow {
     /// Escape, Enter, or the mode's own shortcut ends it, and anything else
     /// is swallowed. Platform shortcuts such as quitting still work, and a
     /// menu, which takes keys of its own, ends the mode.
-    fn resize_keystroke(
-        &mut self,
-        keystroke: &Keystroke,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn resize_keystroke(&mut self, typed: &Typed<'_>, window: &mut Window, cx: &mut Context<Self>) {
+        let keystroke = typed.keystroke();
         if self.menu.page.is_some() {
             self.resize_mode = false;
             cx.notify();
@@ -127,8 +149,10 @@ impl HerdrWindow {
         cx.stop_propagation();
         let keymap = self.keymap();
         if matches!(keystroke.key.as_str(), "escape" | "enter")
-            || keymap.triggers(Command::ResizeMode, keystroke, true)
-            || keymap.triggers(Command::ResizeMode, keystroke, false)
+            || typed.matches(|keystroke| {
+                keymap.triggers(Command::ResizeMode, keystroke, true)
+                    || keymap.triggers(Command::ResizeMode, keystroke, false)
+            })
         {
             self.resize_mode = false;
             cx.notify();
