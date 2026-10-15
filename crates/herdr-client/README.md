@@ -417,8 +417,9 @@ An application that reaches a host its own way runs the same discovery with
 candidate, its path, its client status, and its `--session` server status
 without starting anything. `probe_candidates(output)` reads those blocks (and the
 Windows probe's) as `ProbeCandidate`s in host order, or `None` when the output
-never finished.
-Discovery has a 15-second deadline and bounded output; startup banners are
+never finished. The probe's own bounds are `PROBE_TIMEOUT` (30 seconds) and
+`PROBE_OUTPUT_LIMIT` (64 KiB).
+The bridge's discovery has a 15-second deadline and bounded output; startup banners are
 removed with upstream's output-ready marker. The bridge's SSH stderr is drained
 on its own thread for the child's life, keeping only a 4 KB tail. When the bridge
 closes before it is ready without naming an incompatible candidate (that is
