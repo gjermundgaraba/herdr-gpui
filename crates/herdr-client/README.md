@@ -432,9 +432,9 @@ source of `Error::SshRefused` and travels on `ClientEvent::Disconnected { ssh }`
 are sanitized and capped at 1024 characters.
 
 The worker owns and kills/reaps its SSH child on every exit, including cancellation
-and handshake failure; no GUI-thread join occurs. Quiet SSH connections send
-`endpoint.health.ping.v1` after five seconds and expire ten seconds after an
-unanswered probe. `ClientHandle::check_liveness` sends a probe at once instead,
+and handshake failure; no GUI-thread join occurs. Quiet remote connections (SSH,
+a bridge, or `Transport::Remote`) send `endpoint.health.ping.v1` after five
+seconds and expire ten seconds after an unanswered probe. `ClientHandle::check_liveness` sends a probe at once instead,
 or brings an outstanding one's deadline forward, and that probe expires after
 three seconds; callers use it when a link may have died unnoticed, as across a
 sleep. Local connections ignore it. Any complete inbound message satisfies a
