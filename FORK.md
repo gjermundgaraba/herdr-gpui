@@ -43,13 +43,13 @@ bottom of the stack, directly above the tag.
   GPUI reports Shift+1 as `!` without Shift
   (`crates/herdr-gpui/src/window/prefix/shifted_keys.rs`)
 - Remote transport and public probe for applications:
-  `feat/app-remote-transport`, no pull request yet. This copy sits at the tip
-  of the stack rather than the bottom, because Herdr Mobile pins it (see
-  Consumers). `Transport::Remote(Stream)` lets an application hand
+  `feat/app-remote-transport` (two commits, copied in order), no pull request
+  yet. Herdr Mobile pins it (see Consumers). `Transport::Remote(Stream)` lets
+  an application hand
   `herdr-client` a stream it connected to a remote daemon itself, with health
   checks and `check_liveness` as for SSH; `probe_command` and
   `probe_candidates` expose the discovery probe, which now names each
-  candidate's path (`crates/herdr-client/src/connect.rs`,
+  candidate's path, with its bounds `PROBE_TIMEOUT` and `PROBE_OUTPUT_LIMIT` (`crates/herdr-client/src/connect.rs`,
   `crates/herdr-client/src/ssh/probe.rs`)
 
 ## What the fork adds
