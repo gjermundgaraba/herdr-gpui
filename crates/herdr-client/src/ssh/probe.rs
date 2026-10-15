@@ -39,7 +39,7 @@ pub enum HostProbe {
 /// One probe block: an installed Herdr executable and what it reported. A
 /// field is `None` when the block lacked it or it did not parse; the caller
 /// decides which fields it needs.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProbeCandidate {
     /// The executable's path on the host.
     pub path: Option<String>,
@@ -174,7 +174,7 @@ pub(super) fn classify_probe_with(
 
 /// `output`'s lines without their `\n` or `\r\n` endings, since a Windows
 /// host's PowerShell ends its lines with both.
-pub(super) fn lines(output: &[u8]) -> impl Iterator<Item = &[u8]> {
+fn lines(output: &[u8]) -> impl Iterator<Item = &[u8]> {
     output
         .split(|b| *b == b'\n')
         .map(|line| line.strip_suffix(b"\r").unwrap_or(line))

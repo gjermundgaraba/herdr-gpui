@@ -451,27 +451,28 @@ without starting anything. `probe_candidates(output)` reads those blocks (and th
 Windows probe's) as `ProbeCandidate`s in host order, or `None` when the output
 never finished. The probe's own bounds are `PROBE_TIMEOUT` (30 seconds) and
 `PROBE_OUTPUT_LIMIT` (64 KiB).
-The bridge's discovery has a 15-second deadline and bounded output; startup banners are
-removed with upstream's output-ready marker. The bridge's SSH stderr is drained
+The bridge's discovery has a 15-second deadline and bounded output; startup banners
+are removed with upstream's output-ready marker. The bridge's SSH stderr is drained
 on its own thread for the child's life, keeping only a 4 KB tail. When the bridge
 closes before it is ready without naming an incompatible candidate (that is
-`Error::BridgeIncompatible`), the tail and the exit code (255 from `ssh`, 127
-when no Herdr was found) are reduced to an `SshFailure`: `HostKey`, `Auth`,
+`Error::BridgeIncompatible`), the tail and the exit code (255 from `ssh`, 127 when
+no Herdr was found) are reduced to an `SshFailure`: `HostKey`, `Auth`,
 `Unreachable`, `HerdrMissing`, or `Other`. The text itself is never retained,
-logged, or exposed, as it may name users, keys, and paths. The class is the
-source of `Error::SshRefused` and travels on `ClientEvent::Disconnected { ssh }`;
-`SshFailure::needs_user` marks the ones retrying cannot fix. Disconnect reasons
-are sanitized and capped at 1024 characters.
+logged, or exposed, as it may name users, keys, and paths. The class is the source
+of `Error::SshRefused` and travels on `ClientEvent::Disconnected { ssh }`;
+`SshFailure::needs_user` marks the ones retrying cannot fix. Disconnect reasons are
+sanitized and capped at 1024 characters.
 
 The worker owns and kills/reaps its SSH child on every exit, including cancellation
-and handshake failure; no GUI-thread join occurs. Quiet remote connections (SSH,
-a bridge, or `Transport::Remote`) send `endpoint.health.ping.v1` after five
-seconds and expire ten seconds after an unanswered probe. `ClientHandle::check_liveness` sends a probe at once instead,
-or brings an outstanding one's deadline forward, and that probe expires after
-three seconds; callers use it when a link may have died unnoticed, as across a
-sleep. Local connections ignore it. Any complete inbound message satisfies a
-probe, independently of the initial-snapshot deadline. As with local connections, continuously drain
-events: event backpressure pauses transport processing, including health checks.
+and handshake failure; no GUI-thread join occurs. Quiet remote connections (SSH, a
+bridge, or `Transport::Remote`) send `endpoint.health.ping.v1` after five seconds
+and expire ten seconds after an unanswered probe. `ClientHandle::check_liveness`
+sends a probe at once instead, or brings an outstanding one's deadline forward, and
+that probe expires after three seconds; callers use it when a link may have died
+unnoticed, as across a sleep. Local connections ignore it. Any complete inbound
+message satisfies a probe, independently of the initial-snapshot deadline. As with
+local connections, continuously drain events: event backpressure pauses transport
+processing, including health checks.
 
 `PortForward::start(target, remote_port)` forwards a saved host's loopback port
 to `127.0.0.1` and returns at once. A worker thread starts one `ssh -N` master
