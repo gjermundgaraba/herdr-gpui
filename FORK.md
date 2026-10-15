@@ -42,6 +42,15 @@ bottom of the stack, directly above the tag.
   command shortcuts match a shifted key such as `prefix+shift+1`, although
   GPUI reports Shift+1 as `!` without Shift
   (`crates/herdr-gpui/src/window/prefix/shifted_keys.rs`)
+- Remote transport and public probe for applications:
+  `feat/app-remote-transport`, no pull request yet. This copy sits at the tip
+  of the stack rather than the bottom, because Herdr Mobile pins it (see
+  Consumers). `Transport::Remote(Stream)` lets an application hand
+  `herdr-client` a stream it connected to a remote daemon itself, with health
+  checks and `check_liveness` as for SSH; `probe_command` and
+  `probe_candidates` expose the discovery probe, which now names each
+  candidate's path (`crates/herdr-client/src/connect.rs`,
+  `crates/herdr-client/src/ssh/probe.rs`)
 
 ## What the fork adds
 
@@ -124,6 +133,18 @@ Keep it in step with this list.
   window; the `fix/color-font-glyphs` branch has it
   (`crates/herdr-gpui/src/config/color_fonts.rs`,
   `crates/herdr-gpui/src/terminal_painter/color_glyphs.rs`)
+
+## Consumers
+
+Other projects build against this fork's crates. Keep what they pin alive.
+
+- Herdr Mobile (`~/ws/pers/herdr-mobile`, local only) depends on
+  `herdr-client` and `herdr-protocol` by git at the local tag
+  `mobile-pin-<date>` on `custom`. A rebase leaves the tagged commit alive, so
+  the app keeps building; move the tag and the app's pin together. The tag
+  and `custom` must be pushed before anyone else builds the app. It uses
+  `Transport::Remote`, `probe_command`, and `probe_candidates` from the
+  pending upstream copy above.
 
 ## Sibling fork: Herdr
 
