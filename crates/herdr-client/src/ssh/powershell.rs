@@ -7,7 +7,7 @@
 //! rest of the stream to `herdr.exe` as the POSIX script does.
 use super::{
     PROBE_CANDIDATE, PROBE_DONE, READY,
-    probe::{WINDOWS_PATH_MARKER as PATH_MARKER, probe_candidates},
+    probe::{ProbeCandidate, WINDOWS_PATH_MARKER as PATH_MARKER},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 
@@ -33,11 +33,10 @@ pub(super) struct Candidate {
     pub(super) status: serde_json::Value,
 }
 
-/// Every candidate block the probe printed, in its order. A block without a
-/// valid path or client status is dropped: it cannot be bridged.
-pub(super) fn candidates(output: &[u8]) -> Vec<Candidate> {
-    probe_candidates(output)
-        .unwrap_or_default()
+/// The probe's candidates that can be bridged: a block without a valid path
+/// or client status cannot.
+pub(super) fn bridgeable(candidates: Vec<ProbeCandidate>) -> Vec<Candidate> {
+    candidates
         .into_iter()
         .filter_map(|candidate| {
             Some(Candidate {

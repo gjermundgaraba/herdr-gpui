@@ -1,9 +1,12 @@
 use super::*;
 use crate::{ConnectTarget, Transport, VersionMismatch, connect_with_connector};
 
-/// Connects through an application connector that returns `transport`, then
-/// answers the handshake as a daemon with health checks would.
-fn connected(transport: impl FnOnce(Stream) -> Transport + Send + 'static) -> (Client, Stream) {
+/// Connects through an application connector that returns `transport`, and
+/// answers the hello with a welcome offering `capabilities`.
+fn welcomed(
+    transport: impl FnOnce(Stream) -> Transport + Send + 'static,
+    capabilities: &[&str],
+) -> (Client, Stream) {
     let (stream, mut server) = Stream::pair().unwrap();
     let client = connect_with_connector(
         ConnectTarget::Socket("/remote/herdr-client.sock".into()),
@@ -18,23 +21,34 @@ fn connected(transport: impl FnOnce(Stream) -> Transport + Send + 'static) -> (C
     receive(&mut server);
     let mut welcome: Value = serde_json::from_str(WELCOME).unwrap();
     welcome["methods"] = json!(["client_shell.surface.set"]);
-    welcome["capabilities"] = json!([
-        "surface_interest",
-        "presentation_effects_fence",
-        "health_check"
-    ]);
-    for (kind, data) in [
-        (ENDPOINT_WELCOME_KIND, welcome.to_string()),
-        (ENDPOINT_SNAPSHOT_KIND, SNAPSHOT.to_string()),
-    ] {
-        send(
-            &mut server,
-            ServerMessage::EndpointControl {
-                kind: kind.into(),
-                data,
-            },
-        );
-    }
+    welcome["capabilities"] = json!(capabilities);
+    send(
+        &mut server,
+        ServerMessage::EndpointControl {
+            kind: ENDPOINT_WELCOME_KIND.into(),
+            data: welcome.to_string(),
+        },
+    );
+    (client, server)
+}
+
+/// [`welcomed`] by a daemon with health checks, through its first snapshot.
+fn connected(transport: impl FnOnce(Stream) -> Transport + Send + 'static) -> (Client, Stream) {
+    let (client, mut server) = welcomed(
+        transport,
+        &[
+            "surface_interest",
+            "presentation_effects_fence",
+            "health_check",
+        ],
+    );
+    send(
+        &mut server,
+        ServerMessage::EndpointControl {
+            kind: ENDPOINT_SNAPSHOT_KIND.into(),
+            data: SNAPSHOT.into(),
+        },
+    );
     assert!(matches!(event(&client), ClientEvent::Connected(_)));
     assert!(matches!(event(&client), ClientEvent::Snapshot(_)));
     (client, server)
@@ -70,27 +84,9 @@ fn a_local_stream_from_a_connector_never_pings() {
 
 #[test]
 fn a_remote_stream_requires_the_daemon_to_offer_health_checks() {
-    let (stream, mut server) = Stream::pair().unwrap();
-    let client = connect_with_connector(
-        ConnectTarget::Socket("/remote/herdr-client.sock".into()),
-        ConnectOptions::default(),
-        false,
-        move |_, _| Ok(Transport::Remote(stream)),
-    )
-    .unwrap();
-    server
-        .set_read_timeout(Some(Duration::from_secs(3)))
-        .unwrap();
-    receive(&mut server);
-    let mut welcome: Value = serde_json::from_str(WELCOME).unwrap();
-    welcome["methods"] = json!(["client_shell.surface.set"]);
-    welcome["capabilities"] = json!(["surface_interest", "presentation_effects_fence"]);
-    send(
-        &mut server,
-        ServerMessage::EndpointControl {
-            kind: ENDPOINT_WELCOME_KIND.into(),
-            data: welcome.to_string(),
-        },
+    let (client, _server) = welcomed(
+        Transport::Remote,
+        &["surface_interest", "presentation_effects_fence"],
     );
     // A local socket would accept this daemon; a remote link without health
     // checks could hang unnoticed, so it is refused as outdated.

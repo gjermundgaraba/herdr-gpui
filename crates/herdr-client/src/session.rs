@@ -531,8 +531,9 @@ pub(crate) fn run_connection(
         let read = reader.bytes.len();
         let message = match reader.poll_batch(&mut stream) {
             // Daemons before the endpoint protocol cannot decode the hello and
-            // close without a word. SSH discovery vets the remote binary first,
-            // so only a local close this early is read as an outdated daemon.
+            // close without a word. On a remote link the close may be the link
+            // itself, and SSH discovery or the application vetted the binary
+            // first, so only a local close this early is an outdated daemon.
             Err(Error::SocketClosed) if session.welcome.is_none() && !remote => {
                 return Err(Error::ClosedBeforeWelcome);
             }
