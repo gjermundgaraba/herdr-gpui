@@ -73,8 +73,9 @@ pub use ssh::script_command;
 pub use ssh::{Bridge, connect_command};
 pub use ssh::{
     Destination, FORWARD_READY, HostKeyFingerprint, HostKeyScan, HostProbe, NewHostKey,
-    ProbeCandidate, SshFailure, forward_command, probe_candidates, probe_command, probe_host,
-    remote_config_value, remote_origin_url, resolve_destination, scan_host_key, trust_host_key,
+    PROBE_OUTPUT_LIMIT, PROBE_TIMEOUT, ProbeCandidate, SshFailure, forward_command,
+    probe_candidates, probe_command, probe_host, remote_config_value, remote_origin_url,
+    resolve_destination, scan_host_key, trust_host_key,
 };
 pub use surface_images::{
     MAX_IMAGE_BYTES, MAX_IMAGE_SIDE, MAX_IMAGES, MAX_PLACEMENTS, SurfaceImage, SurfaceImages,
