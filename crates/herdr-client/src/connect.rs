@@ -58,7 +58,10 @@ pub enum Transport {
     /// health checks and answers [`crate::ClientHandle::check_liveness`],
     /// which link-level keepalives cannot replace because they never reach
     /// the daemon. The caller passes `ConnectTarget::Socket(<remote path>)`,
-    /// since SSH and WSL targets never reach the connector.
+    /// since SSH and WSL targets never reach the connector. A close before the
+    /// welcome is reported as a lost link, never as an outdated daemon, so
+    /// vet the remote binary first, for example with [`crate::probe_command`]
+    /// and [`crate::probe_candidates`].
     Remote(Stream),
 }
 
@@ -115,7 +118,9 @@ pub fn connect_with_connector<T: Into<Transport>>(
             };
             let span = tracing::info_span!("connection", transport);
             let _entered = span.enter();
-            tracing::info!(transport, "connection starting");
+            // The span carries the transport, which a connector may still
+            // turn from "local" into "remote".
+            tracing::info!("connection starting");
             let result = (|| {
                 let (stream, _child, remote) = match &target {
                     ConnectTarget::Ssh { target, session } => {
@@ -130,7 +135,10 @@ pub fn connect_with_connector<T: Into<Transport>>(
                         Transport::Local(stream) => (stream, None, false),
                         Transport::Bridge(Bridge { stream, child }) => (stream, Some(child), true),
                         Transport::Remote(stream) => {
-                            span.record("transport", "remote");
+                            // A cloud target keeps its provider's name.
+                            if transport == "local" {
+                                span.record("transport", "remote");
+                            }
                             (stream, None, true)
                         }
                     },
