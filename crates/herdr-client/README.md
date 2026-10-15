@@ -118,7 +118,12 @@ SSH discovery deadlines are `TimedOut`, cancellation is `Interrupted`.
 Errors are not `Clone`, `PartialEq`, or `Eq`; match their typed variants instead.
 
 `connect_with_connector` also returns `Result<Client>`. Its injected connector
-still returns `io::Result<Stream>` because it is an actual I/O interface.
+still returns an `io::Result` because it is an actual I/O interface, holding a
+`Transport`: `Local(Stream)` for a local socket, `Bridge` for a remote bridge
+child it spawned, or `Remote(Stream)` for a byte-clean stream it connected to a
+remote daemon's client socket itself, such as one end of a socket pair pumped
+through an SSH `direct-streamlocal` channel. Bridge and remote connections
+require `health_check` and answer `check_liveness`; local ones do neither.
 `Stream` is the crate's local endpoint type, re-exported at the root. It is
 `std::os::unix::net::UnixStream` on Unix. On Windows it wraps an `interprocess`
 named pipe, because that is what the Windows daemon binds: upstream maps the
@@ -391,9 +396,10 @@ the new selection has become visible. Call all these APIs on background workers
 and serialize a client's writes. Explicit-socket clients should call none of them.
 
 `connect` remains active by default; `connect_with_surface_active(..., false)`
-starts with an inactive hello. Inactive local connections and all SSH connections
-require `surface_interest`, `presentation_effects_fence`, and the advertised
-`client_shell.surface.set` method. SSH additionally requires `health_check`.
+starts with an inactive hello. Inactive local connections and all SSH and remote
+connections require `surface_interest`, `presentation_effects_fence`, and the
+advertised `client_shell.surface.set` method. SSH and remote connections
+additionally require `health_check`.
 `set_surface_active` queues that API with `{"active": bool}` and returns its
 request ID. Await the matching response and check its API error before treating
 activation as complete. Unsupported or stale requests produce `CommandRejected`.
@@ -406,6 +412,12 @@ the upstream local-bin, Homebrew, and Nix roots. Each candidate is checked with
 `status client --json` for generation and required capabilities before executing
 `--session <session> remote-client-bridge`; advertised bridge idle timeouts are
 enabled. Welcome negotiation validates the actual running daemon again.
+An application that reaches a host its own way runs the same discovery with
+`probe_command(session)`, a `/bin/sh -c` remote command that reports, for each
+candidate, its path, its client status, and its `--session` server status
+without starting anything. `probe_candidates(output)` reads those blocks (and the
+Windows probe's) as `ProbeCandidate`s in host order, or `None` when the output
+never finished.
 Discovery has a 15-second deadline and bounded output; startup banners are
 removed with upstream's output-ready marker. The bridge's SSH stderr is drained
 on its own thread for the child's life, keeping only a 4 KB tail. When the bridge
