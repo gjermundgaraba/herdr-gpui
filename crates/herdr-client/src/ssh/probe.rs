@@ -14,7 +14,10 @@ pub(super) const PROBE_DONE: &str = "herdr-probe:done";
 const POSIX_PATH_MARKER: &str = "herdr-probe:path:";
 /// Precedes a Windows candidate's base64 UTF-8 path.
 pub(super) const WINDOWS_PATH_MARKER: &str = "herdr-windows-path:";
-pub(crate) const PROBE_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long the probe may run before it counts as failed.
+pub const PROBE_TIMEOUT: Duration = Duration::from_secs(30);
+/// The most probe output worth reading; more is not a probe's.
+pub const PROBE_OUTPUT_LIMIT: u64 = 64 * 1024;
 
 /// What a remote host offers for a saved SSH device, learned without
 /// installing, upgrading, or starting anything.
@@ -79,8 +82,15 @@ printf '%s\n' '{PROBE_DONE}'"#,
 /// or `None` when the probe never printed its done marker, so partial output
 /// is not mistaken for a host without Herdr. Lines before the first block,
 /// such as a login banner, are ignored.
+///
+/// After its marker and path, a block holds the client status line, then the
+/// server status line. Each is read by position, so a client command that
+/// printed nothing or garbage leaves `client` empty instead of taking the
+/// server's status.
 pub fn probe_candidates(output: &[u8]) -> Option<Vec<ProbeCandidate>> {
     let mut candidates: Vec<ProbeCandidate> = Vec::new();
+    // How many status lines the current block has had.
+    let mut statuses = 0;
     for line in lines(output) {
         if line == PROBE_DONE.as_bytes() {
             return Some(candidates);
@@ -91,6 +101,7 @@ pub fn probe_candidates(output: &[u8]) -> Option<Vec<ProbeCandidate>> {
                 client: None,
                 server: None,
             });
+            statuses = 0;
             continue;
         }
         let Some(candidate) = candidates.last_mut() else {
@@ -98,17 +109,20 @@ pub fn probe_candidates(output: &[u8]) -> Option<Vec<ProbeCandidate>> {
         };
         if let Some(path) = line.strip_prefix(POSIX_PATH_MARKER.as_bytes()) {
             candidate.path = valid_path(String::from_utf8(path.to_vec()).ok());
-        } else if let Some(encoded) = line.strip_prefix(WINDOWS_PATH_MARKER.as_bytes()) {
+            continue;
+        }
+        if let Some(encoded) = line.strip_prefix(WINDOWS_PATH_MARKER.as_bytes()) {
             let decoded = STANDARD.decode(encoded).ok();
             candidate.path = valid_path(decoded.and_then(|bytes| String::from_utf8(bytes).ok()));
-        } else if let Ok(status) = serde_json::from_slice(line) {
-            // The client status comes first; the server's may be an empty line.
-            match candidate.client {
-                None => candidate.client = Some(status),
-                Some(_) if candidate.server.is_none() => candidate.server = Some(status),
-                Some(_) => {}
-            }
+            continue;
         }
+        let slot = match statuses {
+            0 => &mut candidate.client,
+            1 => &mut candidate.server,
+            _ => continue,
+        };
+        *slot = serde_json::from_slice(line).ok();
+        statuses += 1;
     }
     None
 }

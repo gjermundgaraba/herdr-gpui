@@ -27,12 +27,14 @@ pub use host_key::{HostKeyFingerprint, HostKeyScan, NewHostKey, scan_host_key, t
 #[cfg(unix)]
 mod powershell;
 mod probe;
+pub(crate) use probe::classify_probe;
 #[cfg(windows)]
 pub(crate) use probe::probe_script;
-pub use probe::{HostProbe, ProbeCandidate, probe_candidates, probe_command};
+pub use probe::{
+    HostProbe, PROBE_OUTPUT_LIMIT, PROBE_TIMEOUT, ProbeCandidate, probe_candidates, probe_command,
+};
 #[cfg(unix)]
-use probe::{PROBE_CANDIDATE, PROBE_DONE, classify_probe_with, lines};
-pub(crate) use probe::{PROBE_TIMEOUT, classify_probe};
+use probe::{PROBE_CANDIDATE, PROBE_DONE, classify_probe_with};
 
 const READY: &[u8] = b"herdr-remote-output-ready:1\n";
 
@@ -53,8 +55,6 @@ pub(super) use crate::script::shell_quote as quote;
 pub(super) const CANDIDATES: &str = r#"candidate=$(command -v herdr 2>/dev/null || :)
 case "$candidate" in /*/mise/shims/herdr) candidate=;; /*) ;; *) candidate=;; esac
 for path in "$candidate" "$HOME/.local/bin/herdr" /opt/homebrew/bin/herdr /usr/local/bin/herdr /home/linuxbrew/.linuxbrew/bin/herdr "$HOME/.nix-profile/bin/herdr" "/etc/profiles/per-user/$USER/bin/herdr" /nix/var/nix/profiles/default/bin/herdr /run/current-system/sw/bin/herdr; do"#;
-
-const PROBE_OUTPUT_LIMIT: u64 = 64 * 1024;
 
 #[cfg(unix)]
 fn bridge_command(session: &str) -> String {
@@ -501,10 +501,10 @@ fn connect_powershell(
             &stderr,
         )));
     }
-    if !lines(&output).any(|line| line == PROBE_DONE.as_bytes()) {
+    let Some(candidates) = probe_candidates(&output) else {
         return Err(Error::SshRefused(posix));
-    }
-    let candidates = powershell::candidates(&output);
+    };
+    let candidates = powershell::bridgeable(candidates);
     let Some((path, idle_timeout)) = candidates.iter().find_map(|candidate| {
         powershell::compatible(&candidate.status).map(|idle| (candidate.path.as_str(), idle))
     }) else {
