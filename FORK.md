@@ -37,6 +37,16 @@ fork.
 Copies of upstream pull requests that no release contains yet. They sit at the
 bottom of the stack, directly above the tag.
 
+- Remote transport and public probe for applications:
+  `feat/app-remote-transport` (copied in order), no pull request yet.
+  Herdr Mobile pins it (see Consumers). `Transport::Remote(Stream)` lets an
+  application hand `herdr-client` a stream it connected to a remote daemon
+  itself, with health checks and
+  `check_liveness` as for SSH. `probe_command` and `probe_candidates` expose
+  the discovery probe, whose `ProbeCandidate` names its path, with the
+  probe's bounds `PROBE_TIMEOUT` and `PROBE_OUTPUT_LIMIT`
+  (`crates/herdr-client/src/connect.rs`,
+  `crates/herdr-client/src/ssh/probe.rs`)
 
 ## What the fork adds
 
@@ -120,6 +130,20 @@ Keep it in step with this list.
   `set_color_glyphs` call as the window
   (`crates/herdr-gpui/src/config/color_fonts.rs`,
   `crates/herdr-gpui/src/terminal_painter/color_glyphs.rs`)
+
+## Consumers
+
+Other projects build against this fork's crates. Keep what they pin alive.
+
+- Herdr Mobile (`~/ws/pers/herdr-mobile`, local only) depends on
+  `herdr-client` and `herdr-protocol` by git at a local tag
+  `mobile-pin-<date>[-<n>]` on `custom`. A rebase leaves a tagged commit
+  alive, so the app keeps building. A new pin is a new tag, never a moved
+  one, and older tags stay so earlier app commits still build. The tags and
+  `custom` must be pushed before anyone else builds the app. It uses
+  `Transport::Remote`, `probe_command`, `probe_candidates`, `ProbeCandidate`,
+  `PROBE_TIMEOUT`, and `PROBE_OUTPUT_LIMIT` from the pending upstream copy
+  above.
 
 ## Sibling fork: Herdr
 
