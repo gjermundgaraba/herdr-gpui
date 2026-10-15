@@ -187,7 +187,7 @@ impl Session {
 pub(crate) struct Signals<'a> {
     /// Ends the connection without flushing or replaying anything.
     pub(crate) stop: &'a AtomicBool,
-    /// Asks an SSH link for an immediate health probe.
+    /// Asks a remote link for an immediate health probe.
     pub(crate) liveness: &'a AtomicBool,
 }
 

@@ -7,7 +7,7 @@ pub(crate) const COMMAND_CAPACITY: usize = 64;
 pub(crate) const EVENT_CAPACITY: usize = 8;
 pub(crate) const POLL: Duration = Duration::from_millis(10);
 pub(crate) const TIMEOUT: Duration = Duration::from_secs(10);
-/// How long a quiet SSH link may leave a health ping unanswered.
+/// How long a quiet remote link may leave a health ping unanswered.
 pub(crate) const PING_TIMEOUT: Duration = Duration::from_secs(10);
 /// How long a link asked to prove itself, as after the machine woke, may take.
 pub(crate) const LIVENESS_TIMEOUT: Duration = Duration::from_secs(3);
