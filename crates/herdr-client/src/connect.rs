@@ -30,8 +30,9 @@ pub fn connect(target: ConnectTarget, options: ConnectOptions) -> Result<Client>
 }
 
 /// Connect without changing `ConnectOptions` literals. Inactive connections require
-/// negotiated surface interest and presentation-effect fencing. SSH additionally
-/// requires endpoint health checks. All transport work runs off the caller thread.
+/// negotiated surface interest and presentation-effect fencing. Remote connections
+/// (SSH, a bridge, or `Transport::Remote`) additionally require endpoint health
+/// checks. All transport work runs off the caller thread.
 pub fn connect_with_surface_active(
     target: ConnectTarget,
     options: ConnectOptions,
@@ -118,9 +119,7 @@ pub fn connect_with_connector<T: Into<Transport>>(
             };
             let span = tracing::info_span!("connection", transport);
             let _entered = span.enter();
-            // The span carries the transport, which a connector may still
-            // turn from "local" into "remote".
-            tracing::info!("connection starting");
+            tracing::info!(transport, "connection starting");
             let result = (|| {
                 let (stream, _child, remote) = match &target {
                     ConnectTarget::Ssh { target, session } => {
@@ -135,10 +134,7 @@ pub fn connect_with_connector<T: Into<Transport>>(
                         Transport::Local(stream) => (stream, None, false),
                         Transport::Bridge(Bridge { stream, child }) => (stream, Some(child), true),
                         Transport::Remote(stream) => {
-                            // A cloud target keeps its provider's name.
-                            if transport == "local" {
-                                span.record("transport", "remote");
-                            }
+                            tracing::info!("the connector returned a remote stream");
                             (stream, None, true)
                         }
                     },
