@@ -43,7 +43,7 @@ bottom of the stack, directly above the tag.
   GPUI reports Shift+1 as `!` without Shift
   (`crates/herdr-gpui/src/window/prefix/shifted_keys.rs`)
 - Remote transport and public probe for applications:
-  `feat/app-remote-transport` (two commits, copied in order), no pull request
+  `feat/app-remote-transport` (three commits, copied in order), no pull request
   yet. Herdr Mobile pins it (see Consumers). `Transport::Remote(Stream)` lets
   an application hand
   `herdr-client` a stream it connected to a remote daemon itself, with health
@@ -139,10 +139,11 @@ Keep it in step with this list.
 Other projects build against this fork's crates. Keep what they pin alive.
 
 - Herdr Mobile (`~/ws/pers/herdr-mobile`, local only) depends on
-  `herdr-client` and `herdr-protocol` by git at the local tag
-  `mobile-pin-<date>` on `custom`. A rebase leaves the tagged commit alive, so
-  the app keeps building; move the tag and the app's pin together. The tag
-  and `custom` must be pushed before anyone else builds the app. It uses
+  `herdr-client` and `herdr-protocol` by git at a local tag
+  `mobile-pin-<date>[-<n>]` on `custom`. A rebase leaves a tagged commit
+  alive, so the app keeps building. A new pin is a new tag, never a moved
+  one, and older tags stay so earlier app commits still build. The tags and
+  `custom` must be pushed before anyone else builds the app. It uses
   `Transport::Remote`, `probe_command`, and `probe_candidates` from the
   pending upstream copy above.
 
