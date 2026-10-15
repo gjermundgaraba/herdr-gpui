@@ -57,7 +57,15 @@ impl ProbeCandidate {
 
 /// The probe as an SSH remote command: `/bin/sh -c` and the quoted script.
 /// Run it on a POSIX host however the application reaches it, then read the
-/// output with [`probe_candidates`].
+/// output with [`probe_candidates`], within [`PROBE_TIMEOUT`] and
+/// [`PROBE_OUTPUT_LIMIT`].
+///
+/// ```
+/// let command = herdr_client::probe_command("default");
+/// assert!(command.starts_with("/bin/sh -c "));
+/// let _bounds = (herdr_client::PROBE_TIMEOUT, herdr_client::PROBE_OUTPUT_LIMIT);
+/// assert_eq!(herdr_client::probe_candidates(b"herdr-probe:done\n"), Some(Vec::new()));
+/// ```
 pub fn probe_command(session: &str) -> String {
     format!("/bin/sh -c {}", quote(&probe_script(session)))
 }
