@@ -26,6 +26,13 @@ pub use failure::SshFailure;
 pub use host_key::{HostKeyFingerprint, HostKeyScan, NewHostKey, scan_host_key, trust_host_key};
 #[cfg(unix)]
 mod powershell;
+mod probe;
+#[cfg(windows)]
+pub(crate) use probe::probe_script;
+pub use probe::{HostProbe, ProbeCandidate, probe_candidates, probe_command};
+#[cfg(unix)]
+use probe::{PROBE_CANDIDATE, PROBE_DONE, classify_probe_with, lines};
+pub(crate) use probe::{PROBE_TIMEOUT, classify_probe};
 
 const READY: &[u8] = b"herdr-remote-output-ready:1\n";
 
@@ -47,9 +54,6 @@ pub(super) const CANDIDATES: &str = r#"candidate=$(command -v herdr 2>/dev/null 
 case "$candidate" in /*/mise/shims/herdr) candidate=;; /*) ;; *) candidate=;; esac
 for path in "$candidate" "$HOME/.local/bin/herdr" /opt/homebrew/bin/herdr /usr/local/bin/herdr /home/linuxbrew/.linuxbrew/bin/herdr "$HOME/.nix-profile/bin/herdr" "/etc/profiles/per-user/$USER/bin/herdr" /nix/var/nix/profiles/default/bin/herdr /run/current-system/sw/bin/herdr; do"#;
 
-const PROBE_CANDIDATE: &str = "herdr-probe:candidate";
-const PROBE_DONE: &str = "herdr-probe:done";
-pub(crate) const PROBE_TIMEOUT: Duration = Duration::from_secs(30);
 const PROBE_OUTPUT_LIMIT: u64 = 64 * 1024;
 
 #[cfg(unix)]
@@ -76,97 +80,6 @@ done
 exit 127"#,
         session = quote(session)
     )
-}
-
-/// What a remote host offers for a saved SSH device, learned without
-/// installing, upgrading, or starting anything.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HostProbe {
-    /// SSH could not run a command without prompting: unknown host key,
-    /// password or passphrase authentication, or an unreachable host.
-    SshFailed(SshFailure),
-    /// No Herdr executable was found in the known install locations.
-    Missing,
-    /// Herdr is installed, but no copy speaks this client's endpoint protocol.
-    Outdated,
-    /// A compatible Herdr is installed and its server for the session is down.
-    Stopped,
-    /// A compatible Herdr server for the session is running.
-    Running,
-}
-
-/// Every candidate reports its client and server status, one block each, so
-/// the choice between them stays with the same rules the bridge applies.
-#[cfg(unix)]
-fn probe_command(session: &str) -> String {
-    format!("/bin/sh -c {}", quote(&probe_script(session)))
-}
-
-/// The probe as a script for `/bin/sh -c`.
-pub(crate) fn probe_script(session: &str) -> String {
-    format!(
-        r#"{CANDIDATES}
-    if [ -n "$path" ] && [ -x "$path" ]; then
-        status=$("$path" status client --json </dev/null) || continue
-        server=$("$path" --session {session} status server --json </dev/null) || server=
-        printf '%s\n%s\n%s\n' '{PROBE_CANDIDATE}' "$status" "$server"
-    fi
-done
-printf '%s\n' '{PROBE_DONE}'"#,
-        session = quote(session)
-    )
-}
-
-/// `None` when the script never finished, so partial output is not mistaken
-/// for a host without Herdr.
-pub(crate) fn classify_probe(output: &[u8]) -> Option<HostProbe> {
-    classify_probe_with(output, compatible)
-}
-
-/// [`classify_probe`] with the host's rule for a compatible client status.
-fn classify_probe_with(
-    output: &[u8],
-    compatible: impl Fn(&serde_json::Value) -> Option<bool>,
-) -> Option<HostProbe> {
-    // Each block holds one candidate's client status, then its server status.
-    let mut blocks: Vec<Vec<serde_json::Value>> = Vec::new();
-    for line in lines(output) {
-        if line == PROBE_DONE.as_bytes() {
-            let Some(statuses) = blocks
-                .iter()
-                .find(|statuses| statuses.iter().any(|s| compatible(s).is_some()))
-            else {
-                return Some(if blocks.is_empty() {
-                    HostProbe::Missing
-                } else {
-                    HostProbe::Outdated
-                });
-            };
-            let running = statuses
-                .iter()
-                .any(|s| s["running"].as_bool() == Some(true));
-            return Some(if running {
-                HostProbe::Running
-            } else {
-                HostProbe::Stopped
-            });
-        }
-        if line == PROBE_CANDIDATE.as_bytes() {
-            blocks.push(Vec::new());
-        } else if let (Some(block), Ok(status)) = (blocks.last_mut(), serde_json::from_slice(line))
-        {
-            block.push(status);
-        }
-    }
-    None
-}
-
-/// `output`'s lines without their `\n` or `\r\n` endings, since a Windows
-/// host's PowerShell ends its lines with both.
-fn lines(output: &[u8]) -> impl Iterator<Item = &[u8]> {
-    output
-        .split(|b| *b == b'\n')
-        .map(|line| line.strip_suffix(b"\r").unwrap_or(line))
 }
 
 /// Blocks for at most `PROBE_TIMEOUT`: call it from a background thread.

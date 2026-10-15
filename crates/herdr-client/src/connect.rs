@@ -45,11 +45,21 @@ pub fn connect_with_surface_active(
     })
 }
 
-/// What an application connector produced: a local socket, or a remote bridge
-/// it spawned (see [`crate::connect_command`]) whose child the worker owns.
+/// What an application connector produced: a local socket, a remote bridge it
+/// spawned (see [`crate::connect_command`]) whose child the worker owns, or a
+/// stream it connected to a remote daemon's client socket itself.
 pub enum Transport {
     Local(Stream),
     Bridge(Bridge),
+    /// A byte-clean stream to a remote daemon's client socket, such as one end
+    /// of a socket pair the application pumps through an SSH
+    /// `direct-streamlocal` channel. A PTY would rewrite the bytes, so it must
+    /// not be one. The connection is treated as remote: it requires endpoint
+    /// health checks and answers [`crate::ClientHandle::check_liveness`],
+    /// which link-level keepalives cannot replace because they never reach
+    /// the daemon. The caller passes `ConnectTarget::Socket(<remote path>)`,
+    /// since SSH and WSL targets never reach the connector.
+    Remote(Stream),
 }
 
 impl From<Stream> for Transport {
@@ -107,25 +117,29 @@ pub fn connect_with_connector<T: Into<Transport>>(
             let _entered = span.enter();
             tracing::info!(transport, "connection starting");
             let result = (|| {
-                let (stream, child) = match &target {
+                let (stream, _child, remote) = match &target {
                     ConnectTarget::Ssh { target, session } => {
                         let (stream, child) = ssh::connect(target, session, &worker_stop)?;
-                        (stream, Some(child))
+                        (stream, Some(child), true)
                     }
                     ConnectTarget::Wsl { distro, session } => {
                         let (stream, child) = wsl::connect(distro, session, &worker_stop)?;
-                        (stream, Some(child))
+                        (stream, Some(child), true)
                     }
                     _ => match connector(&target, &worker_stop)?.into() {
-                        Transport::Local(stream) => (stream, None),
-                        Transport::Bridge(Bridge { stream, child }) => (stream, Some(child)),
+                        Transport::Local(stream) => (stream, None, false),
+                        Transport::Bridge(Bridge { stream, child }) => (stream, Some(child), true),
+                        Transport::Remote(stream) => {
+                            span.record("transport", "remote");
+                            (stream, None, true)
+                        }
                     },
                 };
                 run_connection(
                     stream,
                     options,
                     surface_active,
-                    child.is_some(),
+                    remote,
                     rx,
                     &tx,
                     Signals {
