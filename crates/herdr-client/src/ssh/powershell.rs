@@ -5,11 +5,11 @@
 //! base64. Discovery and the bridge are separate connections: PowerShell
 //! buffers stdin it reads, so it cannot answer a handshake and then hand the
 //! rest of the stream to `herdr.exe` as the POSIX script does.
-use super::{PROBE_CANDIDATE, PROBE_DONE, READY};
+use super::{
+    PROBE_CANDIDATE, PROBE_DONE, READY,
+    probe::{WINDOWS_PATH_MARKER as PATH_MARKER, probe_candidates},
+};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-
-/// Precedes each candidate's base64 UTF-8 path, inside its probe block.
-const PATH_MARKER: &str = "herdr-windows-path:";
 
 /// Whether a remote shell exit before the bridge was ready means the host
 /// could not run `/bin/sh`. `ssh` exits 255 for its own failures and the
@@ -33,34 +33,19 @@ pub(super) struct Candidate {
     pub(super) status: serde_json::Value,
 }
 
-/// Every complete candidate block the probe printed, in its order. A block
-/// without a valid path or client status is dropped: it cannot be bridged.
+/// Every candidate block the probe printed, in its order. A block without a
+/// valid path or client status is dropped: it cannot be bridged.
 pub(super) fn candidates(output: &[u8]) -> Vec<Candidate> {
-    let mut candidates = Vec::new();
-    let mut path = None;
-    let mut status = None;
-    for line in super::lines(output) {
-        if line == PROBE_CANDIDATE.as_bytes() || line == PROBE_DONE.as_bytes() {
-            if let (Some(path), Some(status)) = (path.take(), status.take()) {
-                candidates.push(Candidate { path, status });
-            }
-            path = None;
-            status = None;
-            if line == PROBE_DONE.as_bytes() {
-                break;
-            }
-        } else if let Some(encoded) = line.strip_prefix(PATH_MARKER.as_bytes()) {
-            path = decode_path(encoded);
-        } else if status.is_none() {
-            status = serde_json::from_slice(line).ok();
-        }
-    }
-    candidates
-}
-
-fn decode_path(encoded: &[u8]) -> Option<String> {
-    let path = String::from_utf8(STANDARD.decode(encoded).ok()?).ok()?;
-    (!path.is_empty() && !path.chars().any(char::is_control)).then_some(path)
+    probe_candidates(output)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|candidate| {
+            Some(Candidate {
+                path: candidate.path?,
+                status: candidate.client?,
+            })
+        })
+        .collect()
 }
 
 /// [`super::compatible`], plus the bridge upstream requires of a Windows host.
