@@ -4,6 +4,7 @@ use super::*;
 mod command;
 mod forward;
 mod incompatible;
+mod probe_candidates;
 mod probe_failure;
 mod windows_host;
 #[cfg(windows)]
