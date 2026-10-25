@@ -216,6 +216,9 @@ herdr-gpui window list --json          # "front" and "agent" per window
 herdr-gpui events --follow --kind agent --json --after CURSOR
 ```
 
+`--follow` stops when the process that started it exits, so a program that
+follows events leaves no follower behind when it quits or crashes.
+
 ```sh
 herdr-gpui events --follow --kind tab_closed
 herdr-gpui wait tab-closed 12 --timeout 600

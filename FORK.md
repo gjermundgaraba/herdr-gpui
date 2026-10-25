@@ -136,11 +136,15 @@ Keep it in step with this list.
   log keeps while macOS reports no main window because another app is
   active. The `agent` event kind is pushed when that `(window, agent)` pair
   changes. For the Flare launcher, which follows it to choose agent-specific
-  snippets. It edits upstream's control files directly
+  snippets. `events --follow` exits once the process that started it
+  exits, so a follower does not outlive Flare until the next event (macOS
+  reports no hangup on a pipe whose reader is gone). It edits upstream's
+  control files directly
   (`crates/herdr-gpui/src/control/server/events.rs`,
   `crates/herdr-gpui/src/control/server/app.rs`,
   `crates/herdr-gpui/src/control/protocol/events.rs`,
-  `crates/herdr-gpui/src/control/protocol/app.rs`)
+  `crates/herdr-gpui/src/control/protocol/app.rs`,
+  `crates/herdr-gpui/src/control/client/events.rs`)
 
 ## Consumers
 

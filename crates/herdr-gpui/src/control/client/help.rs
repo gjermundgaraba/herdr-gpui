@@ -142,7 +142,7 @@ fn family(name: &str) -> &'static str {
         }
         "bell" => "herdr-gpui bell\n    Ring the system bell, as a terminal bell does.",
         "events" => {
-            "herdr-gpui events [--after CURSOR] [--wait SECONDS] [--kind KIND]... [--follow]\n    What happened since CURSOR, the INSTANCE:SEQ the last call printed:\n    windows and tabs opening and closing, notes, host status, and the agent\n    in the front window's focused pane (`agent`: the window, then the\n    agent's name or nothing). A cursor from an earlier app run gets\n    everything this run kept. --follow keeps printing until interrupted.\n    Kinds: window_opened, window_closed, window_focused, tab_opened,\n    tab_closed, feedback, note, host, agent."
+            "herdr-gpui events [--after CURSOR] [--wait SECONDS] [--kind KIND]... [--follow]\n    What happened since CURSOR, the INSTANCE:SEQ the last call printed:\n    windows and tabs opening and closing, notes, host status, and the agent\n    in the front window's focused pane (`agent`: the window, then the\n    agent's name or nothing). A cursor from an earlier app run gets\n    everything this run kept. --follow keeps printing until interrupted\n    or the process that started it exits.\n    Kinds: window_opened, window_closed, window_focused, tab_opened,\n    tab_closed, feedback, note, host, agent."
         }
         "wait" => {
             "herdr-gpui wait feedback|window|online|tab-closed ID [--timeout SECONDS]\n    Wait (default 60, at most 600 seconds). Exits 4 when time runs out."
