@@ -10,7 +10,7 @@ use crate::{
     controls::{COMMANDS, Command},
 };
 use gpui::{App, Window, px, size};
-use herdr_client::ConnectTarget;
+use herdr_client::{ConnectTarget, protocol::ClientShellSnapshot};
 use std::time::Duration;
 
 /// How long `app quit` waits, so its answer reaches the caller first.
@@ -45,12 +45,24 @@ impl HerdrWindow {
             .collect()
     }
 
-    fn control_info(&self, window: &Window) -> WindowInfo {
+    /// The agent Herdr reports in the focused pane of the selected host,
+    /// whose live state is the window's own. `None` while it is not connected,
+    /// so a stale snapshot never names an agent.
+    pub(crate) fn control_agent(&self) -> Option<String> {
+        if !self.live.status.is_connected() {
+            return None;
+        }
+        focused_agent(self.live.snapshot.as_deref()?)
+    }
+
+    fn control_info(&self, window: &Window, front: Option<u64>) -> WindowInfo {
         let bounds = window.bounds();
+        let id = window.window_handle().window_id().as_u64();
         WindowInfo {
-            id: window.window_handle().window_id().as_u64(),
+            id,
             title: self.title.clone(),
             active: window.is_window_active(),
+            front: front == Some(id),
             fullscreen: window.is_fullscreen(),
             width: f32::from(bounds.size.width),
             height: f32::from(bounds.size.height),
@@ -59,17 +71,30 @@ impl HerdrWindow {
                 .snapshot
                 .as_ref()
                 .and_then(|snapshot| snapshot.focused_workspace_id.clone()),
+            agent: self.control_agent(),
             hosts: self.control_hosts(),
         }
     }
 }
 
+/// The daemon's `agent` for the snapshot's focused pane, such as `claude`.
+fn focused_agent(snapshot: &ClientShellSnapshot) -> Option<String> {
+    let pane = snapshot.focused_pane_id.as_ref()?;
+    snapshot
+        .agents
+        .iter()
+        .find(|agent| &agent.pane_id == pane)?
+        .agent
+        .clone()
+}
+
 fn windows(cx: &mut App) -> Vec<WindowInfo> {
+    let front = super::events::front_window(cx);
     main_windows(cx)
         .into_iter()
         .filter_map(|handle| {
             handle
-                .update(cx, |view, window, _| view.control_info(window))
+                .update(cx, |view, window, _| view.control_info(window, front))
                 .ok()
         })
         .collect()

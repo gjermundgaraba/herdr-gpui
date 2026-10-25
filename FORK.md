@@ -130,6 +130,17 @@ Keep it in step with this list.
   `set_color_glyphs` call as the window
   (`crates/herdr-gpui/src/config/color_fonts.rs`,
   `crates/herdr-gpui/src/terminal_painter/color_glyphs.rs`)
+- Front window's agent: `window list` and `status` give each window
+  `agent`, from the selected host's snapshot (`ClientShellAgent.agent` of the
+  focused pane), and `front`, the main window last focused, which the event
+  log keeps while macOS reports no main window because another app is
+  active. The `agent` event kind is pushed when that `(window, agent)` pair
+  changes. For the Flare launcher, which follows it to choose agent-specific
+  snippets. It edits upstream's control files directly
+  (`crates/herdr-gpui/src/control/server/events.rs`,
+  `crates/herdr-gpui/src/control/server/app.rs`,
+  `crates/herdr-gpui/src/control/protocol/events.rs`,
+  `crates/herdr-gpui/src/control/protocol/app.rs`)
 
 ## Consumers
 

@@ -123,11 +123,19 @@ pub(crate) struct WindowInfo {
     pub id: u64,
     pub title: String,
     pub active: bool,
+    /// The main window the user last focused. Unlike `active`, it stays set
+    /// while another app is in front.
+    #[serde(default)]
+    pub front: bool,
     pub fullscreen: bool,
     pub width: f32,
     pub height: f32,
     /// The workspace the window shows on its selected host.
     pub workspace: Option<String>,
+    /// The agent Herdr reports in the focused pane on the selected host, such
+    /// as `claude`; `None` without one or while that host is not connected.
+    #[serde(default)]
+    pub agent: Option<String>,
     pub hosts: Vec<HostInfo>,
 }
 

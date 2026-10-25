@@ -173,6 +173,21 @@ family nor an earlier fallback has it, as Core Text picks fonts. Linux and
 Windows still draw such fonts in the text color. No daemon support is
 needed.
 
+## The front window's agent on the command line
+
+For a launcher or another tool that adapts to the agent the user is typing
+into. `window list` and `status` give each window `agent`, the agent Herdr
+reports in the focused pane on the window's selected host (its `agent`, such
+as `claude`, `codex`, or `pi`; null without one or while that host is not
+connected), and `front`, set on the main window the user last focused. Unlike
+`active`, `front` stays set while another app is in front. The `agent` event
+(`events --kind agent`) names the front window and its agent whenever either
+changes: another window comes to the front, focus moves to another pane, tab,
+or workspace, an agent starts or exits there, or the window selects another
+host, SSH hosts included. Nothing else prints it, and closing the last
+window prints none. It reads the agent stock Herdr already sends, so no
+daemon support is needed.
+
 ## Library additions
 
 ### `herdr-protocol`

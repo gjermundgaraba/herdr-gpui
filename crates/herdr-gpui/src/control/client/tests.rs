@@ -67,3 +67,5 @@ fn an_empty_patch_is_empty_in_a_pipe_and_said_on_a_terminal() {
     assert_eq!(output.bytes.as_deref(), Some(&[][..]));
     assert_eq!(for_terminal(&output.text, true), "No changes");
 }
+
+mod events_help;

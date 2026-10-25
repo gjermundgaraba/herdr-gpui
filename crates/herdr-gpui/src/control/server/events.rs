@@ -1,7 +1,8 @@
 //! `events` and `wait`. Events are found by comparing, every tick, what the
 //! app shows with what it showed the tick before, so no feature has to
-//! report them: windows, the app's tabs, kept notes, worktree notes, and
-//! host status. The log is bounded; a slow reader misses the oldest.
+//! report them: windows, the app's tabs, kept notes, worktree notes, host
+//! status, and the front window's agent. The log is bounded; a slow reader
+//! misses the oldest.
 use super::{Watches, main_windows, socket, window_for};
 use crate::{
     browser::Store,
@@ -32,6 +33,8 @@ struct Seen {
     notes: u64,
     /// `(window, host)` to status.
     hosts: BTreeMap<(u64, String), String>,
+    /// The front window, with the agent in its focused pane.
+    front: Option<(u64, Option<String>)>,
 }
 
 #[derive(Default)]
@@ -96,12 +99,34 @@ impl Log {
     }
 }
 
-fn look(cx: &mut App) -> Seen {
+/// The main window the user last focused: the active one; while none is, as
+/// when another app is in front (macOS then reports no main window), the one
+/// that was front before, if it is still open; else the first open window.
+fn front(active: Option<u64>, previous: Option<u64>, windows: &[u64]) -> Option<u64> {
+    [active, previous]
+        .into_iter()
+        .flatten()
+        .find(|id| windows.contains(id))
+        .or_else(|| windows.first().copied())
+}
+
+/// The front window as of the last tick.
+pub(super) fn front_window(cx: &App) -> Option<u64> {
+    cx.try_global::<Log>()?
+        .seen
+        .as_ref()?
+        .front
+        .as_ref()
+        .map(|(window, _)| *window)
+}
+
+fn look(cx: &mut App, previous_front: Option<u64>) -> Seen {
     let mut seen = Seen {
         active: cx.active_window().map(|window| window.window_id().as_u64()),
         ..Seen::default()
     };
-    for handle in main_windows(cx) {
+    let windows = main_windows(cx);
+    for handle in &windows {
         let id = handle.window_id().as_u64();
         seen.windows.push(id);
         if let Ok(hosts) = handle.read_with(cx, |view, _| view.control_hosts()) {
@@ -111,6 +136,14 @@ fn look(cx: &mut App) -> Seen {
         }
     }
     seen.windows.sort_unstable();
+    seen.front = front(seen.active, previous_front, &seen.windows).map(|id| {
+        let agent = windows
+            .iter()
+            .find(|handle| handle.window_id().as_u64() == id)
+            .and_then(|handle| handle.read_with(cx, |view, _| view.control_agent()).ok())
+            .flatten();
+        (id, agent)
+    });
     if let Some(store) = cx.try_global::<Store>() {
         seen.tabs = store
             .tabs()
@@ -176,12 +209,24 @@ fn compare(log: &mut Log, before: &Seen, now: &Seen) {
             );
         }
     }
+    // Only a change of window or agent; no front window is no event, as
+    // `window_closed` already tells.
+    if now.front != before.front
+        && let Some((window, agent)) = &now.front
+    {
+        log.push(EventKind::Agent, window.to_string(), agent.clone());
+    }
 }
 
 /// Logs what changed since the last tick.
 pub(super) fn record(cx: &mut App) {
-    let now = look(cx);
     let mut log = std::mem::take(cx.default_global::<Log>());
+    let previous_front = log
+        .seen
+        .as_ref()
+        .and_then(|seen| seen.front.as_ref())
+        .map(|(window, _)| *window);
+    let now = look(cx, previous_front);
     // The first look is the baseline, not a burst of "opened" events.
     if let Some(before) = log.seen.take()
         && before != now

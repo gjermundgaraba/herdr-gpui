@@ -60,7 +60,7 @@ Every command accepts:
 | --- | --- |
 | `status` | Whether the app runs, its version and control protocol, windows, and hosts |
 | `app focus\|hide\|quit` | Bring the app forward, hide it, or quit it (Herdr keeps running) |
-| `window [list]` | Windows with their IDs, size, workspace, and hosts |
+| `window [list]` | Windows with their IDs, size, workspace, focused pane's agent, and hosts; `front` marks the window last focused |
 | `window new [--session NAME]` | Another window, of your own Herdr session or a named local session |
 | `window focus ID` | Bring a window forward |
 | `window fullscreen [on\|off\|toggle]` | |
@@ -196,10 +196,25 @@ The change applies live; `config get focus_follows_mouse` reads it back.
 
 `events` prints what happened in the app: windows opening, closing, and
 gaining focus; the app's tabs opening and closing; notes kept for a pane;
-worktree notes changing; and host status changes. Each event has a sequence
-number; pass back the `INSTANCE:SEQ` cursor a call prints with `--after` to
-get only newer events. A cursor from an earlier run of the app gets every
-event the new run has kept, so a restart never hides events.
+worktree notes changing; host status changes; and `agent`, the agent in the
+focused pane of the front window. The front window is the main window last
+focused, and stays front while another app is active. `agent` is printed
+when another window comes to the front or the front window's agent changes
+(pane, tab, or workspace focus, an agent starting or exiting, another host
+selected); its subject is the window and its detail the agent's name, such
+as `claude`, or none. Each event has a sequence number; pass back the
+`INSTANCE:SEQ` cursor a call prints with `--after` to get only newer events.
+A cursor from an earlier run of the app gets every event the new run has
+kept, so a restart never hides events.
+
+To mirror the front window's agent without missing a change, take a cursor
+first, then read the current state, then follow from the cursor:
+
+```sh
+herdr-gpui events --json               # exits 4, no events; "next" is the cursor
+herdr-gpui window list --json          # "front" and "agent" per window
+herdr-gpui events --follow --kind agent --json --after CURSOR
+```
 
 ```sh
 herdr-gpui events --follow --kind tab_closed
