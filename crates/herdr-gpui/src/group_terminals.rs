@@ -681,7 +681,6 @@ impl HerdrWindow {
     }
 }
 
-mod fork;
 #[cfg(test)]
 pub(crate) mod tests;
 

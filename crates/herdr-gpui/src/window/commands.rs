@@ -502,10 +502,6 @@ impl HerdrWindow {
                 self.open_focused_workspace_dialog(action, window, cx);
                 return;
             }
-            Command::Fork(command) => {
-                self.run_fork_command(command, window, cx);
-                return;
-            }
             // As Herdr's binding does: the daemon rereads its file, and this
             // client its own, which holds the daemon's `[keys]` too.
             Command::ReloadConfig => {
@@ -586,7 +582,7 @@ impl HerdrWindow {
             Command::PreviousAgent | Command::NextAgent | Command::AgentNumber(_)
         );
         let rows = if agents {
-            self.stepped_agents()
+            self.sidebar_agents()
         } else {
             self.sidebar_workspaces()
         };

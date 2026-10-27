@@ -108,5 +108,3 @@ fn a_poll_from_another_app_run_gets_everything_this_run_kept() {
     // No number: only what happens from now on.
     assert_eq!(start(None, None, 40), 40);
 }
-
-mod agent;

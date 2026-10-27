@@ -48,13 +48,10 @@ pub enum EventKind {
     Note,
     /// A host's connection status changed.
     Host,
-    /// The agent in the focused pane of the front window changed, or another
-    /// window came to the front.
-    Agent,
 }
 
 impl EventKind {
-    pub const ALL: &'static [Self] = &[
+    pub const ALL: [Self; 8] = [
         Self::WindowOpened,
         Self::WindowClosed,
         Self::WindowFocused,
@@ -63,7 +60,6 @@ impl EventKind {
         Self::Feedback,
         Self::Note,
         Self::Host,
-        Self::Agent,
     ];
 
     pub fn name(self) -> &'static str {
@@ -76,7 +72,6 @@ impl EventKind {
             Self::Feedback => "feedback",
             Self::Note => "note",
             Self::Host => "host",
-            Self::Agent => "agent",
         }
     }
 }
@@ -86,8 +81,7 @@ impl std::str::FromStr for EventKind {
 
     fn from_str(text: &str) -> Result<Self, ()> {
         Self::ALL
-            .iter()
-            .copied()
+            .into_iter()
             .find(|kind| kind.name() == text.replace('-', "_"))
             .ok_or(())
     }

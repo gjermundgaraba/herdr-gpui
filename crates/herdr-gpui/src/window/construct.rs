@@ -186,7 +186,6 @@ impl HerdrWindow {
             find_memory: Default::default(),
             flash: None,
             focus,
-            fork: Default::default(),
             git: git::Git::default(),
             gui_config_diagnostic,
             held_keys: Default::default(),

@@ -2,8 +2,6 @@
 use serde::Deserialize;
 use std::{collections::BTreeMap, str::FromStr};
 
-mod separator;
-
 pub(crate) const MAX_ROWS: usize = 16;
 const MAX_TOKENS_PER_ROW: usize = 16;
 const MAX_RULES: usize = 16;
@@ -203,8 +201,6 @@ pub struct ConfiguredToken<T> {
     pub token: T,
     pub style: TokenStyle,
     pub rules: Vec<TokenRule>,
-    /// The fork's `separator_before`, see `separator`; `Some("")` joins.
-    pub separator_before: Option<std::sync::Arc<str>>,
 }
 
 impl<T> ConfiguredToken<T> {
@@ -213,7 +209,6 @@ impl<T> ConfiguredToken<T> {
             token,
             style: TokenStyle::default(),
             rules: Vec::new(),
-            separator_before: None,
         }
     }
 
@@ -250,7 +245,6 @@ where
             Name(String),
             Styled {
                 token: String,
-                separator_before: Option<String>,
                 fg: Option<TokenColor>,
                 bold: Option<bool>,
                 dim: Option<bool>,
@@ -258,11 +252,10 @@ where
                 rules: Vec<TokenRule>,
             },
         }
-        let (name, style, rules, separator_before) = match Raw::deserialize(deserializer)? {
-            Raw::Name(name) => (name, TokenStyle::default(), Vec::new(), None),
+        let (name, style, rules) = match Raw::deserialize(deserializer)? {
+            Raw::Name(name) => (name, TokenStyle::default(), Vec::new()),
             Raw::Styled {
                 token,
-                separator_before,
                 fg,
                 bold,
                 dim,
@@ -275,7 +268,6 @@ where
                     dim,
                 },
                 rules,
-                separator::sanitize(separator_before),
             ),
         };
         if rules.len() > MAX_RULES {
@@ -291,7 +283,6 @@ where
             token,
             style,
             rules,
-            separator_before,
         })
     }
 }

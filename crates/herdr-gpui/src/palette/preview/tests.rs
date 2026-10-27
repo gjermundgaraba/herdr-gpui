@@ -215,7 +215,6 @@ fn screens_shrink_to_fit_in_half_points_but_never_grow_or_vanish() {
         line_ratio: 20. / 14.,
         cell_ratio: 0.6,
         theme: Theme::default(),
-        color_glyphs: Default::default(),
     };
     let room = |width: f32, height: f32| size(px(width), px(height));
     assert_eq!(fitted_size(&look, room(4000., 4000.), 80, 24), 14.);

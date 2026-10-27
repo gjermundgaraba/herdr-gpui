@@ -4,7 +4,6 @@ use super::*;
 mod command;
 mod forward;
 mod incompatible;
-mod probe_candidates;
 mod probe_failure;
 mod windows_host;
 #[cfg(windows)]
@@ -107,9 +106,6 @@ esac
             .env("HOME", &root)
             .output()
             .unwrap();
-        // `PATH` comes first; a copy in a fixed install root may follow it.
-        let first = probe_candidates(&output.stdout).unwrap().remove(0);
-        assert_eq!(first.path.as_deref(), binary.to_str());
         classify_probe(&output.stdout)
     };
     assert_eq!(run(), Some(HostProbe::Stopped));

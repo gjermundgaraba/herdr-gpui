@@ -1,11 +1,7 @@
 use super::*;
 
-mod client_actions;
 mod detach;
-mod history;
 mod literal_plus;
-mod mark_unread;
-mod navigators;
 mod worktree;
 
 fn keys(text: &str) -> DaemonKeys {

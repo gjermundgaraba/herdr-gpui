@@ -13,8 +13,6 @@ use crate::{
 use gpui::{App, Context, Global};
 use std::collections::BTreeMap;
 
-mod local;
-
 /// The keymap a window built from its selected endpoint's server profile, and
 /// what it was built from, so a new snapshot only rebuilds it when the profile
 /// or the GUI overrides actually changed.
@@ -23,8 +21,6 @@ pub(crate) struct ServerKeymap {
     profile: Option<String>,
     overrides: BTreeMap<String, Binding>,
     pane_keys: PaneKeys,
-    /// This machine's `[keys]`, for the client's own actions.
-    local: DaemonKeys,
     /// An error leaves the window on its local keymap, as Herdr keeps the
     /// bindings it had when a profile cannot be applied.
     keymap: Result<Keymap>,
@@ -36,10 +32,8 @@ impl ServerKeymap {
         profile: Option<&str>,
         overrides: &BTreeMap<String, Binding>,
         pane_keys: &PaneKeys,
-        local: &DaemonKeys,
     ) -> Self {
         let keymap = DaemonKeys::from_profile(profile)
-            .map(|keys| keys.with_client_actions(local))
             .and_then(|keys| Keymap::with_overrides(overrides, pane_keys, &keys));
         if let Err(error) = &keymap {
             tracing::warn!(endpoint, %error, "Using local keybindings for this device");
@@ -49,7 +43,6 @@ impl ServerKeymap {
             profile: profile.map(str::to_owned),
             overrides: overrides.clone(),
             pane_keys: pane_keys.clone(),
-            local: local.clone(),
             keymap,
         }
     }
@@ -102,7 +95,6 @@ impl HerdrWindow {
     /// or the opt-in changed. Until the first snapshot arrives there is no
     /// profile to judge, so the local keymap applies without a diagnostic.
     pub(crate) fn sync_server_keymap(&mut self, cx: &mut Context<Self>) {
-        self.drop_stale_server_keys(cx);
         let endpoint = &self.endpoints[self.selected_endpoint].id;
         let wanted = self.config.keybinding_source(endpoint) == KeybindingSource::Server;
         let next =
@@ -111,15 +103,12 @@ impl HerdrWindow {
                     let profile = snapshot.server_keybindings_toml.as_deref();
                     let overrides = &self.config.keybinding_overrides;
                     let pane_keys = &self.config.pane_keys;
-                    let local = &self.config.daemon_keys;
                     if self.server_keys.as_ref().is_some_and(|keys| {
                         keys.built_from(endpoint, profile, overrides, pane_keys)
                     }) {
                         return;
                     }
-                    Some(ServerKeymap::build(
-                        endpoint, profile, overrides, pane_keys, local,
-                    ))
+                    Some(ServerKeymap::build(endpoint, profile, overrides, pane_keys))
                 }
                 _ if self.server_keys.is_none() => return,
                 _ => None,

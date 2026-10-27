@@ -27,8 +27,6 @@ impl HerdrWindow {
         if !self.cancel_theme_preview(cx) {
             return false;
         }
-        // Another page is taking the menu from a picker.
-        self.cancel_picker();
         self.menu.reset();
         self.apply_shared_theme(cx);
         self.menu.endpoint_target = (
@@ -46,8 +44,6 @@ impl HerdrWindow {
         if !self.cancel_theme_preview(cx) {
             return;
         }
-        // A picker dismissed any way but by choosing is cancelled.
-        self.cancel_picker();
         // Whatever the pointer was resting on, this dismissal ends that intent.
         self.hover = None;
         self.hover_menu = None;
@@ -451,7 +447,6 @@ impl HerdrWindow {
                         | Page::DeviceTheme
                         | Page::Palette
                         | Page::CodeSearch
-                        | Page::Picker
                         | Page::AppUpdate
                         | Page::GitHub
                         | Page::AddDevice
@@ -496,10 +491,6 @@ impl HerdrWindow {
             .when(add_device, |panel| {
                 panel.h(px(rail::HEIGHT * (font.size / 12.))
                     .min((viewport.height - px(32.)).max(px(0.))))
-            })
-            // A picker is as tall as its list, up to what the window allows.
-            .when(page == Page::Picker, |panel| {
-                panel.flex().flex_col().overflow_hidden().shadow_lg()
             })
             .when(page == Page::GitHub, |panel| {
                 panel
@@ -667,8 +658,6 @@ impl HerdrWindow {
             panel = panel.child(self.render_palette(viewport, cx));
         } else if page == Page::CodeSearch {
             panel = panel.child(self.render_code_search(cx));
-        } else if page == Page::Picker {
-            panel = panel.child(self.render_picker(cx));
         } else if page == Page::ConfirmClose {
             panel = panel.child(self.render_close_confirmation(cx));
         } else if page == Page::AppUpdate {

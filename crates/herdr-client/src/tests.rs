@@ -28,7 +28,6 @@ use std::{
 
 mod commands;
 mod errors;
-mod fork;
 mod framing;
 mod handshake;
 mod health;
@@ -41,7 +40,6 @@ mod liveness;
 mod partial_input;
 #[cfg(windows)]
 mod partial_input_windows;
-mod remote_transport;
 mod session_state;
 mod surface_encoding;
 mod surfaces;

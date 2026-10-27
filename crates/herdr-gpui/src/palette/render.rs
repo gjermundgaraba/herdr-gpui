@@ -262,7 +262,6 @@ impl HerdrWindow {
                     line_ratio: terminal.line_height() / terminal.size,
                     cell_ratio: self.cell_width / terminal.size,
                     theme: theme.clone(),
-                    color_glyphs: self.config.color_glyphs.clone(),
                 };
                 pane.relative()
                     .bg(rgb(theme.background))

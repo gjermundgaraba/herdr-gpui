@@ -527,9 +527,6 @@ impl LiveState {
             ClientEvent::Snapshot(snapshot) => self.receive_snapshot(snapshot),
             ClientEvent::Surface(surface) => self.receive_surface(surface),
             ClientEvent::SurfaceImages(images) => self.receive_surface_images(images),
-            // The fork's mailbox keeps the controls it reads; any other is
-            // optional, and ignored as Herdr's own client ignores it.
-            ClientEvent::Control { .. } => return,
             // The `Disconnected` that follows carries the reason text.
             ClientEvent::VersionMismatch(mismatch) => {
                 if let Some(version) = mismatch.server_version() {

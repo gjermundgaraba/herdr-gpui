@@ -32,20 +32,6 @@ applies the same structural limits before touching any baseline. The
 `surface-*-v1.bin` fixtures in `tests/fixtures/` were produced by Herdr's own
 encoders at that commit.
 
-Fork additions adapt the `gjermundgaraba/herdr` fork of Herdr, branch
-`custom`, same license. That branch is rebased, so its commits are named
-by subject, not hash. From "feat: adopt the client contract in the tui and
-drop plugin menu entries": `src/pick.rs` adapts the picker controls in its
-`src/protocol/endpoint.rs` and the picker types in its `src/api/schema/ui.rs`.
-From "feat: add the client contract for reports, jumps, shared order, and an
-unread hold": `MAX_ENDPOINT_COMMAND_BYTES` in `src/pick.rs` is the limit of
-that name in its `src/server/client_commands.rs`. Message kinds, JSON field names and order,
-optional fields, serde defaults, and outcome tags are unchanged; the
-`schemars` derives and the server-side `ui.pick` and `ui.pick.close`
-parameters are not retained.
-`tests/fixtures/endpoint-{pick-open,pick-close,pick-resolve,agent-mark-unread}-v1.json`
-are verbatim copies of that fork's current `tests/fixtures/`.
-
 The client discovery rules also adapt `src/server/socket_paths.rs`,
 `src/session.rs`, and `src/config/io.rs` from the same source/license.
 The native client's build mode does not implicitly select Herdr's dev session.

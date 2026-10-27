@@ -1,7 +1,5 @@
 use super::*;
 
-mod fork;
-
 #[test]
 fn integration_methods_require_exact_advertisement() {
     for (method, name) in [

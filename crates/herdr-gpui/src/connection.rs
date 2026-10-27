@@ -22,8 +22,6 @@ pub(crate) struct ConnectionBridge {
     pub(crate) links: Arc<Mutex<crate::links::LinkInbox>>,
     /// Scrollback answers, fenced with the connection like the main inbox.
     pub scrollback: Arc<Mutex<crate::scrollback::Inbox>>,
-    /// The fork's mailbox, fenced with the connection like the main inbox.
-    pub(crate) fork: Arc<Mutex<crate::fork::Inbox>>,
     sound_cancel: Arc<AtomicBool>,
 }
 
@@ -107,7 +105,6 @@ impl ConnectionBridge {
             integrations: Arc::default(),
             links: Arc::default(),
             scrollback: Arc::default(),
-            fork: Arc::default(),
         }
     }
 
@@ -131,7 +128,6 @@ impl ConnectionBridge {
         self.integrations = Arc::default();
         self.links = Arc::default();
         self.scrollback = Arc::default();
-        self.fork = Arc::default();
     }
 
     pub fn detach(&mut self, active: bool) {
@@ -220,7 +216,6 @@ impl ConnectionBridge {
                 let integrations = self.integrations.clone();
                 let links = self.links.clone();
                 let scrollback = self.scrollback.clone();
-                let fork = self.fork.clone();
                 // Drain ordered events even while GPUI is busy; retain only coherent state.
                 spawn(Box::new(move || {
                     while let Ok(event) = client.events.recv() {
@@ -239,10 +234,6 @@ impl ConnectionBridge {
                         });
                         let event = event.and_then(|event| match links.lock() {
                             Ok(mut links) => links.apply(event),
-                            Err(_) => Some(event),
-                        });
-                        let event = event.and_then(|event| match fork.lock() {
-                            Ok(mut fork) => fork.apply(event),
                             Err(_) => Some(event),
                         });
                         if let Ok(mut state) = inbox.lock() {

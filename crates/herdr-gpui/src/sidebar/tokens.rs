@@ -14,8 +14,6 @@ use unicode_width::UnicodeWidthStr;
 pub(super) struct ResolvedToken {
     pub(super) kind: TokenKind,
     pub(super) style: TokenStyle,
-    /// The configured token's `separator_before`; see [`separator`].
-    pub(super) separator_before: Option<std::sync::Arc<str>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -49,7 +47,6 @@ impl ResolvedToken {
         Self {
             kind,
             style: TokenStyle::default(),
-            separator_before: None,
         }
     }
 }
@@ -82,11 +79,7 @@ fn resolve_rows<T>(
                         Some(text) => configured.style_for(text)?,
                         None => configured.style,
                     };
-                    Some(ResolvedToken {
-                        kind,
-                        style,
-                        separator_before: configured.separator_before.clone(),
-                    })
+                    Some(ResolvedToken { kind, style })
                 })
                 .collect();
             (!resolved.is_empty()).then_some(resolved)
@@ -143,7 +136,6 @@ pub(super) fn agent_rows(
         rows.push(vec![ResolvedToken {
             kind: TokenKind::StateIcon,
             style: TokenStyle::default(),
-            separator_before: None,
         }]);
     }
     Some(rows)
@@ -187,12 +179,8 @@ pub(super) fn space_rows(
 
 /// Upstream joins tokens with a middle dot, except after the state icon and
 /// before the git counters, which sit a single space apart.
-/// A token's own `separator_before` wins, as in the Herdr fork's
-/// `src/ui/sidebar/tokens.rs`; only two shown tokens are ever asked about.
-pub(super) fn separator<'a>(previous: &ResolvedToken, current: &'a ResolvedToken) -> &'a str {
-    if let Some(separator) = current.separator_before.as_deref() {
-        separator
-    } else if matches!(previous.kind, TokenKind::StateIcon)
+pub(super) fn separator(previous: &ResolvedToken, current: &ResolvedToken) -> &'static str {
+    if matches!(previous.kind, TokenKind::StateIcon)
         || matches!(current.kind, TokenKind::GitStatus { .. })
     {
         " "
@@ -220,7 +208,8 @@ pub(super) fn budgets(
         (0..row.len())
             .filter(|index| active[*index])
             .fold((0, None), |(total, previous), index| {
-                let gap = previous.map_or(0, |prev| separator(&row[prev], &row[index]).width());
+                let gap =
+                    previous.map_or(0, |prev| separator(&row[prev], &row[index]).chars().count());
                 (
                     total + fixed[index] + usize::from(flexible[index] > 0) + gap,
                     Some(index),

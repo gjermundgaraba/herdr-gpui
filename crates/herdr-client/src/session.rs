@@ -292,7 +292,7 @@ pub(crate) fn wait_timeout(
 pub(crate) struct Signals<'a> {
     /// Ends the connection without flushing or replaying anything.
     pub(crate) stop: &'a AtomicBool,
-    /// Asks a remote link for an immediate health probe.
+    /// Asks an SSH link for an immediate health probe.
     pub(crate) liveness: &'a AtomicBool,
     pub(crate) pace: Pace,
 }
@@ -531,9 +531,8 @@ pub(crate) fn run_connection(
         let read = reader.bytes.len();
         let message = match reader.poll_batch(&mut stream) {
             // Daemons before the endpoint protocol cannot decode the hello and
-            // close without a word. On a remote link the close may be the link
-            // itself, and SSH discovery or the application vetted the binary
-            // first, so only a local close this early is an outdated daemon.
+            // close without a word. SSH discovery vets the remote binary first,
+            // so only a local close this early is read as an outdated daemon.
             Err(Error::SocketClosed) if session.welcome.is_none() && !remote => {
                 return Err(Error::ClosedBeforeWelcome);
             }
@@ -697,12 +696,7 @@ impl Session {
                 let next = reuse.reconstruct(base)?;
                 accept_surface(next, snapshot.as_deref(), surface, images, &mut emit)?;
             }
-            // A pong only shows the link is alive, which any message does.
-            ServerMessage::EndpointControl { kind, .. } if kind == "endpoint.health.pong.v1" => {}
-            // Other optional named controls are the owner's to use or ignore.
-            ServerMessage::EndpointControl { kind, data } => {
-                emit(ClientEvent::Control { kind, data })?;
-            }
+            ServerMessage::EndpointControl { .. } => {} // Unknown optional named controls are ignored.
             ServerMessage::PaneSurface(next) => {
                 accept_surface(next, snapshot.as_deref(), surface, images, &mut emit)?;
             }

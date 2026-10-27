@@ -74,9 +74,6 @@ impl Render for HerdrWindow {
             cell_height,
             self.terminal_theme().clone(),
         );
-        self.painter
-            .borrow_mut()
-            .set_color_glyphs(&self.config.color_glyphs);
         self.cell_width = self.painter.borrow_mut().cell_width(&font, window, cx);
         // Registers the window for surface-only redraws; see `redraw_terminal`.
         self.surface_signal.read(cx);

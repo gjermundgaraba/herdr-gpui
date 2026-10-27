@@ -32,100 +32,19 @@ GitHub Actions are disabled on `origin`. The inherited workflows belong to
 upstream, whose CI already covers pull requests, and none may run from the
 fork.
 
-## Pending upstream
-
-Copies of upstream pull requests that no release contains yet. They sit at the
-bottom of the stack, directly above the tag.
-
-- Remote transport and public probe for applications:
-  `feat/app-remote-transport` (copied in order), no pull request yet.
-  Herdr Mobile pins it (see Consumers). `Transport::Remote(Stream)` lets an
-  application hand `herdr-client` a stream it connected to a remote daemon
-  itself, with health checks and
-  `check_liveness` as for SSH. `probe_command` and `probe_candidates` expose
-  the discovery probe, whose `ProbeCandidate` names its path, with the
-  probe's bounds `PROBE_TIMEOUT` and `PROBE_OUTPUT_LIMIT`
-  (`crates/herdr-client/src/connect.rs`,
-  `crates/herdr-client/src/ssh/probe.rs`)
-
 ## What the fork adds
 
-Describe each local change here, with pointers to its code, when it is added.
-What each feature does for a user is in `crates/herdr-gpui/FORK-FEATURES.md`,
-which takes the fork's text that upstream's READMEs would otherwise carry.
-Keep it in step with this list.
+Nothing in the code, for now. The stack ends in a commit whose subject starts
+with `revert: return custom to stock`, which returns the code, tests, and docs
+to the release tag. The tree differs from the tag only in this file, the fork
+line in `AGENTS.md`, and the `FORK.local.md` entry in `.gitignore`.
 
-- Fork slots: upstream types carry the fork through one slot each, so its
-  code stays in fork files. `herdr-client` forwards the named controls it
-  does not handle as `ClientEvent::Control`, and the fork's lane methods are
-  `Method::Fork`. In Herdr GPUI the fork's commands are `Command::Fork`, a
-  connection has one fork mailbox, which decodes the fork's controls, and a
-  window has one `fork` field and one tick call
-  (`crates/herdr-client/src/method/fork.rs`, `crates/herdr-gpui/src/fork.rs`,
-  `crates/herdr-gpui/src/controls/fork.rs`)
-- Sidebar `separator_before`: a token table in `[ui.sidebar.*]` rows may set
-  the separator placed before that token, as the Herdr fork's config allows.
-  Without it, one such token made the whole sidebar layout fall back to the
-  default rows (`crates/herdr-gpui/src/config/sidebar.rs`,
-  `crates/herdr-gpui/src/config/sidebar/separator.rs`,
-  `crates/herdr-gpui/src/sidebar/tokens.rs`)
-- Native plugin picker: the daemon's `endpoint.pick.open.v1` and
-  `endpoint.pick.close.v1` controls open and dismiss a filterable list, and
-  the answer goes back as `ui.pick.resolve` on the connection that asked. The
-  list model is separate from the plugin wiring so other pickers can reuse it
-  (`crates/herdr-protocol/src/pick.rs`, `crates/herdr-gpui/src/picker.rs`,
-  `crates/herdr-gpui/src/picker/`)
-- Contract types: `herdr-protocol` checks the fork's request against its
-  fixture, and `herdr-client` names the fork's lane methods
-  (`crates/herdr-protocol/tests/contract.rs`,
-  `crates/herdr-client/src/method/fork.rs`)
-- Plugin popup selection: a plugin key the daemon advertises as `Popup`,
-  because its entrypoint opens a popup, is sent the targeted pane's
-  selection as a plugin action is, as the TUI does
-  (`crates/herdr-gpui/src/palette.rs`,
-  `crates/herdr-gpui/src/palette/tests/popup_selection.rs`)
-- Agent picker and workspace list: the `agent_picker` and `workspace_list`
-  actions of the daemon's `[keys]` table open two navigators over every
-  enabled host, built on the picker's list
-  (`crates/herdr-gpui/src/picker/navigator.rs`,
-  `crates/herdr-gpui/src/picker/navigator/rows.rs`)
-- Client-side keys stay local: `agent_picker`, `workspace_list`,
-  `history_back`, `history_forward`, and `mark_unread` are read from the local
-  Herdr config even under a host's key profile. The daemon `[keys]` actions
-  `history_back` and `history_forward` run upstream's Back and Forward
-  (`crates/herdr-gpui/src/keymap/daemon.rs`,
-  `crates/herdr-gpui/src/keymap/daemon/client_actions.rs`,
-  `crates/herdr-gpui/src/window/server_keys/local.rs`)
-- Mark unread: the daemon `[keys]` action `mark_unread` sends
-  `agent.mark_unread` for the focused pane, keeps no local record, and shows
-  "Marked unread" when the daemon accepts it
-  (`crates/herdr-gpui/src/mark_unread.rs`)
-- Color fonts in the terminal: on macOS, the codepoints an `sbix` or `COLR`
-  font in `[terminal] fallback` wins are drawn in its own colors, through
-  GPUI's emoji path. Config resolution reads each color fallback's cmap into
-  `Config.color_glyphs`, off the UI thread, and the painter draws those
-  characters in color. It is a local change, not offered upstream for now,
-  and edits upstream's `config.rs`, `config/fonts.rs`, `terminal_painter.rs`,
-  and `window/render.rs` directly. Go To's preview paints with its own
-  painter, so `palette/preview.rs` and `palette/render.rs` pass it the same
-  `set_color_glyphs` call as the window
-  (`crates/herdr-gpui/src/config/color_fonts.rs`,
-  `crates/herdr-gpui/src/terminal_painter/color_glyphs.rs`)
-- Front window's agent: `window list` and `status` give each window
-  `agent`, from the selected host's snapshot (`ClientShellAgent.agent` of the
-  focused pane), and `front`, the main window last focused, which the event
-  log keeps while macOS reports no main window because another app is
-  active. The `agent` event kind is pushed when that `(window, agent)` pair
-  changes. For the Flare launcher, which follows it to choose agent-specific
-  snippets. `events --follow` exits once the process that started it
-  exits, so a follower does not outlive Flare until the next event (macOS
-  reports no hangup on a pipe whose reader is gone). It edits upstream's
-  control files directly
-  (`crates/herdr-gpui/src/control/server/events.rs`,
-  `crates/herdr-gpui/src/control/server/app.rs`,
-  `crates/herdr-gpui/src/control/protocol/events.rs`,
-  `crates/herdr-gpui/src/control/protocol/app.rs`,
-  `crates/herdr-gpui/src/control/client/events.rs`)
+The earlier features, the pending upstream copies, and how features were split
+between this fork and Herdr are in the history before that commit:
+
+```sh
+git show "$(git log --format=%h -1 --grep='^revert: return custom to stock' custom)^:FORK.md"
+```
 
 ## Consumers
 
@@ -138,53 +57,16 @@ Other projects build against this fork's crates. Keep what they pin alive.
   one, and older tags stay so earlier app commits still build. The tags and
   `custom` must be pushed before anyone else builds the app. It uses
   `Transport::Remote`, `probe_command`, `probe_candidates`, `ProbeCandidate`,
-  `PROBE_TIMEOUT`, and `PROBE_OUTPUT_LIMIT` from the pending upstream copy
-  above.
+  `PROBE_TIMEOUT`, and `PROBE_OUTPUT_LIMIT` from the pending upstream copy,
+  which the revert removed from `custom`. Its pin tags still build, because
+  the revert adds a commit and rewrites none.
 
 ## Sibling fork: Herdr
 
-Local changes on `custom` exist to work with the user's Herdr fork,
-`gjermundgaraba/herdr` on branch `custom`, which carries the daemon and the
-TUI client. The goal is the same features in both clients. Its path is in
-`FORK.local.md`, and its `FORK.md` has the matching section; read that before
-changing anything of the first two kinds below.
-
-- Contract: the wire shapes a daemon and its clients exchange, such as snapshot
-  fields, endpoint control kinds, and client methods. The Herdr fork's
-  `src/protocol` defines them. `crates/herdr-protocol` copies them and never
-  invents one. Copy the fixture for a fork addition from the Herdr fork's
-  `tests/fixtures/` into `crates/herdr-protocol/tests/fixtures/`, as the
-  `endpoint-*-v1.json` fixtures already are, so a shape that changed on one
-  side fails a test.
-- Mirrored client logic: behavior both clients implement, listed in the table
-  below. Port the logic and its test cases, not the file: the sibling checkout
-  is a reference, never a build dependency. Name the counterpart in the
-  module's header comment.
-- Single owner: whatever the daemon computes or a plugin does. It lives in the
-  Herdr fork or the plugins repository only. Render what the snapshot says
-  instead of recomputing it here.
-
-| Feature | Herdr fork (TUI) | Here | In step |
-| --- | --- | --- | --- |
-| Sidebar `separator_before` | `src/config/sidebar.rs`, `src/config/sidebar/separator.rs`, `src/ui/sidebar/tokens.rs` | `crates/herdr-gpui/src/config/sidebar.rs`, `crates/herdr-gpui/src/config/sidebar/separator.rs`, `crates/herdr-gpui/src/sidebar/tokens.rs` | yes |
-| Plugin picker | `src/client/shell/picks.rs`, `src/client/shell/pick_overlay.rs` | `crates/herdr-gpui/src/picker.rs`, `crates/herdr-gpui/src/picker/` | yes, except a picker that arrives while a menu, a dialog, or another picker or navigator is open: Herdr GPUI answers `cancelled`, the TUI replaces its overlay and shows the picker; and Herdr GPUI sends a picker's answer only after the request its connection holds is answered |
-| Mark unread | `src/client/shell/mark_unread.rs` | `crates/herdr-gpui/src/mark_unread.rs` | yes |
-| Agent and workspace pickers | `src/client/shell/aggregate_navigation/agent_picker.rs`, `src/client/shell/overlay_input.rs` | `crates/herdr-gpui/src/picker/navigator.rs`, `crates/herdr-gpui/src/picker/navigator/rows.rs` | no: Herdr GPUI lacks the Tree layout, the second detail line, and the current marker; it orders agents by its own status and recency order, the TUI by status and then each daemon's `state_change_seq`; and under a plugin agent view its agent picker lists each host's own view where the TUI applies the active host's view across hosts |
-| Back/Forward history | `src/client/shell/history.rs` | `crates/herdr-gpui/src/endpoint/history.rs` (upstream's), `crates/herdr-gpui/src/keymap/daemon.rs` (the fork's `history_back` and `history_forward` keys) | yes: the TUI ports upstream's per-host trail, except that after a pane opened from an activity-bar section, Back in Herdr GPUI first returns to that section, which the TUI does not have |
-| Client-side keys stay local | `src/config/keybinds/client_actions.rs`, `src/client/shell/client_actions.rs` | `crates/herdr-gpui/src/keymap/daemon/client_actions.rs` | yes, except a direct key equal to the host profile's prefix key (the TUI runs the action, Herdr GPUI arms the prefix) and a local config that does not parse (the TUI keeps the previous five bindings, Herdr GPUI unbinds them) |
-| Plugin popup selection | `src/client/shell/actions.rs` | `crates/herdr-gpui/src/palette.rs` | yes: both send the pane selection with a plugin key the daemon advertises as a popup |
-
-Add a row, in both `FORK.md` files, when a mirrored feature lands in either
-client.
-
-A change to contract or mirrored code is finished only when the other side
-matches. The Herdr fork stays a separate task the user asks for (see Upstream
-guardrails), so do not edit it from here: tell the user which change it now
-needs, and mark the row as behind until that lands.
-
-Local changes may require the Herdr fork's daemon. A change meant for upstream
-may not: it has to work against stock Herdr, so it uses nothing from the fork's
-contract, and any field stock Herdr does not send defaults when absent.
+`gjermundgaraba/herdr` on branch `custom` is the user's fork of the Herdr
+daemon and TUI, which this client attaches to. It is back to stock as well.
+When a feature returns, restore the contract, mirrored-client, and
+parity-table rules from the earlier `FORK.md` along with it.
 
 ## Working on the commit stack
 
@@ -196,7 +78,7 @@ contract, and any field stock Herdr does not send defaults when absent.
   and unrelated formatting out of those commits.
 - A change meant for upstream is written on a contribution branch from
   `upstream/main`, never on `custom`, so the pull request carries no fork
-  files. Copy it into the stack with `git cherry-pick -x` and add a row above.
+  files. Copy it into the stack with `git cherry-pick -x` and list it in this file.
   To offer a local change upstream, cherry-pick its commit onto a new branch
   from `upstream/main`.
 - The contribution branch is the source of truth while its pull request is
@@ -214,12 +96,15 @@ contract, and any field stock Herdr does not send defaults when absent.
     vNEW && echo released
   ```
 
-  Then remove its row, and delete its contribution branch and worktree.
+  Then remove it from this file, and delete its contribution branch and worktree.
 - A clean rebase does not prove compatibility. If an upstream change interacts
   with a customization, changes existing behavior, or leaves you unsure whether
   a customization still works, stop and ask the user. Do not remove, adapt, or
   disable a customization on your own.
 - Only the tip of the stack has to build and pass checks.
+- While the code is stock, a new release needs no rebase: start `custom` again
+  from the new tag with only the files named under "What the fork adds", and
+  move the old branch to `backup/custom-<date>`. Keep the `mobile-pin-*` tags.
 - Push only when asked, with `git push --force-with-lease origin custom`.
 
 ## Upstream guardrails

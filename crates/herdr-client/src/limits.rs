@@ -12,7 +12,7 @@ pub(crate) const IDLE_WAIT: Duration = Duration::from_secs(5);
 /// How long an SSH link may stay silent before a health ping.
 pub(crate) const QUIET_PING: Duration = Duration::from_secs(5);
 pub(crate) const TIMEOUT: Duration = Duration::from_secs(10);
-/// How long a quiet remote link may leave a health ping unanswered.
+/// How long a quiet SSH link may leave a health ping unanswered.
 pub(crate) const PING_TIMEOUT: Duration = Duration::from_secs(10);
 /// How long a link asked to prove itself, as after the machine woke, may take.
 pub(crate) const LIVENESS_TIMEOUT: Duration = Duration::from_secs(3);

@@ -36,12 +36,10 @@ mod input_settings;
 mod install_prompt;
 mod keyboard;
 mod link_clicks;
-mod mark_unread;
 mod mouse_cell_motion;
 mod mouse_frame_gap;
 mod mouse_gestures;
 mod mouse_targets;
-mod picker;
 mod plugin_selection;
 mod popup_projection;
 mod prompts;
@@ -241,8 +239,6 @@ fn connected_endpoint(id: &str) -> (Endpoint, Server) {
             Method::WorktreeCreate,
             Method::WorktreeOpen,
             Method::WorktreeRemove,
-            Method::Fork(herdr_client::ForkMethod::UiPickResolve),
-            Method::Fork(herdr_client::ForkMethod::AgentMarkUnread),
         ]
         .map(|method| method.as_str().to_owned()),
     );

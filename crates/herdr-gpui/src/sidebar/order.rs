@@ -10,8 +10,6 @@ use herdr_client::protocol::{ClientShellAgent, ClientShellSnapshot};
 /// pane it shows.
 pub(crate) type Row<'a> = (usize, &'a str);
 
-mod fork;
-
 impl HerdrWindow {
     /// Each host the sidebar lists, with the live state it draws from.
     fn listed_lives(&self) -> impl Iterator<Item = (usize, &LiveState)> {

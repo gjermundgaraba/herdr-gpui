@@ -99,7 +99,7 @@ fn token_line(row: &[ResolvedToken], look: TokenLook, width: f32, cx: &RowContex
     let used = visible.iter().map(|(_, width)| width).sum::<usize>()
         + visible
             .windows(2)
-            .map(|pair| separator(pair[0].0, pair[1].0).width())
+            .map(|pair| separator(pair[0].0, pair[1].0).chars().count())
             .sum::<usize>();
     let slack = (width - used as f32 * glyph).max(0.);
     let last_text = visible

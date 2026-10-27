@@ -66,21 +66,6 @@ fn poll(
     }
 }
 
-/// Exits once the process that started this one exits. A follower whose
-/// reader is gone only notices when it next writes, which waits for the
-/// next event, possibly hours, and macOS reports no hangup on a pipe a
-/// writer could poll for instead.
-#[cfg(unix)]
-fn stop_with_parent() {
-    let parent = std::os::unix::process::parent_id();
-    std::thread::spawn(move || {
-        while std::os::unix::process::parent_id() == parent {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-        std::process::exit(0);
-    });
-}
-
 pub(super) fn events(
     after: Option<Cursor>,
     follow: bool,
@@ -109,10 +94,8 @@ pub(super) fn events(
             output
         });
     }
-    // One line per event, JSON lines with --json, until interrupted, the
-    // app goes away, or the process that started this one exits.
-    #[cfg(unix)]
-    stop_with_parent();
+    // One line per event, JSON lines with --json, until interrupted or the
+    // app goes away.
     let mut after = after;
     let mut stdout = std::io::stdout().lock();
     loop {

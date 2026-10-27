@@ -207,10 +207,6 @@ impl HerdrWindow {
             self.code_search_key(event, window, cx);
             return;
         }
-        if self.menu.page == Some(Page::Picker) {
-            self.picker_key(event, window, cx);
-            return;
-        }
         if self.menu.page == Some(Page::ConfirmClose) {
             self.close_confirmation_key(event, window, cx);
             return;

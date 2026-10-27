@@ -62,9 +62,7 @@ fn windows_probe_blocks_name_each_candidate_and_survive_crlf() {
         ),
         block(path, COMPATIBLE, r#"{"running":true}"#),
     );
-    let parsed = probe_candidates(output.as_bytes()).unwrap();
-    assert_eq!(parsed[1].server, Some(serde_json::json!({"running": true})));
-    let candidates = powershell::bridgeable(parsed);
+    let candidates = powershell::candidates(output.as_bytes());
     let paths = candidates
         .iter()
         .map(|c| c.path.as_str())

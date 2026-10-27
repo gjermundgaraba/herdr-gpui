@@ -5,11 +5,11 @@
 //! base64. Discovery and the bridge are separate connections: PowerShell
 //! buffers stdin it reads, so it cannot answer a handshake and then hand the
 //! rest of the stream to `herdr.exe` as the POSIX script does.
-use super::{
-    PROBE_CANDIDATE, PROBE_DONE, READY,
-    probe::{ProbeCandidate, WINDOWS_PATH_MARKER as PATH_MARKER},
-};
+use super::{PROBE_CANDIDATE, PROBE_DONE, READY};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
+
+/// Precedes each candidate's base64 UTF-8 path, inside its probe block.
+const PATH_MARKER: &str = "herdr-windows-path:";
 
 /// Whether a remote shell exit before the bridge was ready means the host
 /// could not run `/bin/sh`. `ssh` exits 255 for its own failures and the
@@ -19,7 +19,7 @@ pub(super) fn rejected_posix(code: Option<i32>) -> bool {
 }
 
 /// The probe for a Windows host: the same candidate blocks as
-/// [`super::probe::probe_script`].
+/// [`super::probe_script`], each also naming its executable's path.
 pub(super) fn probe_command(session: &str) -> String {
     encoded_command(&format!(
         r#"$herdrPaths = [System.Collections.Generic.List[string]]::new(); function Add-HerdrPath([string]$CandidatePath) {{ if ([string]::IsNullOrWhiteSpace($CandidatePath) -or -not (Test-Path -LiteralPath $CandidatePath -PathType Leaf)) {{ return }}; $fullPath = [System.IO.Path]::GetFullPath($CandidatePath); if ($herdrPaths -notcontains $fullPath) {{ $herdrPaths.Add($fullPath) }} }}; $pathCommand = Get-Command herdr.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1; if ($null -ne $pathCommand) {{ Add-HerdrPath $pathCommand.Source }}; $userSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; Get-CimInstance Win32_Process -Filter "Name = 'herdr.exe' OR Name = 'herdr-dev.exe'" -ErrorAction SilentlyContinue | ForEach-Object {{ $owner = Invoke-CimMethod -InputObject $_ -MethodName GetOwnerSid -ErrorAction SilentlyContinue; if ($owner.ReturnValue -eq 0 -and $owner.Sid -eq $userSid) {{ Add-HerdrPath $_.ExecutablePath }} }}; $herdrHome = if ([string]::IsNullOrWhiteSpace($env:HERDR_HOME)) {{ Join-Path $env:USERPROFILE '.herdr' }} else {{ $env:HERDR_HOME }}; $activeJunction = Get-Item -LiteralPath (Join-Path $herdrHome 'packages\standalone\current') -Force -ErrorAction SilentlyContinue; if ($null -ne $activeJunction -and -not [string]::IsNullOrWhiteSpace([string]$activeJunction.Target)) {{ Add-HerdrPath (Join-Path ([string]$activeJunction.Target) 'herdr.exe') }}; foreach ($herdrPath in $herdrPaths) {{ try {{ $status = (& $herdrPath status client --json 2>$null) -join ''; if ($LASTEXITCODE -ne 0) {{ continue }} }} catch {{ continue }}; try {{ $server = (& $herdrPath --session {session} status server --json 2>$null) -join ''; if ($LASTEXITCODE -ne 0) {{ $server = '' }} }} catch {{ $server = '' }}; [Console]::Out.WriteLine('{PROBE_CANDIDATE}'); [Console]::Out.WriteLine('{PATH_MARKER}' + [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($herdrPath))); [Console]::Out.WriteLine($status); [Console]::Out.WriteLine($server) }}; [Console]::Out.WriteLine('{PROBE_DONE}'); exit 0"#,
@@ -33,18 +33,34 @@ pub(super) struct Candidate {
     pub(super) status: serde_json::Value,
 }
 
-/// The probe's candidates that can be bridged: a block without a valid path
-/// or client status cannot.
-pub(super) fn bridgeable(candidates: Vec<ProbeCandidate>) -> Vec<Candidate> {
+/// Every complete candidate block the probe printed, in its order. A block
+/// without a valid path or client status is dropped: it cannot be bridged.
+pub(super) fn candidates(output: &[u8]) -> Vec<Candidate> {
+    let mut candidates = Vec::new();
+    let mut path = None;
+    let mut status = None;
+    for line in super::lines(output) {
+        if line == PROBE_CANDIDATE.as_bytes() || line == PROBE_DONE.as_bytes() {
+            if let (Some(path), Some(status)) = (path.take(), status.take()) {
+                candidates.push(Candidate { path, status });
+            }
+            path = None;
+            status = None;
+            if line == PROBE_DONE.as_bytes() {
+                break;
+            }
+        } else if let Some(encoded) = line.strip_prefix(PATH_MARKER.as_bytes()) {
+            path = decode_path(encoded);
+        } else if status.is_none() {
+            status = serde_json::from_slice(line).ok();
+        }
+    }
     candidates
-        .into_iter()
-        .filter_map(|candidate| {
-            Some(Candidate {
-                path: candidate.path?,
-                status: candidate.client?,
-            })
-        })
-        .collect()
+}
+
+fn decode_path(encoded: &[u8]) -> Option<String> {
+    let path = String::from_utf8(STANDARD.decode(encoded).ok()?).ok()?;
+    (!path.is_empty() && !path.chars().any(char::is_control)).then_some(path)
 }
 
 /// [`super::compatible`], plus the bridge upstream requires of a Windows host.

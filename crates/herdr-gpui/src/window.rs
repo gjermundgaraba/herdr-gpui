@@ -189,7 +189,6 @@ pub(crate) struct HerdrWindow {
     /// The brief message over the terminal, and when it stops showing.
     pub(crate) flash: Option<(Flash, std::time::Instant)>,
     pub(crate) focus: FocusHandle,
-    pub(crate) fork: crate::fork::ForkState,
     pub(crate) git: git::Git,
     /// Unknown keys in the GUI config, ignored but reported; follows `config`.
     pub(crate) gui_config_diagnostic: crate::config_diagnostic::ConfigDiagnostic,
@@ -559,7 +558,6 @@ impl HerdrWindow {
             self.redraw_terminal(cx);
         }
         self.reconcile_group_terminals(cx);
-        self.tick_fork(window, cx);
         // After polling: a connection that just got its first snapshot, or a
         // reconnect, is told the theme without waiting for it to change.
         self.sync_host_theme();

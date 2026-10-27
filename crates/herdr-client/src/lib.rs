@@ -63,7 +63,7 @@ pub use forward::{ForwardEvent, PortForward, preferred_local_port};
 pub use handle::{Client, ClientHandle};
 pub use host_theme::HostTheme;
 pub use local_network::{LocalNetworkAccess, local_network_access, wait_for_local_network};
-pub use method::{ForkMethod, Method};
+pub use method::Method;
 pub use options::ConnectOptions;
 #[cfg(windows)]
 pub use process::CREATE_NO_WINDOW;
@@ -76,10 +76,9 @@ pub use sessions::{
 };
 pub use ssh::{Bridge, connect_command, script_command};
 pub use ssh::{
-    Destination, FORWARD_READY, HostKeyFingerprint, HostKeyScan, HostProbe, NewHostKey,
-    PROBE_OUTPUT_LIMIT, PROBE_TIMEOUT, ProbeCandidate, SshFailure, forward_command,
-    probe_candidates, probe_command, probe_host, remote_config_value, remote_origin_url,
-    resolve_destination, scan_host_key, trust_host_key,
+    Destination, FORWARD_READY, HostKeyFingerprint, HostKeyScan, HostProbe, NewHostKey, SshFailure,
+    forward_command, probe_host, remote_config_value, remote_origin_url, resolve_destination,
+    scan_host_key, trust_host_key,
 };
 pub use surface_images::{
     MAX_IMAGE_BYTES, MAX_IMAGE_SIDE, MAX_IMAGES, MAX_PLACEMENTS, SurfaceImage, SurfaceImages,

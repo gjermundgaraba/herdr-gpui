@@ -15,7 +15,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-mod availability;
 mod catalog;
 mod history;
 mod order;
@@ -395,6 +394,29 @@ impl Endpoint {
 
     fn retry_delay(&self) -> Duration {
         Duration::from_millis(500u64 << self.attempts.min(8)).min(MAX_RETRY_DELAY)
+    }
+
+    pub fn status(&self) -> &'static str {
+        if !self.enabled {
+            "disabled"
+        } else if self.detached {
+            "detached"
+        } else if let Some(mismatch) = &self.version_mismatch {
+            // A refused handshake is an outage too, but says what fixes it.
+            match mismatch {
+                VersionMismatch::DaemonOutdated { .. } => "Herdr update needed",
+                VersionMismatch::ClientOutdated { .. } => "app update needed",
+            }
+        } else if self.outage.is_some() {
+            // Before `live`: a stopped handle can precede its disconnect state.
+            "reconnecting"
+        } else if self.live.status.is_connected() {
+            "online"
+        } else if self.live.error.is_some() {
+            "reconnecting"
+        } else {
+            "connecting"
+        }
     }
 }
 

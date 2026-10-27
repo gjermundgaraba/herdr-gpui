@@ -131,13 +131,6 @@ const ACTIONS: &[(&str, Target, &str)] = &[
         "",
     ),
     ("next_agent", Target::Command(Command::NextAgent), ""),
-    // The Herdr fork's unread hold and client-side navigators, and its names
-    // for Back and Forward; all unset by default there too.
-    ("mark_unread", client_actions::MARK_UNREAD, ""),
-    ("agent_picker", client_actions::AGENT_PICKER, ""),
-    ("workspace_list", client_actions::WORKSPACE_LIST, ""),
-    ("history_back", Target::Command(Command::Back), ""),
-    ("history_forward", Target::Command(Command::Forward), ""),
     ("focus_agent", Target::Indexed(Indexed::Agent), ""),
     ("new_tab", Target::Command(Command::Tab), "prefix+c"),
     (
@@ -559,7 +552,6 @@ fn set_modifier(modifiers: &mut Modifiers, token: &str) -> bool {
     true
 }
 
-mod client_actions;
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests;

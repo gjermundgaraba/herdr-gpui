@@ -302,10 +302,9 @@ impl Target {
                 params[key] = json!(value);
             }
         }
-        use ClientShellCommandAction::{PluginAction, Popup};
-        // Herdr reads the selection only for plugin actions and plugin popups,
-        // and only from the pane the command targets.
-        if matches!(action, PluginAction | Popup)
+        // Herdr reads the selection only for plugin actions, and only from
+        // the pane the command targets.
+        if action == ClientShellCommandAction::PluginAction
             && let Some(selection) = &self.selection
             && self.pane.as_ref() == Some(&selection.pane_id)
         {

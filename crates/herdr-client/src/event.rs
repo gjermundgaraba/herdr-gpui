@@ -33,13 +33,6 @@ pub enum ClientEvent {
         request_id: Option<String>,
         reason: Error,
     },
-    /// A named endpoint control this client does not handle itself, as the
-    /// daemon sent it after the handshake. Optional: an owner that has no
-    /// use for `kind` ignores it, as Herdr's own client does.
-    Control {
-        kind: String,
-        data: String,
-    },
     /// Notifications, clipboard, title, bell, and other non-surface wire events.
     Message(ServerMessage),
     /// The handshake was refused because one side must be updated. Sent

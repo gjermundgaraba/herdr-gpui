@@ -27,9 +27,6 @@ fn describe_window(window: &WindowInfo, text: &mut String) {
     if let Some(workspace) = &window.workspace {
         let _ = writeln!(text, "    workspace {workspace}");
     }
-    if let Some(agent) = &window.agent {
-        let _ = writeln!(text, "    agent {agent}");
-    }
     for host in &window.hosts {
         let _ = writeln!(
             text,

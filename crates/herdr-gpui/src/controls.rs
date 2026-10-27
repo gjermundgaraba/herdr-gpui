@@ -1,9 +1,7 @@
 use herdr_client::{Method, protocol::ClientShellSnapshot};
 use serde_json::{Value, json};
 
-mod fork;
 mod shortcuts;
-pub use fork::ForkCommand;
 pub(crate) use shortcuts::CTRL_SHORTCUTS;
 #[cfg(test)]
 pub(crate) use shortcuts::platform_default;
@@ -112,8 +110,6 @@ pub enum Command {
     NextAgent,
     AgentNumber(u8),
     ReloadConfig,
-    /// The commands the gjermundgaraba/herdr fork adds.
-    Fork(ForkCommand),
 }
 
 pub struct CommandInfo {
@@ -483,21 +479,6 @@ pub const COMMANDS: &[CommandInfo] = &[
         command: Command::NextAgent,
         name: "next_agent",
         label: "Next Agent",
-    },
-    CommandInfo {
-        command: Command::Fork(ForkCommand::MarkUnread),
-        name: "mark_unread",
-        label: "Mark Agent Unread",
-    },
-    CommandInfo {
-        command: Command::Fork(ForkCommand::AgentPicker),
-        name: "agent_picker",
-        label: "Agent Picker",
-    },
-    CommandInfo {
-        command: Command::Fork(ForkCommand::WorkspaceList),
-        name: "workspace_list",
-        label: "Workspace List",
     },
     CommandInfo {
         command: Command::AgentNumber(1),
@@ -896,9 +877,7 @@ pub fn request(command: Command, snapshot: &ClientShellSnapshot) -> Option<(Meth
         | Command::PreviousAgent
         | Command::NextAgent
         | Command::AgentNumber(_)
-        | Command::ReloadConfig
-        // Run in the window, and none changes focus, so none is fenced.
-        | Command::Fork(_) => return None,
+        | Command::ReloadConfig => return None,
     })
 }
 
