@@ -20,24 +20,6 @@ refused before it is sent.
   it the default separator stays. Control characters are dropped. Upstream
   rejects the key, so one such token made the whole sidebar layout fall back
   to the default rows.
-- **Space groups.** A space joins a group through its `space_group`
-  workspace token, which the daemon sets (`workspace.set_group`). The Spaces
-  list never reorders spaces: it shows the daemon's order and starts a header
-  wherever the group changes, with a divider where ungrouped spaces follow a
-  group. A worktree family takes its parent checkout's group. Each header
-  shows the group's name and how many spaces it has; click it to fold the
-  group, which then shows only its focused space and its members' most
-  urgent status. Runs of one group fold together. Folding is this client's
-  own, per host like repository folding, and is not saved. Headers and
-  dividers are the same in every layout, sit under their host's row when
-  several hosts are listed, and have no mark on the collapsed rail, which
-  marks each shown space once. The terminal client also shows pinned
-  sections from `[[ui.sidebar.spaces.pinned]]`; this client does not.
-- **Moving spaces between groups.** Drag a space's row to move it, with
-  headers present as in a flat list: the drop sends `workspace.move_block`,
-  and the daemon regroups the space by where it lands. Headers and dividers
-  the row passes slide with the rows around them. A header itself is not
-  draggable here; the terminal client moves a group's whole run that way.
 
 ## Agents panel order
 
