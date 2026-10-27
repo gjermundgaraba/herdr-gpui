@@ -8,9 +8,9 @@ everything the fork leaves as upstream ships it; this file describes only
 what the fork adds or changes.
 
 Against stock Herdr the additions stay inert. A daemon that sends none of the
-fork's snapshot fields, controls, or key actions decodes as before, and a
-method it does not advertise (`ui.pick.resolve`, `agent.mark_unread`) is
-refused before it is sent.
+fork's controls or key actions decodes as before, and a method it does not
+advertise (`ui.pick.resolve`, `agent.mark_unread`) is refused before it is
+sent.
 
 ## Sidebar
 
@@ -21,34 +21,12 @@ refused before it is sent.
   rejects the key, so one such token made the whole sidebar layout fall back
   to the default rows.
 
-## Agents panel order
+## Agent shortcuts
 
-`priority` is the daemon's order, which the fork's daemon sends as each
-agent's `priority_key`, the `space_priority` lift included. One host's
-agents, or every host's together, sort by that key compared as plain bytes,
-smallest first, so this window and the terminal client list the same agent
-first. The key is never read.
-
-- Agents with equal keys keep the sidebar's host order, then their daemon's
-  listing order.
-- The last-known agents of a host whose connection is down follow the others,
-  as upstream orders them.
-- An agent without a key, which a daemon that computes none sends (stock
-  Herdr among them), follows every keyed agent. Among themselves such agents
-  keep upstream's order: attention first, then the most recent change on any
-  host. The terminal client keeps them in listing order instead.
-- The Devices layout, and agents listed under their workspaces
-  (`agents_placement = "nested"`), list each host's agents by the same key.
-- While any host shows a plugin's agent view, hosts are not merged: the
-  view's host lists what the view orders, and every other host its own
-  agents by key. The terminal client applies the active host's view across
-  hosts.
-
-`grouped` lists each host's agents in turn, as its daemon lists them, and
-ignores the keys. The indexed, next, and previous agent shortcuts step
-through the panel's rows, passing over the agents of a host that is not
-online: the panel keeps showing what that host last sent while it
-reconnects, but a key does not land there.
+The indexed, next, and previous agent shortcuts step through the Agents
+panel's rows, passing over the agents of a host that is not online: the
+panel keeps showing what that host last sent while it reconnects, but a key
+does not land there.
 
 ## Plugin pickers
 
@@ -98,9 +76,9 @@ default. Each is also in the palette and can be bound under `[keybindings]`.
 - **`agent_picker`** (`prefix+a`; palette **Agent Picker**) opens a flat list
   of every agent on every enabled host, in the Agents panel's `priority`
   order whatever the panel's own sort or the device filter shows, with the
-  top row selected, the agent's status, and the daemon's `priority_mark`
-  before the label; another host's agents carry its name. While any host
-  shows a plugin's agent view, the picker lists what the panel does then.
+  top row selected and the agent's status; another host's agents carry its
+  name. While any host shows a plugin's agent view, the picker lists what the
+  panel does then.
   The keyboard starts on the rows: `j`/`k` or Up/Down move, Ctrl-D/Ctrl-U
   move eight rows, Home and End or `G` go to either end, `/` moves to the
   search, and Enter opens the row with the same cross-host navigation as a
@@ -178,10 +156,6 @@ daemon support is needed.
   and `PICK_CLOSE_KIND` controls (`EndpointPickOpen`, `EndpointPickClose`),
   an item, the create row, and the outcome and parameters of the
   `ui.pick.resolve` answer, and the daemon's `MAX_ENDPOINT_COMMAND_BYTES`.
-- Snapshot additions, both optional: each agent's `priority_key` and
-  `priority_mark`. A daemon without them decodes as an empty key and no mark.
-  Keys are opaque: order agents by comparing them as bytes, with an empty key
-  after every other one.
 
 Unknown fields are ignored and optional ones default, as generation 1 grows
 by optional fields. Each shape is checked against the fork's own fixture in

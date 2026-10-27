@@ -84,9 +84,6 @@ pub(super) struct Row {
     pub(super) status: Option<AgentStatus>,
     /// The host is not online: the row shows what it last sent.
     pub(super) stale: bool,
-    /// The `space_priority` token of the agent's space, shown before the
-    /// label.
-    pub(super) mark: Option<String>,
     pub(super) target: Target,
 }
 
@@ -289,7 +286,6 @@ fn workspace_rows(hosts: &[Host<'_>], view: &View) -> Vec<Row> {
                                 meta: meta.to_owned(),
                                 status: Some(status),
                                 stale,
-                                mark: None,
                                 target: Target::Pane {
                                     endpoint: host.id.to_owned(),
                                     pane: pane.pane_id.clone(),
@@ -308,7 +304,6 @@ fn workspace_rows(hosts: &[Host<'_>], view: &View) -> Vec<Row> {
                         meta: workspace.branch.clone().unwrap_or_default(),
                         status: None,
                         stale,
-                        mark: None,
                         target: Target::Workspace {
                             endpoint: host.id.to_owned(),
                             workspace: workspace.workspace_id.clone(),
@@ -329,7 +324,6 @@ fn workspace_rows(hosts: &[Host<'_>], view: &View) -> Vec<Row> {
                     meta: String::new(),
                     status: None,
                     stale,
-                    mark: None,
                     target: Target::Host {
                         endpoint: host.id.to_owned(),
                     },
@@ -389,7 +383,6 @@ fn agent_rows(hosts: &[Host<'_>], agents: &[(usize, &ClientShellAgent)], view: &
                 meta: meta.to_owned(),
                 status: Some(agent.agent_status),
                 stale: !host.online,
-                mark: agent.priority_mark.clone(),
                 target: Target::Pane {
                     endpoint: host.id.to_owned(),
                     pane: agent.pane_id.clone(),

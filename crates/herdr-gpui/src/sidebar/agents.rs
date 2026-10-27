@@ -11,8 +11,6 @@ use crate::{
 use gpui::{prelude::*, *};
 use herdr_client::protocol::{AgentStatus, ClientShellAgent, ClientShellSnapshot};
 
-mod priority;
-
 pub(super) fn agents_sort(window: &HerdrWindow, cx: &mut Context<HerdrWindow>) -> Stateful<Div> {
     let theme = &window.theme;
     let view = window
@@ -91,12 +89,9 @@ pub(super) fn sorted_agents(
     let mut ordered: Vec<_> = snapshot.agents.iter().collect();
     if sort == crate::preferences::AgentSort::Priority {
         ordered.sort_by_key(|agent| {
-            priority::rank(
-                agent,
-                (
-                    std::cmp::Reverse(status_priority(agent.agent_status)),
-                    std::cmp::Reverse(agent.state_change_seq),
-                ),
+            (
+                std::cmp::Reverse(status_priority(agent.agent_status)),
+                std::cmp::Reverse(agent.state_change_seq),
             )
         });
     }
@@ -135,13 +130,8 @@ pub(super) fn panel_agents<'a>(
         rows.sort_by_key(|(_, live, agent)| {
             (
                 !live.status.is_connected(),
-                priority::rank(
-                    agent,
-                    (
-                        std::cmp::Reverse(status_priority(agent.agent_status)),
-                        std::cmp::Reverse(live.agent_recency.of(&agent.pane_id)),
-                    ),
-                ),
+                std::cmp::Reverse(status_priority(agent.agent_status)),
+                std::cmp::Reverse(live.agent_recency.of(&agent.pane_id)),
             )
         });
     }
@@ -638,8 +628,6 @@ mod tests {
                 .collect(),
             tokens: Vec::new(),
             focused: false,
-            priority_key: String::new(),
-            priority_mark: None,
         };
         let labels = [("working", "deep in the mines"), ("blocked", "  ")];
         for (status, fallback, expected) in [

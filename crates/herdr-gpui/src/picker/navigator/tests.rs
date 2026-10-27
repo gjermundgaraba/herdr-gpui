@@ -40,8 +40,6 @@ fn agent(pane_id: &str, name: &str, status: AgentStatus) -> ClientShellAgent {
         state_labels: Vec::new(),
         tokens: Vec::new(),
         focused: false,
-        priority_key: String::new(),
-        priority_mark: None,
     }
 }
 

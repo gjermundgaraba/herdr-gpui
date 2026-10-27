@@ -91,7 +91,7 @@ impl Navigator {
                     String::new(),
                     &row.label,
                     (!row.meta.is_empty()).then_some(row.meta.as_str()),
-                    row.mark.as_deref(),
+                    None,
                 );
                 item.indent = row.depth;
                 item.status = row.status;

@@ -38,14 +38,12 @@ by subject, not hash. From "feat: adopt the client contract in the tui and
 drop plugin menu entries": `src/pick.rs` adapts the picker controls in its
 `src/protocol/endpoint.rs` and the picker types in its `src/api/schema/ui.rs`.
 From "feat: add the client contract for reports, jumps, shared order, and an
-unread hold": the agent's `priority_key` and `priority_mark` in `src/wire.rs`
-adapt its `src/protocol/wire.rs`, and `MAX_ENDPOINT_COMMAND_BYTES` in
-`src/pick.rs` is the limit of that name in its
-`src/server/client_commands.rs`. Message kinds, JSON field names and order,
+unread hold": `MAX_ENDPOINT_COMMAND_BYTES` in `src/pick.rs` is the limit of
+that name in its `src/server/client_commands.rs`. Message kinds, JSON field names and order,
 optional fields, serde defaults, and outcome tags are unchanged; the
 `schemars` derives and the server-side `ui.pick` and `ui.pick.close`
 parameters are not retained.
-`tests/fixtures/endpoint-{pick-open,pick-close,pick-resolve,agent-mark-unread,snapshot-shared}-v1.json`
+`tests/fixtures/endpoint-{pick-open,pick-close,pick-resolve,agent-mark-unread}-v1.json`
 are verbatim copies of that fork's current `tests/fixtures/`.
 
 The client discovery rules also adapt `src/server/socket_paths.rs`,

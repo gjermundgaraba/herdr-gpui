@@ -10,7 +10,7 @@ pub(super) const DEPLOYER: &str = "Second · release: deployer";
 pub(super) const REVIEWER: &str = "repo: shell";
 pub(super) const HELPER: &str = "repo: helper";
 
-fn agent(pane_id: &str, name: &str, status: AgentStatus, key: &str) -> ClientShellAgent {
+fn agent(pane_id: &str, name: &str, status: AgentStatus) -> ClientShellAgent {
     ClientShellAgent {
         pane_id: pane_id.into(),
         workspace_id: "w1".into(),
@@ -26,16 +26,14 @@ fn agent(pane_id: &str, name: &str, status: AgentStatus, key: &str) -> ClientShe
         state_labels: Vec::new(),
         tokens: Vec::new(),
         focused: false,
-        priority_key: key.into(),
-        priority_mark: None,
     }
 }
 
 /// Local keeps the fixture's space `repo` with two panes in its one tab:
-/// `w1:p1`, labelled `shell`, focused, running the blocked `reviewer`, and
+/// `w1:p1`, labelled `shell`, focused, running the working `reviewer`, and
 /// `w1:p2` running the idle `helper`. Second, online, has a space `release`
-/// whose one pane `w1:p1` runs the working `deployer`, lifted to the top by
-/// its priority key and marked `★`.
+/// whose one pane `w1:p1` runs the blocked `deployer`, which its status puts
+/// first.
 pub(super) fn fleet(view: &mut HerdrWindow) {
     let local = Arc::make_mut(view.live.snapshot.as_mut().unwrap());
     local.agent_view_label = None;
@@ -48,8 +46,8 @@ pub(super) fn fleet(view: &mut HerdrWindow) {
     second.focused = false;
     local.panes.push(second);
     local.agents = vec![
-        agent("w1:p2", "helper", AgentStatus::Idle, "1.3.2"),
-        agent("w1:p1", "reviewer", AgentStatus::Blocked, "1.0.1"),
+        agent("w1:p2", "helper", AgentStatus::Idle),
+        agent("w1:p1", "reviewer", AgentStatus::Working),
     ];
     let mut remote = local.clone();
     remote.workspaces[0].label = "release".into();
@@ -57,9 +55,7 @@ pub(super) fn fleet(view: &mut HerdrWindow) {
     remote.panes[0].label = None;
     remote.panes[0].cwd = Some("/srv/release".into());
     remote.panes[0].foreground_cwd = None;
-    let mut deployer = agent("w1:p1", "deployer", AgentStatus::Working, "0.2.3");
-    deployer.priority_mark = Some("★".into());
-    remote.agents = vec![deployer];
+    remote.agents = vec![agent("w1:p1", "deployer", AgentStatus::Blocked)];
 
     // Leaving a host for another needs its surface lane.
     view.live.supports_surface = true;

@@ -75,10 +75,10 @@ Keep it in step with this list.
   list model is separate from the plugin wiring so other pickers can reuse it
   (`crates/herdr-protocol/src/pick.rs`, `crates/herdr-gpui/src/picker.rs`,
   `crates/herdr-gpui/src/picker/`)
-- Contract types: `herdr-protocol` decodes the Herdr fork's `priority_key`
-  and `priority_mark`, with the fork's fixtures, and `herdr-client` names the
-  fork's lane methods
-  (`crates/herdr-protocol/src/wire.rs`, `crates/herdr-client/src/method/fork.rs`)
+- Contract types: `herdr-protocol` checks the fork's request against its
+  fixture, and `herdr-client` names the fork's lane methods
+  (`crates/herdr-protocol/tests/contract.rs`,
+  `crates/herdr-client/src/method/fork.rs`)
 - Plugin popup selection: a plugin key the daemon advertises as `Popup`,
   because its entrypoint opens a popup, is sent the targeted pane's
   selection as a plugin action is, as the TUI does
@@ -96,16 +96,6 @@ Keep it in step with this list.
   (`crates/herdr-gpui/src/keymap/daemon.rs`,
   `crates/herdr-gpui/src/keymap/daemon/client_actions.rs`,
   `crates/herdr-gpui/src/window/server_keys/local.rs`)
-- Agent order: under upstream's Priority sort, agents with a daemon
-  `priority_key` sort by it, connected hosts first, then by host and
-  snapshot order on equal keys, with no client-side recency among keyed
-  agents. Upstream's Devices layout and its agents nested under their
-  workspaces list each host's agents by the same key. A host that sends no
-  keys ranks its agents by upstream's status and recency order, after every
-  keyed agent, where the TUI keeps listing order; every host runs the fork's
-  daemon, so this rarely shows
-  (`crates/herdr-gpui/src/sidebar/agents/priority.rs`, hooked into
-  `crates/herdr-gpui/src/sidebar/agents.rs`)
 - Mark unread: the daemon `[keys]` action `mark_unread` sends
   `agent.mark_unread` for the focused pane, keeps no local record, and shows
   "Marked unread" when the daemon accepts it
@@ -178,9 +168,8 @@ changing anything of the first two kinds below.
 | --- | --- | --- | --- |
 | Sidebar `separator_before` | `src/config/sidebar.rs`, `src/config/sidebar/separator.rs`, `src/ui/sidebar/tokens.rs` | `crates/herdr-gpui/src/config/sidebar.rs`, `crates/herdr-gpui/src/config/sidebar/separator.rs`, `crates/herdr-gpui/src/sidebar/tokens.rs` | yes |
 | Plugin picker | `src/client/shell/picks.rs`, `src/client/shell/pick_overlay.rs` | `crates/herdr-gpui/src/picker.rs`, `crates/herdr-gpui/src/picker/` | yes, except a picker that arrives while a menu, a dialog, or another picker or navigator is open: Herdr GPUI answers `cancelled`, the TUI replaces its overlay and shows the picker; and Herdr GPUI sends a picker's answer only after the request its connection holds is answered |
-| Agent priority order | `src/client/shell/aggregate_navigation/agent_order.rs` | `crates/herdr-gpui/src/sidebar/agents/priority.rs`, `crates/herdr-gpui/src/sidebar/agents.rs` | yes: both sort by the daemon's `priority_key`, whose `space_priority` lift neither client configures, and break ties between equal keys by host, then snapshot order, except for agents without a key, from a host that sends none: Herdr GPUI ranks them by upstream's status and recency order, the TUI keeps their listing order; under a plugin agent view: Herdr GPUI keeps each host's own view order, the TUI applies the active host's view across hosts; and for a host whose connection is up but that is not online (a moment during a refused handshake or an outage): Herdr GPUI's panel ranks it as connected, while the TUI ranks it as stale |
 | Mark unread | `src/client/shell/mark_unread.rs` | `crates/herdr-gpui/src/mark_unread.rs` | yes |
-| Agent and workspace pickers | `src/client/shell/aggregate_navigation/agent_picker.rs`, `src/client/shell/overlay_input.rs` | `crates/herdr-gpui/src/picker/navigator.rs`, `crates/herdr-gpui/src/picker/navigator/rows.rs` | no: Herdr GPUI lacks the Tree layout, the second detail line, and the current marker, and under a plugin agent view its agent picker lists each host's own view where the TUI applies the active host's view across hosts |
+| Agent and workspace pickers | `src/client/shell/aggregate_navigation/agent_picker.rs`, `src/client/shell/overlay_input.rs` | `crates/herdr-gpui/src/picker/navigator.rs`, `crates/herdr-gpui/src/picker/navigator/rows.rs` | no: Herdr GPUI lacks the Tree layout, the second detail line, and the current marker; it orders agents by its own status and recency order, the TUI by status and then each daemon's `state_change_seq`; and under a plugin agent view its agent picker lists each host's own view where the TUI applies the active host's view across hosts |
 | Back/Forward history | `src/client/shell/history.rs` | `crates/herdr-gpui/src/endpoint/history.rs` (upstream's), `crates/herdr-gpui/src/keymap/daemon.rs` (the fork's `history_back` and `history_forward` keys) | yes: the TUI ports upstream's per-host trail, except that after a pane opened from an activity-bar section, Back in Herdr GPUI first returns to that section, which the TUI does not have |
 | Client-side keys stay local | `src/config/keybinds/client_actions.rs`, `src/client/shell/client_actions.rs` | `crates/herdr-gpui/src/keymap/daemon/client_actions.rs` | yes, except a direct key equal to the host profile's prefix key (the TUI runs the action, Herdr GPUI arms the prefix) and a local config that does not parse (the TUI keeps the previous five bindings, Herdr GPUI unbinds them) |
 | Plugin popup selection | `src/client/shell/actions.rs` | `crates/herdr-gpui/src/palette.rs` | yes: both send the pane selection with a plugin key the daemon advertises as a popup |

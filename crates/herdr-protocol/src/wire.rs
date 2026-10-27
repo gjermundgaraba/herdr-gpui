@@ -432,17 +432,6 @@ pub struct ClientShellAgent {
     pub state_labels: Vec<(String, String)>,
     pub tokens: Vec<(String, String)>,
     pub focused: bool,
-    /// From the `gjermundgaraba/herdr` fork: the agent's place in the
-    /// `priority` order, with the `space_priority` lift applied. Opaque: order
-    /// agents by comparing these strings byte by byte, smallest first. Keys
-    /// from different endpoints compare the same way. An empty key, which a
-    /// daemon that computes none sends, sorts after every non-empty one.
-    #[serde(default)]
-    pub priority_key: String,
-    /// From the `gjermundgaraba/herdr` fork: the mark of the agent's space,
-    /// its `space_priority` workspace metadata token, if that is non-empty.
-    #[serde(default)]
-    pub priority_mark: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PaneSurfacePane {

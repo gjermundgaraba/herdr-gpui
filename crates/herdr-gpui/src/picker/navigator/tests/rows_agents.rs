@@ -23,7 +23,6 @@ fn machines() -> (ClientShellSnapshot, ClientShellSnapshot) {
     local.panes.push(second);
     let mut helper = agent("w2:p1", "helper", AgentStatus::Idle);
     helper.workspace_id = "w2".into();
-    helper.priority_mark = Some("★".into());
     local.agents = vec![agent("w1:p1", "reviewer", AgentStatus::Blocked), helper];
 
     let mut build = snapshot();
@@ -49,15 +48,14 @@ fn every_agent_is_one_flat_row_in_the_order_given() {
     assert_eq!(
         listed
             .iter()
-            .map(|row| (row.label.as_str(), row.mark.as_deref(), row.depth))
+            .map(|row| (row.label.as_str(), row.depth))
             .collect::<Vec<_>>(),
         [
             // Another machine's agent names its machine; Local's do not.
-            ("Build · release: deployer", None, 0),
-            // The mark is the one the host sent, never worked out here.
-            ("urgent: helper", Some("★"), 0),
+            ("Build · release: deployer", 0),
+            ("urgent: helper", 0),
             // A pane's own label comes before the agent's name.
-            ("repo: shell", None, 0),
+            ("repo: shell", 0),
         ]
     );
     assert_eq!(

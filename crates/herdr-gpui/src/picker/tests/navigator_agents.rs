@@ -32,14 +32,11 @@ fn it_lists_every_hosts_agents_by_priority_with_the_top_row_selected(
     view.read_with(cx, |view, _| {
         let picker = shown(view).unwrap();
         let item = |index: usize| picker.list.item(index).unwrap();
-        // The priority mark stands before the label.
-        assert_eq!(item(0).badge.as_ref(), "★");
-        assert_eq!(item(1).badge.as_ref(), "");
         assert_eq!(
             [item(0).status, item(1).status, item(2).status],
             [
-                Some(AgentStatus::Working),
                 Some(AgentStatus::Blocked),
+                Some(AgentStatus::Working),
                 Some(AgentStatus::Idle)
             ]
         );
@@ -143,8 +140,8 @@ fn the_status_letters_narrow_the_list_and_a_search_starts_over(cx: &mut gpui::Te
     run(&view, Command::Fork(ForkCommand::AgentPicker), cx);
 
     for (keystroke, expected) in [
-        ("b", vec![REVIEWER]),
-        ("w", vec![DEPLOYER]),
+        ("b", vec![DEPLOYER]),
+        ("w", vec![REVIEWER]),
         ("i", vec![HELPER]),
         ("d", vec![]),
         ("a", vec![DEPLOYER, REVIEWER, HELPER]),
@@ -162,7 +159,7 @@ fn the_status_letters_narrow_the_list_and_a_search_starts_over(cx: &mut gpui::Te
     press(&view, "w", cx);
     let filtered = state(&view, cx).unwrap();
     assert_eq!(filtered.query, "");
-    assert_eq!(filtered.rows, [DEPLOYER]);
+    assert_eq!(filtered.rows, [REVIEWER]);
     cx.simulate_keystrokes("/");
     assert_eq!(
         listed(&view, cx),
